@@ -19,3 +19,5 @@
 /config/
 /.vaadin-node-tasks.lock
 .env
+/.venv/
+__pycache__/

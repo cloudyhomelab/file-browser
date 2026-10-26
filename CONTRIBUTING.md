@@ -113,6 +113,50 @@ docker buildx bake
 On every push, the CI workflow runs the build above; on `main` it then publishes the image to
 Docker Hub and signs it.
 
+## Demo video
+
+`media/demo.mp4` and its poster `media/demo.png` are recorded by `environment/dev/demo/record_demo.py`.
+It builds the production jar from the committed code (in a copy, so a running dev server is left
+alone), runs it on port 8081 with its own database against a seeded folder in
+`/var/tmp/filebrowser-demo/Studio`, signs in through Pocket ID with a virtual passkey and walks
+through the app in Google Chrome.
+
+One-time setup, with the development providers running:
+
+1. In Pocket ID, create a demo user, allow it on the FileBrowser client and add
+   `http://localhost:8081/login/oauth2/code/pocket-id` (callback) and `http://localhost:8081`
+   (logout callback) to the client.
+2. Create `config/application-demo.properties` (git-ignored) with the Pocket ID client settings from
+   [Pocket ID](#pocket-id), plus `filebrowser.admin-emails=<demo user's email>` and
+   `filebrowser.require-verified-email=false`.
+3. Install the recorder and register a passkey for the demo user from a one-time sign-in link
+   created in Pocket ID; it is kept in `config/demo-passkey.json` (git-ignored):
+
+```bash
+python3 -m venv .venv
+```
+
+```bash
+.venv/bin/pip install -r environment/dev/demo/requirements.txt
+```
+
+```bash
+.venv/bin/python -m playwright install ffmpeg
+```
+
+```bash
+.venv/bin/python environment/dev/demo/record_demo.py --register-passkey <one-time sign-in link>
+```
+
+Then record:
+
+```bash
+.venv/bin/python environment/dev/demo/record_demo.py
+```
+
+`--serve` starts only the seeded demo app, for trying out changes to the walkthrough in
+`demo_script.py`. Re-record after UI changes so the video stays current.
+
 ## Layout
 
 - `config/` – settings (`FileBrowserProperties`), database, security and OIDC user loading.
