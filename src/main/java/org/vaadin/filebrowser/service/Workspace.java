@@ -91,6 +91,10 @@ public class Workspace implements Serializable {
         return registry.newId();
     }
 
+    public StorageService.PathProbe probe(String path) {
+        return storage.probe(path);
+    }
+
     // ---- reading --------------------------------------------------------------------------
 
     private StorageProvider provider(FsRoot root) {

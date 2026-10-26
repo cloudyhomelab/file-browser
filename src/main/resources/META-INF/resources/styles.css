@@ -140,6 +140,8 @@ h1, h2, h3, p { margin: 0; }
 .fb-root-disk { --r-color: var(--fb-accent); --r-soft: var(--fb-accent-bg-subtle); }
 .fb-root-nfs  { --r-color: var(--fb-teal);   --r-soft: rgba(0, 210, 205, 0.14); }
 .fb-root-s3   { --r-color: var(--fb-purple); --r-soft: rgba(126, 85, 240, 0.12); }
+.fb-root-smb   { --r-color: var(--fb-teal);   --r-soft: rgba(0, 210, 205, 0.14); }
+.fb-root-other { --r-color: var(--fb-accent); --r-soft: var(--fb-accent-bg-subtle); }
 
 /* ---- plain buttons ---- */
 .fb-icon-btn {
@@ -512,7 +514,7 @@ vaadin-button.fb-login-submit { font-weight: var(--fb-weight-semibold); margin-t
 .fb-drive-status--off { background: var(--fb-fg-tertiary); box-shadow: none; }
 .fb-drive-sep { display: block; height: 1px; background: var(--fb-border-subtle); }
 .fb-drive-foot { display: flex; align-items: center; gap: 8px; }
-.fb-drive-region { font: 400 12px/1 var(--fb-font-sans); color: var(--fb-fg-tertiary); }
+.fb-drive-region { font: 400 12px/1 var(--fb-font-sans); color: var(--fb-fg-tertiary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fb-drive-lock { position: absolute; inset: 0; border-radius: var(--fb-radius-l); background: rgba(255, 255, 255, 0.35); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 16px; }
 .fb-drive-request {
   display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 13px; cursor: pointer;
@@ -912,5 +914,7 @@ vaadin-dialog.fb-dialog--wide::part(overlay) { width: 560px; }
 .fb-addroot-creds[hidden] { display: none; }
 .fb-addroot-creds-title { display: flex; align-items: center; gap: 8px; font: var(--fb-weight-semibold) 13px/1 var(--fb-font-sans); color: var(--fb-fg); --icon-size: 15px; }
 .fb-addroot-creds-title > .fb-icon { color: var(--fb-fg-secondary); }
+.fb-addroot-access-hint { margin-top: 8px; font: 400 12px/1.4 var(--fb-font-sans); color: var(--fb-fg-secondary); }
+.fb-addroot-access-hint[hidden] { display: none; }
 .fb-addroot-creds-hint { font: 400 12px/1.4 var(--fb-font-sans); color: var(--fb-fg-secondary); }
 .fb-addroot-creds-hint.fb-field-error-text { color: var(--fb-red); }

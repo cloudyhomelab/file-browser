@@ -1,12 +1,15 @@
 package org.vaadin.filebrowser.ui.dialog;
 
 import java.util.List;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.RootType;
+import org.vaadin.filebrowser.service.StorageService.PathProbe;
+import org.vaadin.filebrowser.storage.MountInfo;
 import org.vaadin.filebrowser.ui.Buttons;
 import org.vaadin.filebrowser.ui.Icon;
 import org.vaadin.filebrowser.ui.RootChip;
@@ -24,17 +27,19 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.function.SerializableConsumer;
 
 /**
- * Connect a disk, NFS export or S3 bucket. The connection is simulated: the new root starts empty,
- * and S3 secrets are not kept (only a masked key id would be shown, as in the design).
+ * Register a folder on the server (a local disk or an OS-mounted share) as a file system. The path
+ * is checked on the server as it is typed. S3 is not offered until it is supported; its fields stay
+ * here for that, and S3 secrets are not kept.
  */
 public class AddRootDialog extends FbDialog {
 
-    private static final List<Segmented.Option<Access>> ACCESS_OPTIONS = List.of(
-            Segmented.Option.text(Access.READ_WRITE, "Read & write"),
-            Segmented.Option.text(Access.READ_ONLY, "Read only"));
+    private static final List<RootType> AVAILABLE_TYPES = List.of(RootType.DISK);
+    private static final Segmented.Option<Access> READ_WRITE = Segmented.Option.text(Access.READ_WRITE, "Read & write");
+    private static final Segmented.Option<Access> READ_ONLY = Segmented.Option.text(Access.READ_ONLY, "Read only");
 
     private final Catalog catalog;
     private final Predicate<String> endpointTaken;
+    private final Function<String, PathProbe> probe;
     private final Div typePicker = Ui.div("fb-addroot-types");
     private final TextField name = new TextField("Display name");
     private final TextField endpoint = new TextField();
@@ -45,15 +50,17 @@ public class AddRootDialog extends FbDialog {
     private final Div credentialsHint = Ui.div("fb-addroot-creds-hint");
     private final TextField region = new TextField();
     private final Div accessPicker = Ui.div("");
+    private final Div accessHint = Ui.div("fb-addroot-access-hint");
     private final Button connect;
     private RootType type = RootType.DISK;
     private Access access = Access.READ_WRITE;
 
-    public AddRootDialog(Catalog catalog, Predicate<String> endpointTaken, String newId,
-                         SerializableConsumer<FsRoot> onConfirm) {
+    public AddRootDialog(Catalog catalog, Predicate<String> endpointTaken, Function<String, PathProbe> probe,
+                         String newId, SerializableConsumer<FsRoot> onConfirm) {
         super("Add file system", "plus", Tone.ACCENT, Width.MEDIUM);
         this.catalog = catalog;
         this.endpointTaken = endpointTaken;
+        this.probe = probe;
 
         for (final TextFieldBase<?, String> field : new TextFieldBase[]{name, endpoint, keyId, secret, region}) {
             field.setWidthFull();
@@ -78,10 +85,11 @@ public class AddRootDialog extends FbDialog {
         final var typeText = Ui.span("", "Type");
         final var typeLabel = Ui.div("fb-form-label", typeText);
         final var typeGroup = Ui.div("", typeLabel, typePicker);
+        typeGroup.setVisible(AVAILABLE_TYPES.size() > 1);
         final var endpointGroup = Ui.div("", endpoint, endpointError);
         final var accessText = Ui.span("", "Access");
         final var accessLabel = Ui.div("fb-form-label", accessText);
-        final var accessGroup = Ui.div("", accessLabel, accessPicker);
+        final var accessGroup = Ui.div("", accessLabel, accessPicker, accessHint);
         final var form = Ui.div("fb-form", typeGroup, name, endpointGroup, credentials, region, accessGroup);
         add(form);
 
@@ -94,8 +102,9 @@ public class AddRootDialog extends FbDialog {
     private void update() {
         final var info = catalog.rootType(type);
         typePicker.removeAll();
-        for (final var t : RootType.values()) {
-            final var chip = new RootChip(t, RootChip.Size.S);
+        for (final var t : AVAILABLE_TYPES) {
+            final var kind = catalog.kind(t.key());
+            final var chip = new RootChip(t.key(), kind.icon(), RootChip.Size.S);
             final var typeName = Ui.span("", catalog.rootType(t).displayName());
             final var card = Ui.button("fb-addroot-type" + (t == type ? " fb-addroot-type--on" : ""), () -> {
                 type = t;
@@ -114,12 +123,16 @@ public class AddRootDialog extends FbDialog {
         final var ep = endpoint.getValue().trim();
         final var badShape = ep.length() > 0 && (!ep.startsWith(info.endpointPrefix()) || ep.length() <= info.endpointPrefix().length());
         final var dupe = !ep.isEmpty() && endpointTaken.test(ep);
+        final var folderProblem = ep.isEmpty() || badShape || dupe || type != RootType.DISK ? null : folderProblem(ep);
+        final var problem = dupe ? "This file system is already connected"
+                : badShape ? info.endpointError()
+                : folderProblem;
         endpointError.removeAll();
-        endpointError.setVisible(badShape || dupe);
+        endpointError.setVisible(problem != null);
         final var warnIcon = new Icon("warn");
-        final var errorText = new Span(dupe ? "This file system is already connected" : info.endpointError());
+        final var errorText = new Span(problem == null ? "" : problem);
         endpointError.add(warnIcon, errorText);
-        endpoint.getElement().getClassList().set("fb-field--invalid", badShape || dupe);
+        endpoint.getElement().getClassList().set("fb-field--invalid", problem != null);
 
         credentials.setVisible(type == RootType.S3);
         final var credsBad = credentialsIncomplete();
@@ -128,14 +141,35 @@ public class AddRootDialog extends FbDialog {
         credentialsHint.add(credsBad ? "Enter both the access key ID and the secret access key."
                 : "Leave blank to use the server's IAM role or public bucket access. Keys are stored encrypted and never shown again.");
 
+        final var writable = problem != null || ep.isEmpty() || type != RootType.DISK || probe.apply(ep).writable();
+        if (!writable) {
+            access = Access.READ_ONLY;
+        }
+        final var accessOptions = writable ? List.of(READ_WRITE, READ_ONLY) : List.of(READ_ONLY);
         accessPicker.removeAll();
-        final var accessChoice = new Segmented<>("fb-seg--l", ACCESS_OPTIONS, access, a -> {
+        final var accessChoice = new Segmented<>("fb-seg--l", accessOptions, access, a -> {
             access = a;
             update();
         });
         accessPicker.add(accessChoice);
+        accessHint.setText(writable ? "" : "The server can't write to this folder, so it can only be added read-only.");
+        accessHint.setVisible(!writable);
 
-        connect.setEnabled(!name.getValue().trim().isEmpty() && !ep.isEmpty() && !badShape && !dupe && !credsBad);
+        connect.setEnabled(!name.getValue().trim().isEmpty() && !ep.isEmpty() && problem == null && !credsBad);
+    }
+
+    private String folderProblem(String path) {
+        final var found = probe.apply(path);
+        if (!found.exists()) {
+            return "No folder exists at this path on the server.";
+        }
+        if (!found.directory()) {
+            return "This path is a file, not a folder.";
+        }
+        if (!found.readable()) {
+            return "The server can't read this folder.";
+        }
+        return null;
     }
 
     private boolean credentialsIncomplete() {
@@ -154,7 +188,7 @@ public class AddRootDialog extends FbDialog {
         final var info = catalog.rootType(type);
         final var regionValue = region.getValue().trim().isEmpty() ? info.defaultRegion() : region.getValue().trim();
         final var root = new FsRoot(newId, name.getValue().trim(), type, endpoint.getValue().trim(), regionValue,
-                info.newCapacity(), true, access);
+                null, true, access, MountInfo.UNKNOWN);
         close();
         onConfirm.accept(root);
     }

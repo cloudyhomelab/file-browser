@@ -8,40 +8,38 @@ import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 
-/** Usage line and bar. Metered storage (no total) gets a striped bar; NFS shows no usage at all. */
+/** Usage line and bar. Storage without a fixed size gets a striped bar; unknown usage gets a note instead. */
 public class CapacityMeter extends Composite<Div> {
 
     public enum Style { CARD, SIDEBAR }
 
     public CapacityMeter(FsRoot root, Style style) {
         final var div = getContent();
-        div.addClassNames("fb-capacity", "fb-capacity--" + style.name().toLowerCase(), "fb-root-" + root.type().key());
+        div.addClassNames("fb-capacity", "fb-capacity--" + style.name().toLowerCase(), "fb-root-" + root.kindKey());
         final var cap = root.capacity();
-        final var nfs = root.type() == RootType.NFS;
 
-        if (style == Style.CARD && (nfs || cap == null)) {
+        if (cap == null) {
             div.addClassName("fb-capacity--none");
             final var linkIcon = new Icon("link");
-            final var text = new Span(nfs ? "Network mount · live" : "Object storage · usage metered");
+            final var note = !root.online() ? "Unavailable"
+                    : root.type() == RootType.S3 ? "Object storage · usage metered"
+                    : "Usage unavailable";
+            final var text = new Span(note);
             div.add(linkIcon, text);
             return;
         }
 
-        final var pct = cap == null ? null : cap.percentUsed();
+        final var pct = cap.percentUsed();
         final var line = Ui.div("fb-capacity-line");
+        final var usedText = Formats.gigabytes(cap.used());
         if (style == Style.CARD) {
-            final var usedText = Formats.gigabytes(cap.used());
             final var used = Ui.span("fb-capacity-used", usedText);
             final var ofTotalText = cap.total() != null ? " of " + Formats.gigabytes(cap.total()) : " stored";
             final var ofTotal = new Span(ofTotalText);
             final var usage = Ui.span("", used, ofTotal);
             line.add(usage);
-        } else if (nfs) {
-            final var mount = new Span("Network mount");
-            line.add(mount);
         } else {
-            final var total = cap != null && cap.total() != null ? " / " + Formats.gigabytes(cap.total()) : "";
-            final var usedText = Formats.gigabytes(cap == null ? null : cap.used());
+            final var total = cap.total() != null ? " / " + Formats.gigabytes(cap.total()) : "";
             final var usage = new Span(usedText + total);
             line.add(usage);
         }

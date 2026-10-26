@@ -12,5 +12,6 @@ public record MountInfo(Kind kind, String fileStoreType, String source) implemen
 
     public enum Kind { LOCAL, NFS, SMB, OTHER, S3 }
 
-    public static final MountInfo UNKNOWN = new MountInfo(Kind.OTHER, "", "");
+    /** Nothing could be read; shown like a plain local folder. */
+    public static final MountInfo UNKNOWN = new MountInfo(Kind.LOCAL, "", "");
 }

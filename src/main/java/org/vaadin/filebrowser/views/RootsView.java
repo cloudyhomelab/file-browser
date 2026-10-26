@@ -63,7 +63,7 @@ public class RootsView extends Div {
         }
         main.add(titlebar);
         final var emptyText = admin
-                ? "No file systems are connected yet. Add a local disk, NFS share or S3 bucket to get started."
+                ? "No file systems are connected yet. Add a folder on the server — a local disk or a mounted share — to get started."
                 : "No file systems are connected yet. Ask an administrator to add one.";
         final var introText = roots.isEmpty()
                 ? emptyText
@@ -85,7 +85,7 @@ public class RootsView extends Div {
             final var plusIcon = new Icon("plus");
             final var addCardIcon = Ui.span("fb-addroot-card-icon", plusIcon);
             final var addCardTitle = Ui.span("fb-addroot-card-title", "Add file system");
-            final var addCardSub = Ui.span("fb-addroot-card-sub", "Connect a local disk, NFS share or S3 bucket");
+            final var addCardSub = Ui.span("fb-addroot-card-sub", "Connect a folder on the server: a local disk or a mounted share");
             final var addCard = Ui.button("fb-addroot-card", this::openAddDialog, addCardIcon, addCardTitle, addCardSub);
             grid.add(addCard);
         }
@@ -105,16 +105,16 @@ public class RootsView extends Div {
     }
 
     private DriveCard card(FsRoot root) {
-        final var typeInfo = workspace.catalog().rootType(root.type());
+        final var kind = workspace.catalog().kind(root);
         final var rootParams = BrowserView.params(root.id(), List.of());
-        return new DriveCard(root, typeInfo,
+        return new DriveCard(root, kind,
                 () -> UI.getCurrent().navigate(BrowserView.class, rootParams),
                 () -> Toasts.show("Access requested for “" + root.name() + "”", "mail"));
     }
 
     private void openAddDialog() {
         final var newId = workspace.newRootId();
-        final var dialog = new AddRootDialog(workspace.catalog(), workspace::endpointTaken, newId, root -> {
+        final var dialog = new AddRootDialog(workspace.catalog(), workspace::endpointTaken, workspace::probe, newId, root -> {
             workspace.addRoot(root);
             Toasts.show("Connected “" + root.name() + "”", "check");
             render();

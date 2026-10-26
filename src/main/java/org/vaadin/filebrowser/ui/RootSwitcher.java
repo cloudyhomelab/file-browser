@@ -20,9 +20,9 @@ public class RootSwitcher extends Composite<Div> {
                         SerializableConsumer<FsRoot> onPick, SerializableRunnable onAll) {
         final var trigger = new NativeButton();
         trigger.setClassName("fb-switcher");
-        final var chip = new RootChip(current.type(), RootChip.Size.S);
+        final var chip = RootChip.of(current, catalog, RootChip.Size.S);
         final var name = Ui.span("fb-switcher-name", current.name());
-        final var typeName = catalog.rootType(current.type()).displayName();
+        final var typeName = catalog.kind(current).label();
         final var type = Ui.span("fb-switcher-type", typeName);
         final var text = Ui.span("fb-switcher-text", name, type);
         final var caretIcon = new Icon("angle-down");
@@ -40,7 +40,7 @@ public class RootSwitcher extends Composite<Div> {
         final var menu = Ui.div("fb-menu fb-switcher-menu");
         for (final var root : browsable) {
             final var active = root.id().equals(current.id());
-            final var itemChip = new RootChip(root.type(), RootChip.Size.XS);
+            final var itemChip = RootChip.of(root, catalog, RootChip.Size.XS);
             final var itemName = Ui.span("fb-switcher-item-name", root.name());
             final var itemEndpoint = Ui.span("fb-switcher-item-endpoint", root.endpoint());
             final var itemText = Ui.span("fb-switcher-text", itemName, itemEndpoint);

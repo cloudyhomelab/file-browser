@@ -107,7 +107,7 @@ public class StarredView extends Div implements EntryHandler {
 
         final var sections = Ui.div("fb-starred-groups");
         for (final var g : groups) {
-            final var chip = new RootChip(g.root().type(), RootChip.Size.S);
+            final var chip = RootChip.of(g.root(), workspace.catalog(), RootChip.Size.S);
             final var name = Ui.span("fb-group-name", g.root().name());
             final var groupCount = Formats.plural(g.entries().size(), "item");
             final var count = Ui.span("fb-group-count", groupCount);

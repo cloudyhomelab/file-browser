@@ -329,7 +329,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private Div breadcrumb() {
         final var crumbs = Ui.div("fb-breadcrumb");
-        final var rootChip = new RootChip(root.type(), RootChip.Size.XS);
+        final var rootChip = RootChip.of(root, workspace.catalog(), RootChip.Size.XS);
         final var rootName = Ui.span("", root.name());
         final var rootCrumb = Ui.button("fb-crumb fb-crumb--root", () -> navTo(List.of()), rootChip, rootName);
         crumbs.add(rootCrumb);

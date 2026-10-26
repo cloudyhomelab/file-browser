@@ -10,6 +10,7 @@ import java.util.Map;
 
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
+import org.vaadin.filebrowser.storage.MountInfo;
 
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;
@@ -22,6 +23,9 @@ public class Catalog implements Serializable {
     private static final String GENERIC_TYPE = "generic";
     private static final String DEFAULT_SIGN_IN_ERROR = "default";
 
+    record MountKinds(Map<String, MountInfo.Kind> storeTypes, Map<String, KindInfo> kinds) implements Serializable {
+    }
+
     record MockData(List<IncomingFile> sampleFiles) implements Serializable {
     }
 
@@ -29,6 +33,7 @@ public class Catalog implements Serializable {
     private final Map<String, FileTypeInfo> fileTypes;
     private final MockData mock;
     private final Map<String, String> signInErrors;
+    private final MountKinds mountKinds;
 
     public Catalog() {
         final var mapper = JsonMapper.builder()
@@ -38,6 +43,7 @@ public class Catalog implements Serializable {
         this.fileTypes = read(mapper, "data/file-types.json", new TypeReference<LinkedHashMap<String, FileTypeInfo>>() { });
         this.mock = read(mapper, "data/mock-data.json", new TypeReference<MockData>() { });
         this.signInErrors = read(mapper, "data/sign-in-errors.json", new TypeReference<Map<String, String>>() { });
+        this.mountKinds = read(mapper, "data/mount-kinds.json", new TypeReference<MountKinds>() { });
     }
 
     private static <T> T read(JsonMapper mapper, String path, TypeReference<T> type) {
@@ -67,6 +73,19 @@ public class Catalog implements Serializable {
                 .map(Map.Entry::getKey)
                 .findFirst()
                 .orElse(GENERIC_TYPE);
+    }
+
+    /** Network and special file-store types are listed; anything else is a local disk. */
+    public MountInfo.Kind mountKind(String fileStoreType) {
+        return mountKinds.storeTypes().getOrDefault(fileStoreType, MountInfo.Kind.LOCAL);
+    }
+
+    public KindInfo kind(FsRoot root) {
+        return mountKinds.kinds().get(root.kindKey());
+    }
+
+    public KindInfo kind(String kindKey) {
+        return mountKinds.kinds().get(kindKey);
     }
 
     /** User-facing text for a sign-in failure code; unknown codes get the generic message. */

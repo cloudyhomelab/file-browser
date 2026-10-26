@@ -17,9 +17,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.access.AccessDeniedException;
 import org.sqlite.SQLiteDataSource;
 import org.vaadin.filebrowser.data.Access;
-import org.vaadin.filebrowser.data.Catalog;
+import org.vaadin.filebrowser.data.Capacity;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.RootType;
+import org.vaadin.filebrowser.storage.MountInfo;
 
 class FileSystemRegistryTest {
 
@@ -28,8 +29,10 @@ class FileSystemRegistryTest {
     @TempDir
     Path dir;
 
+    private static final StorageService.RootStatus ONLINE =
+            new StorageService.RootStatus(new Capacity(10, 100L), true, MountInfo.UNKNOWN);
+
     private JdbcClient jdbc;
-    private final Catalog catalog = new Catalog();
 
     @BeforeEach
     void migrate() {
@@ -42,11 +45,12 @@ class FileSystemRegistryTest {
 
     private FileSystemRegistry registry(boolean admin) {
         final var clock = Clock.fixed(NOW, ZoneOffset.UTC);
-        return new FileSystemRegistry(jdbc, catalog, () -> admin, () -> "admin@example.com", clock);
+        return new FileSystemRegistry(jdbc, () -> admin, () -> "admin@example.com", clock, root -> ONLINE);
     }
 
     private static FsRoot root(String id, String endpoint) {
-        return new FsRoot(id, "Projects", RootType.DISK, endpoint, "node-1", null, true, Access.READ_ONLY);
+        return new FsRoot(id, "Projects", RootType.DISK, endpoint, "node-1", null, true, Access.READ_ONLY,
+                MountInfo.UNKNOWN);
     }
 
     @Test
@@ -60,6 +64,8 @@ class FileSystemRegistryTest {
         assertThat(found.type()).isEqualTo(RootType.DISK);
         assertThat(found.endpoint()).isEqualTo("/srv/projects");
         assertThat(found.access()).isEqualTo(Access.READ_ONLY);
+        assertThat(found.online()).isTrue();
+        assertThat(found.capacity()).isEqualTo(new Capacity(10, 100L));
         assertThat(other.endpointTaken("/srv/projects")).isTrue();
         assertThat(other.endpointTaken("/srv/other")).isFalse();
     }
