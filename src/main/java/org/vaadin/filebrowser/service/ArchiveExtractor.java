@@ -117,12 +117,12 @@ public final class ArchiveExtractor {
         switch (format) {
             case ZIP -> readZip(archive);
             case SEVEN_Z -> readSevenZ(archive);
-            case TAR, TAR_GZ, TAR_BZ2, TAR_XZ -> {
+            case TAR, TAR_GZ, TAR_BZ2, TAR_XZ, TAR_LZ -> {
                 try (final var tar = new TarArchiveInputStream(decompress(archive, format))) {
                     readTar(tar);
                 }
             }
-            case GZ, BZ2, XZ -> {
+            case GZ, BZ2, XZ, LZ -> {
                 try (final var in = decompress(archive, format)) {
                     accept(new Entry() {
                         public String name() { return singleName; }
@@ -142,6 +142,7 @@ public final class ArchiveExtractor {
             case TAR_GZ, GZ -> GzipCompressorInputStream.builder().setInputStream(raw).setDecompressConcatenated(true).get();
             case TAR_BZ2, BZ2 -> new BZip2CompressorInputStream(raw, true);
             case TAR_XZ, XZ -> new XZCompressorInputStream(raw, true);
+            case TAR_LZ, LZ -> new LzipInputStream(raw);
             default -> throw new IllegalArgumentException(format.name());
         };
     }

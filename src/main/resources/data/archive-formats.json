@@ -6,10 +6,13 @@
   ".tbz": "TAR_BZ2",
   ".tar.xz": "TAR_XZ",
   ".txz": "TAR_XZ",
+  ".tar.lz": "TAR_LZ",
+  ".tlz": "TAR_LZ",
   ".zip": "ZIP",
   ".tar": "TAR",
   ".7z": "SEVEN_Z",
   ".gz": "GZ",
   ".bz2": "BZ2",
-  ".xz": "XZ"
+  ".xz": "XZ",
+  ".lz": "LZ"
 }

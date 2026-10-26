@@ -95,6 +95,7 @@ class ArchiveExtractorTest {
             case TAR_GZ, GZ -> new GzipCompressorOutputStream(raw);
             case TAR_BZ2, BZ2 -> new BZip2CompressorOutputStream(raw);
             case TAR_XZ, XZ -> new XZCompressorOutputStream(raw);
+            case TAR_LZ, LZ -> new LzipOutputStream(raw);
             default -> throw new IllegalArgumentException(format.name());
         };
     }
@@ -134,7 +135,7 @@ class ArchiveExtractorTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ArchiveFormat.class, names = {"TAR", "TAR_GZ", "TAR_BZ2", "TAR_XZ"})
+    @EnumSource(value = ArchiveFormat.class, names = {"TAR", "TAR_GZ", "TAR_BZ2", "TAR_XZ", "TAR_LZ"})
     void extractsTars(ArchiveFormat format) throws IOException {
         extract(tar(format, sample()), format, ExtractOptions.Clash.KEEP_BOTH, ROOMY);
         assertSampleExtracted();
@@ -147,7 +148,7 @@ class ArchiveExtractorTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ArchiveFormat.class, names = {"GZ", "BZ2", "XZ"})
+    @EnumSource(value = ArchiveFormat.class, names = {"GZ", "BZ2", "XZ", "LZ"})
     void decompressesSingleFilesUnderTheirOwnName(ArchiveFormat format) throws IOException {
         final var file = dir.resolve("single." + format.name().toLowerCase());
         try (final var out = compress(format, Files.newOutputStream(file))) {
@@ -248,6 +249,7 @@ class ArchiveExtractorTest {
         final var catalog = new Catalog();
         assertThat(catalog.archiveFormat("photos.tar.gz")).contains(new ArchiveFormat.Match(ArchiveFormat.TAR_GZ, "photos"));
         assertThat(catalog.archiveFormat("notes.txt.GZ")).contains(new ArchiveFormat.Match(ArchiveFormat.GZ, "notes.txt"));
+        assertThat(catalog.archiveFormat("texinfo-4.13.tar.lz")).contains(new ArchiveFormat.Match(ArchiveFormat.TAR_LZ, "texinfo-4.13"));
         assertThat(catalog.archiveFormat("release.7z")).contains(new ArchiveFormat.Match(ArchiveFormat.SEVEN_Z, "release"));
         assertThat(catalog.archiveFormat("report.pdf")).isEmpty();
         assertThat(catalog.archiveFormat(".zip")).isEmpty();
