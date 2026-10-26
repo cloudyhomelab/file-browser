@@ -1,11 +1,14 @@
 package org.vaadin.filebrowser.service;
 
+import java.io.IOException;
 import java.io.Serializable;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -116,6 +119,31 @@ public class StorageService {
             return PathProbe.MISSING;
         }
         return new PathProbe(true, Files.isDirectory(target), Files.isReadable(target), Files.isWritable(target));
+    }
+
+    /**
+     * Names of the folders directly inside an absolute server path that the server can read, for
+     * choosing a path to add. Hidden (dot) folders are left out; links to folders count as folders.
+     */
+    public List<String> serverFolders(String path) {
+        return withTimeout(() -> readServerFolders(path), List.of());
+    }
+
+    private static List<String> readServerFolders(String path) {
+        final var folder = Path.of(path);
+        if (!folder.isAbsolute() || !Files.isDirectory(folder) || !Files.isReadable(folder)) {
+            return List.of();
+        }
+        try (final var children = Files.list(folder)) {
+            return children
+                    .filter(child -> !child.getFileName().toString().startsWith("."))
+                    .filter(child -> Files.isDirectory(child) && Files.isReadable(child))
+                    .map(child -> child.getFileName().toString())
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .toList();
+        } catch (IOException | UncheckedIOException e) {
+            return List.of();
+        }
     }
 
     private <T> T withTimeout(Supplier<T> task, T fallback) {

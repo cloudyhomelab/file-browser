@@ -14,6 +14,7 @@ import org.vaadin.filebrowser.ui.Buttons;
 import org.vaadin.filebrowser.ui.Icon;
 import org.vaadin.filebrowser.ui.RootChip;
 import org.vaadin.filebrowser.ui.Segmented;
+import org.vaadin.filebrowser.ui.SubfolderLoader;
 import org.vaadin.filebrowser.ui.Ui;
 
 import com.vaadin.flow.component.Key;
@@ -60,19 +61,21 @@ public class AddRootDialog extends FbDialog {
     private Access access = Access.READ_WRITE;
     private boolean writable = true;
 
+    /** @param serverFolders lists the folders inside a server path, for the "Browse…" picker */
     public AddRootDialog(Catalog catalog, Predicate<String> endpointTaken, Function<String, PathProbe> probe,
-                         String newId, SerializableConsumer<FsRoot> onConfirm) {
-        this(catalog, endpointTaken, probe, newId, null, onConfirm);
+                         SubfolderLoader serverFolders, String newId, SerializableConsumer<FsRoot> onConfirm) {
+        this(catalog, endpointTaken, probe, serverFolders, newId, null, onConfirm);
     }
 
     /** Edits the name and access of {@code root}; its path and host stay as they are. */
     public static AddRootDialog edit(Catalog catalog, Function<String, PathProbe> probe, FsRoot root,
                                      SerializableConsumer<FsRoot> onConfirm) {
-        return new AddRootDialog(catalog, endpoint -> false, probe, root.id(), root, onConfirm);
+        return new AddRootDialog(catalog, endpoint -> false, probe, null, root.id(), root, onConfirm);
     }
 
     private AddRootDialog(Catalog catalog, Predicate<String> endpointTaken, Function<String, PathProbe> probe,
-                          String id, FsRoot editing, SerializableConsumer<FsRoot> onConfirm) {
+                          SubfolderLoader serverFolders, String id, FsRoot editing,
+                          SerializableConsumer<FsRoot> onConfirm) {
         super(editing == null ? "Add file system" : "Edit file system", editing == null ? "plus" : "edit",
                 Tone.ACCENT, Width.MEDIUM);
         this.catalog = catalog;
@@ -113,6 +116,16 @@ public class AddRootDialog extends FbDialog {
         final var typeLabel = Ui.div("fb-form-label", typeText);
         final var typeGroup = Ui.div("", typeLabel, typePicker);
         typeGroup.setVisible(AVAILABLE_TYPES.size() > 1);
+        if (serverFolders != null) {
+            final var browse = Buttons.create(Buttons.Kind.SECONDARY, "Browse", "folder", () -> {
+                final var picker = new FolderPickerDialog(serverFolders, endpointTaken, endpoint.getValue().trim(),
+                        endpoint::setValue);
+                picker.open();
+            });
+            browse.addClassName("fb-field-browse");
+            browse.setTooltipText("Browse server folders");
+            endpoint.setSuffixComponent(browse);
+        }
         final var endpointGroup = Ui.div("", endpoint, endpointError);
         final var accessText = Ui.span("", "Access");
         final var accessLabel = Ui.div("fb-form-label", accessText);

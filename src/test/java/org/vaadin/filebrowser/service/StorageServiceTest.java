@@ -52,6 +52,20 @@ class StorageServiceTest {
     }
 
     @Test
+    void listsReadableServerFoldersWithoutFilesOrHiddenFolders() throws IOException {
+        Files.createDirectories(dir.resolve("projects/design"));
+        Files.createDirectory(dir.resolve("Archive"));
+        Files.createDirectory(dir.resolve(".cache"));
+        Files.writeString(dir.resolve("notes.txt"), "x");
+        Files.createSymbolicLink(dir.resolve("shared"), dir.resolve("projects"));
+
+        assertThat(storage.serverFolders(dir.toString())).containsExactly("Archive", "projects", "shared");
+        assertThat(storage.serverFolders(dir.resolve("projects").toString())).containsExactly("design");
+        assertThat(storage.serverFolders(dir.resolve("missing").toString())).isEmpty();
+        assertThat(storage.serverFolders("relative/path")).isEmpty();
+    }
+
+    @Test
     void mapsNetworkFileStoreTypesToMountKinds() {
         assertThat(catalog.mountKind("nfs4")).isEqualTo(MountInfo.Kind.NFS);
         assertThat(catalog.mountKind("cifs")).isEqualTo(MountInfo.Kind.SMB);

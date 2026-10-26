@@ -9,6 +9,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
@@ -44,6 +45,7 @@ public class Workspace implements Serializable {
     private final Set<String> starred = new LinkedHashSet<>();
     private final UploadQueue uploads;
     private final UserData userData;
+    private final CurrentUser currentUser;
     private final String email;
 
     private Layout layout = UserData.Preferences.DEFAULT.layout();
@@ -57,6 +59,7 @@ public class Workspace implements Serializable {
         this.storage = storage;
         this.uploads = new UploadQueue(storage);
         this.userData = userData;
+        this.currentUser = currentUser;
         // the session is created after sign-in, so the user is known here
         this.email = currentUser.get().map(CurrentUser.User::email).orElse(null);
         if (email != null) {
@@ -115,6 +118,14 @@ public class Workspace implements Serializable {
 
     public String newRootId() {
         return registry.newId();
+    }
+
+    /** Folders inside a server path, for choosing one to add; only admins may see the server's layout. */
+    public List<String> serverFolders(String path) {
+        if (!currentUser.isAdmin()) {
+            throw new AccessDeniedException("Only admins can browse the server's folders");
+        }
+        return storage.serverFolders(path);
     }
 
     public StorageService.PathProbe probe(String path) {

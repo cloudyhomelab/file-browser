@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.security.access.AccessDeniedException;
 import org.sqlite.SQLiteConfig;
 import org.sqlite.SQLiteDataSource;
 import org.vaadin.filebrowser.data.Access;
@@ -90,5 +91,11 @@ class WorkspaceTest {
     void currentReflectsARename() {
         registry.update("a", "Team projects", Access.READ_WRITE);
         assertThat(workspace.current(held).name()).isEqualTo("Team projects");
+    }
+
+    @Test
+    void onlyAdminsMayBrowseTheServersFolders() {
+        // no one is signed in here, so the current user is not an admin
+        assertThatThrownBy(() -> workspace.serverFolders(dir.toString())).isInstanceOf(AccessDeniedException.class);
     }
 }

@@ -904,6 +904,14 @@ vaadin-dialog.fb-dialog--wide::part(overlay) { width: 560px; }
 /* add file system */
 .fb-form { display: flex; flex-direction: column; gap: 18px; }
 .fb-form-label { font: var(--fb-weight-medium) 13px/1 var(--fb-font-sans); color: var(--fb-fg-secondary); margin-bottom: 8px; }
+/* a secondary button sized to sit inside a text field as its suffix */
+vaadin-button.fb-btn.fb-field-browse {
+  --vaadin-button-height: 26px; --vaadin-button-padding: 0 9px; --vaadin-button-font-size: 12.5px;
+  --vaadin-button-gap: 5px; --vaadin-button-border-radius: var(--fb-radius-s); --icon-size: 14px;
+  height: 26px; padding: 0 9px; margin-right: -4px; font-size: 12.5px; border-radius: var(--fb-radius-s);
+}
+.fb-picker-tree { max-height: 360px; }
+.fb-move-row > .fb-badge { margin-left: auto; }
 .fb-addroot-types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .fb-addroot-type {
   display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px; cursor: pointer; text-align: left;
