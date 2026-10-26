@@ -90,6 +90,14 @@ Deleting files and folders in the app is permanent. Uploads are streamed straigh
 and appear only when complete; the limit per file is `FILEBROWSER_MAX_UPLOAD_SIZE` (default
 `5GB`). Downloading a folder or several items produces a zip built on the fly.
 
+Files can also be uploaded from web links: the server downloads them straight into the folder, under
+the name the link's server suggests (or the last part of its path), with the same size limit. Only
+`http`/`https` links to public internet addresses are fetched; loopback, link-local (including cloud
+metadata addresses) and private networks are refused, redirects included, so links can't be used to
+reach services next to the server. To allow private ranges, for example an intranet file server, set
+`FILEBROWSER_LINK_UPLOAD_ALLOWED_NETWORKS` to comma-separated CIDRs inside 10.0.0.0/8, 172.16.0.0/12,
+192.168.0.0/16 or fc00::/7; any other range stops the app from starting.
+
 Each user's starred items and view settings are saved per email. Renaming, moving or deleting an
 item in the app updates everyone's stars; stars on items removed outside the app disappear the next
 time they're looked up.
