@@ -98,6 +98,15 @@ reach services next to the server. To allow private ranges, for example an intra
 `FILEBROWSER_LINK_UPLOAD_ALLOWED_NETWORKS` to comma-separated CIDRs inside 10.0.0.0/8, 172.16.0.0/12,
 192.168.0.0/16 or fc00::/7; any other range stops the app from starting.
 
+Archives can be unpacked as they're uploaded, from the computer or from a link: tick "Extract" for
+a zip, tar (also .tar.gz, .tar.bz2, .tar.xz), 7z, or "Decompress" for a single .gz, .bz2 or .xz
+file. Contents go into a new folder named after the archive or into the current folder, and the
+archive itself is kept only if asked. Entries that would land outside the folder, links and special
+files are skipped. An archive may expand to at most `FILEBROWSER_MAX_EXTRACT_SIZE` (default four
+times the upload limit) and `FILEBROWSER_MAX_EXTRACT_ENTRIES` entries (default 10000); going over
+stops the extraction and removes what it wrote. The archive is received into the server's temp
+folder first, so that needs room for it.
+
 Each user's starred items and view settings are saved per email. Renaming, moving or deleting an
 item in the app updates everyone's stars; stars on items removed outside the app disappear the next
 time they're looked up.
