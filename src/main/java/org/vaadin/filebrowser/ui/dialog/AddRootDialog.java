@@ -56,7 +56,9 @@ public class AddRootDialog extends FbDialog {
     /** The file system being edited, or null when adding one. */
     private final FsRoot editing;
     private RootType type = RootType.DISK;
+    /** The access the user picked; it applies only while the folder is writable. */
     private Access access = Access.READ_WRITE;
+    private boolean writable = true;
 
     public AddRootDialog(Catalog catalog, Predicate<String> endpointTaken, Function<String, PathProbe> probe,
                          String newId, SerializableConsumer<FsRoot> onConfirm) {
@@ -168,13 +170,10 @@ public class AddRootDialog extends FbDialog {
         credentialsHint.add(credsBad ? "Enter both the access key ID and the secret access key."
                 : "Leave blank to use the server's IAM role or public bucket access. Keys are stored encrypted and never shown again.");
 
-        final var writable = problem != null || ep.isEmpty() || type != RootType.DISK || writableFolder(ep);
-        if (!writable) {
-            access = Access.READ_ONLY;
-        }
+        writable = problem != null || ep.isEmpty() || type != RootType.DISK || writableFolder(ep);
         final var accessOptions = writable ? List.of(READ_WRITE, READ_ONLY) : List.of(READ_ONLY);
         accessPicker.removeAll();
-        final var accessChoice = new Segmented<>("fb-seg--l", accessOptions, access, a -> {
+        final var accessChoice = new Segmented<>("fb-seg--l", accessOptions, effectiveAccess(), a -> {
             access = a;
             update();
         });
@@ -183,6 +182,12 @@ public class AddRootDialog extends FbDialog {
         accessHint.setVisible(!writable);
 
         connect.setEnabled(!name.getValue().trim().isEmpty() && !ep.isEmpty() && problem == null && !credsBad);
+    }
+
+    // typing a path passes through parents such as /home that the server can't write to, so the
+    // choice is kept and only overridden while the current path is read-only
+    private Access effectiveAccess() {
+        return writable ? access : Access.READ_ONLY;
     }
 
     // when editing, only a folder that is there and refuses writes limits the choice
@@ -221,7 +226,7 @@ public class AddRootDialog extends FbDialog {
         final var info = catalog.rootType(type);
         final var regionValue = region.getValue().trim().isEmpty() ? info.defaultRegion() : region.getValue().trim();
         final var root = new FsRoot(id, name.getValue().trim(), type, endpoint.getValue().trim(), regionValue,
-                null, true, access, MountInfo.UNKNOWN);
+                null, true, effectiveAccess(), MountInfo.UNKNOWN);
         close();
         onConfirm.accept(root);
     }
