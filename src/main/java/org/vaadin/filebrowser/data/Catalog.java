@@ -3,9 +3,11 @@ package org.vaadin.filebrowser.data;
 import java.io.IOException;
 import java.io.Serializable;
 import java.io.UncheckedIOException;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -29,6 +31,7 @@ public class Catalog implements Serializable {
     private final Map<String, FileTypeInfo> fileTypes;
     private final Map<String, String> signInErrors;
     private final MountKinds mountKinds;
+    private final Map<String, ArchiveFormat> archiveFormats;
 
     public Catalog() {
         final var mapper = JsonMapper.builder()
@@ -38,6 +41,7 @@ public class Catalog implements Serializable {
         this.fileTypes = read(mapper, "data/file-types.json", new TypeReference<LinkedHashMap<String, FileTypeInfo>>() { });
         this.signInErrors = read(mapper, "data/sign-in-errors.json", new TypeReference<Map<String, String>>() { });
         this.mountKinds = read(mapper, "data/mount-kinds.json", new TypeReference<MountKinds>() { });
+        this.archiveFormats = read(mapper, "data/archive-formats.json", new TypeReference<Map<String, ArchiveFormat>>() { });
     }
 
     private static <T> T read(JsonMapper mapper, String path, TypeReference<T> type) {
@@ -54,6 +58,15 @@ public class Catalog implements Serializable {
 
     public FileTypeInfo fileType(String type) {
         return fileTypes.getOrDefault(type, fileTypes.get(GENERIC_TYPE));
+    }
+
+    /** The archive format a name's suffix says, longest suffix first ({@code .tar.gz} before {@code .gz}). */
+    public Optional<ArchiveFormat.Match> archiveFormat(String fileName) {
+        final var lower = fileName.toLowerCase(Locale.ROOT);
+        return archiveFormats.entrySet().stream()
+                .filter(e -> lower.endsWith(e.getKey()) && lower.length() > e.getKey().length())
+                .max(Map.Entry.comparingByKey(Comparator.comparingInt(String::length)))
+                .map(e -> new ArchiveFormat.Match(e.getValue(), fileName.substring(0, fileName.length() - e.getKey().length())));
     }
 
     public String typeForFileName(String fileName) {

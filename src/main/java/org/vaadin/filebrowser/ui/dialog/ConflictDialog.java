@@ -21,28 +21,38 @@ import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.function.SerializableConsumer;
 
-/** Per-file decision for uploads whose names already exist in the destination folder. */
+/**
+ * Per-file decision for uploads whose names already exist in the destination folder. Rows for the
+ * new folder an archive would be extracted into offer only Keep both or Skip: an upload never
+ * replaces a folder.
+ */
 public class ConflictDialog extends FbDialog {
 
     private static final List<Segmented.Option<ConflictChoice>> OPTIONS = List.of(
             Segmented.Option.text(ConflictChoice.REPLACE, "Replace"),
             Segmented.Option.text(ConflictChoice.KEEP_BOTH, "Keep both"),
             Segmented.Option.text(ConflictChoice.SKIP, "Skip"));
+    private static final List<Segmented.Option<ConflictChoice>> FOLDER_OPTIONS = List.of(
+            Segmented.Option.text(ConflictChoice.KEEP_BOTH, "Keep both"),
+            Segmented.Option.text(ConflictChoice.SKIP, "Skip"));
 
     private final Catalog catalog;
     private final List<IncomingFile> conflicts;
     private final Set<String> existingNames;
+    private final Set<String> folderNames;
     private final Map<String, ConflictChoice> choices = new LinkedHashMap<>();
     private final Div applyAll = Ui.div("fb-conflict-all");
     private final Div rows = Ui.div("fb-conflict-list");
     private final Span summary = Ui.span("fb-dialog-summary", "");
 
+    /** @param folderNames which of the conflicts are new folders for extracted archives */
     public ConflictDialog(Catalog catalog, List<IncomingFile> conflicts, int totalCount, Set<String> existingNames,
-                          SerializableConsumer<Map<String, ConflictChoice>> onResolve) {
+                          Set<String> folderNames, SerializableConsumer<Map<String, ConflictChoice>> onResolve) {
         super(title(conflicts.size()), "warn", Tone.DANGER, Width.WIDE);
         this.catalog = catalog;
         this.conflicts = conflicts;
         this.existingNames = existingNames;
+        this.folderNames = folderNames;
         conflicts.forEach(c -> choices.put(c.name(), ConflictChoice.KEEP_BOTH));
 
         final var intro = new Paragraph(conflicts.size() + " of " + totalCount + " uploaded file" + (totalCount > 1 ? "s" : "")
@@ -74,7 +84,8 @@ public class ConflictDialog extends FbDialog {
         final var applyAllLabel = Ui.span("fb-conflict-all-label", "Apply to all");
         final var applyAllChoice = new Segmented<>("fb-seg--danger-first", OPTIONS,
                 distinct.size() == 1 ? distinct.getFirst() : null, v -> {
-                    choices.replaceAll((k, old) -> v);
+                    choices.replaceAll((k, old) -> folderNames.contains(k) && v == ConflictChoice.REPLACE
+                            ? ConflictChoice.KEEP_BOTH : v);
                     render();
                 });
         applyAll.add(applyAllLabel, applyAllChoice);
@@ -83,7 +94,16 @@ public class ConflictDialog extends FbDialog {
         for (final var c : conflicts) {
             final var choice = choices.get(c.name());
             final var detail = Ui.div("fb-conflict-detail fb-conflict-detail--" + choice.name().toLowerCase().replace('_', '-'));
-            switch (choice) {
+            final var folder = folderNames.contains(c.name());
+            if (folder) {
+                if (choice == ConflictChoice.SKIP) {
+                    detail.add("Won't be extracted");
+                } else {
+                    final var lead = new Span("Extracts into ");
+                    final var newFolder = Ui.span("fb-mono", Workspace.keepBothName(c.name(), existingNames));
+                    detail.add(lead, newFolder);
+                }
+            } else switch (choice) {
                 case REPLACE -> detail.add("Overwrites the existing file");
                 case KEEP_BOTH -> {
                     final var lead = new Span("Uploads as ");
@@ -97,7 +117,7 @@ public class ConflictDialog extends FbDialog {
             final var nameText = Ui.span("", c.name());
             final var name = Ui.div("fb-conflict-name", nameText);
             final var names = Ui.div("fb-conflict-names", name, detail);
-            final var picker = new Segmented<>("fb-seg--danger-first", OPTIONS, choice, v -> {
+            final var picker = new Segmented<>(folder ? "fb-seg--folder" : "fb-seg--danger-first", folder ? FOLDER_OPTIONS : OPTIONS, choice, v -> {
                 choices.put(c.name(), v);
                 render();
             });

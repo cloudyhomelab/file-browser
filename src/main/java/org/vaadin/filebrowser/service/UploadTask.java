@@ -11,7 +11,7 @@ import org.vaadin.filebrowser.data.FsRoot;
  */
 public final class UploadTask implements Serializable {
 
-    public enum State { QUEUED, RECEIVING, DONE, FAILED, CANCELLED }
+    public enum State { QUEUED, RECEIVING, EXTRACTING, DONE, FAILED, CANCELLED }
 
     private static final int PERCENT = 100;
 
@@ -25,13 +25,17 @@ public final class UploadTask implements Serializable {
     private final boolean replace;
     /** The web link the server downloads it from; null for a file sent by the browser. */
     private final String url;
+    /** How to unpack it once received; null to store it as is. */
+    private final UploadQueue.Extraction extraction;
+    /** What came of it, e.g. how many files an extraction wrote; null for a plain upload. */
+    private volatile String summary;
     private volatile long received;
     private volatile State state = State.QUEUED;
     private volatile String error;
     private boolean announced;
 
     UploadTask(String id, String clientId, String name, String type, long size, FsRoot root, List<String> folder,
-               boolean replace, String url) {
+               boolean replace, String url, UploadQueue.Extraction extraction) {
         this.id = id;
         this.clientId = clientId;
         this.name = name;
@@ -41,6 +45,19 @@ public final class UploadTask implements Serializable {
         this.folder = folder;
         this.replace = replace;
         this.url = url;
+        this.extraction = extraction;
+    }
+
+    public UploadQueue.Extraction extraction() {
+        return extraction;
+    }
+
+    public String summary() {
+        return summary;
+    }
+
+    void summary(String text) {
+        this.summary = text;
     }
 
     public String url() {

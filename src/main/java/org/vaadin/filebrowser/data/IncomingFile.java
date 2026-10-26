@@ -9,17 +9,23 @@ import java.io.Serializable;
  *                 null for a link
  * @param size     bytes, or {@link #UNKNOWN_SIZE} for a link that doesn't say
  * @param url      the web link the server downloads it from; null for a file from the browser
+ * @param extract  how to extract it, for an archive the user wants unpacked; null to store it as is
  */
-public record IncomingFile(String clientId, String name, String type, long size, String url) implements Serializable {
+public record IncomingFile(String clientId, String name, String type, long size, String url, ExtractOptions extract)
+        implements Serializable {
 
     public static final long UNKNOWN_SIZE = -1;
 
     public IncomingFile(String clientId, String name, String type, long size) {
-        this(clientId, name, type, size, null);
+        this(clientId, name, type, size, null, null);
     }
 
     public static IncomingFile link(String url, String name, String type, Long size) {
-        return new IncomingFile(null, name, type, size == null ? UNKNOWN_SIZE : size, url);
+        return new IncomingFile(null, name, type, size == null ? UNKNOWN_SIZE : size, url, null);
+    }
+
+    public IncomingFile withExtract(ExtractOptions options) {
+        return new IncomingFile(clientId, name, type, size, url, options);
     }
 
     public boolean fromLink() {

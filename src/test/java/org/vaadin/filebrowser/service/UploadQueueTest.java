@@ -13,14 +13,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipInputStream;
 
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.hc.client5.http.SystemDefaultDnsResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.vaadin.filebrowser.data.Access;
+import org.vaadin.filebrowser.data.ArchiveFormat;
 import org.vaadin.filebrowser.data.Catalog;
+import org.vaadin.filebrowser.data.ExtractOptions;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.IncomingFile;
 import org.vaadin.filebrowser.data.RootType;
@@ -157,5 +162,65 @@ class UploadQueueTest {
         } finally {
             server.stop(0);
         }
+    }
+
+    private static byte[] zipOf(Map<String, String> entries) throws IOException {
+        final var bytes = new ByteArrayOutputStream();
+        try (final var zip = new ZipArchiveOutputStream(bytes)) {
+            for (final var e : entries.entrySet()) {
+                zip.putArchiveEntry(new ZipArchiveEntry(e.getKey()));
+                zip.write(e.getValue().getBytes(StandardCharsets.UTF_8));
+                zip.closeArchiveEntry();
+            }
+        }
+        return bytes.toByteArray();
+    }
+
+    private UploadTask planArchive(String name, long size, UploadQueue.Extraction extraction) {
+        final var file = new IncomingFile("f1", name, "zip", size);
+        return queue.enqueue(root, List.of(), List.of(new UploadQueue.Planned(file, name, false, extraction))).getFirst();
+    }
+
+    @Test
+    void archivesAreExtractedIntoANewFolderAndKeptWhenAsked() throws IOException {
+        final var zip = zipOf(Map.of("photos/beach.jpg", "beach", "readme.txt", "hi"));
+        final var extraction = new UploadQueue.Extraction(ArchiveFormat.ZIP, null, "holiday", true,
+                ExtractOptions.Clash.KEEP_BOTH, new ArchiveExtractor.Limits(LIMIT, 100));
+        final var task = planArchive("holiday.zip", zip.length, extraction);
+        queue.receive(task.id(), new ByteArrayInputStream(zip), LIMIT);
+
+        assertThat(task.complete()).isTrue();
+        assertThat(task.summary()).isEqualTo("2 files extracted");
+        assertThat(Files.readString(dir.resolve("holiday/photos/beach.jpg"))).isEqualTo("beach");
+        assertThat(Files.readString(dir.resolve("holiday/readme.txt"))).isEqualTo("hi");
+        assertThat(dir.resolve("holiday.zip")).exists();
+    }
+
+    @Test
+    void archivesExtractIntoTheFolderItselfFollowingTheClashChoice() throws IOException {
+        Files.writeString(dir.resolve("readme.txt"), "old");
+        final var zip = zipOf(Map.of("readme.txt", "new"));
+        final var extraction = new UploadQueue.Extraction(ArchiveFormat.ZIP, null, null, false,
+                ExtractOptions.Clash.KEEP_BOTH, new ArchiveExtractor.Limits(LIMIT, 100));
+        final var task = planArchive("update.zip", zip.length, extraction);
+        queue.receive(task.id(), new ByteArrayInputStream(zip), LIMIT);
+
+        assertThat(Files.readString(dir.resolve("readme.txt"))).isEqualTo("old");
+        assertThat(Files.readString(dir.resolve("readme (1).txt"))).isEqualTo("new");
+        assertThat(dir.resolve("update.zip")).doesNotExist();
+    }
+
+    @Test
+    void aFailedExtractionRemovesItsNewFolderAndKeepsNoArchive() throws IOException {
+        final var zip = zipOf(Map.of("big.txt", "x".repeat(4096)));
+        final var extraction = new UploadQueue.Extraction(ArchiveFormat.ZIP, null, "bomb", true,
+                ExtractOptions.Clash.KEEP_BOTH, new ArchiveExtractor.Limits(1024, 100));
+        final var task = planArchive("bomb.zip", zip.length, extraction);
+        queue.receive(task.id(), new ByteArrayInputStream(zip), LIMIT);
+
+        assertThat(task.state()).isEqualTo(UploadTask.State.FAILED);
+        assertThat(task.error()).contains("extraction limit");
+        assertThat(dir.resolve("bomb")).doesNotExist();
+        assertThat(dir.resolve("bomb.zip")).doesNotExist();
     }
 }

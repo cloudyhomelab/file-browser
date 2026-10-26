@@ -98,6 +98,32 @@ reach services next to the server. To allow private ranges, for example an intra
 `FILEBROWSER_LINK_UPLOAD_ALLOWED_NETWORKS` to comma-separated CIDRs inside 10.0.0.0/8, 172.16.0.0/12,
 192.168.0.0/16 or fc00::/7; any other range stops the app from starting.
 
+Archives can be unpacked as they're uploaded, from the computer or from a link: tick "Extract" for
+an archive, or "Decompress" for a single compressed file. Contents go into a new folder named after the archive or into the current folder, and the
+archive itself is kept only if asked. Entries that would land outside the folder, links and special
+files are skipped. An archive may expand to at most `FILEBROWSER_MAX_EXTRACT_SIZE` (default four
+times the upload limit) and `FILEBROWSER_MAX_EXTRACT_ENTRIES` entries (default 10000); going over
+stops the extraction and removes what it wrote. The archive is received into the server's temp
+folder first, so that needs room for it.
+
+Supported formats, recognised by the end of the file name; each one is covered by the test suite:
+
+| Format | Name endings | Option |
+|---|---|---|
+| Zip | `.zip` | Extract |
+| Tar | `.tar` | Extract |
+| Tar + gzip | `.tar.gz`, `.tgz` | Extract |
+| Tar + bzip2 | `.tar.bz2`, `.tbz2`, `.tbz` | Extract |
+| Tar + xz | `.tar.xz`, `.txz` | Extract |
+| Tar + lzip | `.tar.lz`, `.tlz` | Extract |
+| 7-Zip | `.7z` | Extract |
+| gzip | `.gz` | Decompress |
+| bzip2 | `.bz2` | Decompress |
+| xz | `.xz` | Decompress |
+| lzip | `.lz` | Decompress |
+
+Other formats, such as RAR, Zstandard (`.zst`), LZ4, `.lzma` and `.Z`, upload as ordinary files.
+
 Each user's starred items and view settings are saved per email. Renaming, moving or deleting an
 item in the app updates everyone's stars; stars on items removed outside the app disappear the next
 time they're looked up.

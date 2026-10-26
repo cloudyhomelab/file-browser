@@ -5,7 +5,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.vaadin.filebrowser.data.ArchiveFormat;
 import org.vaadin.filebrowser.data.Catalog;
+import org.vaadin.filebrowser.data.ExtractOptions;
 import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.IncomingFile;
 import org.vaadin.filebrowser.service.LinkFetcher;
@@ -14,10 +16,13 @@ import org.vaadin.filebrowser.ui.Buttons;
 import org.vaadin.filebrowser.ui.FileDropArea;
 import org.vaadin.filebrowser.ui.FileGlyph;
 import org.vaadin.filebrowser.ui.Icon;
+import org.vaadin.filebrowser.ui.Segmented;
 import org.vaadin.filebrowser.ui.Ui;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.checkbox.Switch;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
@@ -38,6 +43,8 @@ public class UploadDialog extends FbDialog {
     private final Button confirm;
     private final TextField link = new TextField("Or add from a link");
     private final long maxBytes;
+    /** Archives the user wants extracted, by file name, with their options. */
+    private final Map<String, ExtractOptions> extract = new LinkedHashMap<>();
 
     /** @param inspectLink reads a link's name and size on the server; throws with a user-facing message if refused */
     public UploadDialog(Catalog catalog, long maxBytes, SerializableFunction<String, LinkFetcher.LinkInfo> inspectLink,
@@ -79,7 +86,9 @@ public class UploadDialog extends FbDialog {
         confirm = Buttons.create(Buttons.Kind.PRIMARY, "Upload", "upload", () -> {
             if (!picked.isEmpty()) {
                 close();
-                final var files = List.copyOf(picked.values());
+                final var files = picked.values().stream()
+                        .map(f -> extract.containsKey(f.name()) ? f.withExtract(extract.get(f.name())) : f)
+                        .toList();
                 onConfirm.accept(files);
             }
         });
@@ -137,7 +146,9 @@ public class UploadDialog extends FbDialog {
             }
             final var sizeText = Formats.size(f.knownSize());
             final var size = Ui.span("fb-mono fb-muted", sizeText);
-            final var row = Ui.div("fb-upload-item" + (selected ? " fb-upload-item--on" : ""), glyph, name, size, box);
+            final var archive = selected ? catalog.archiveFormat(f.name()).orElse(null) : null;
+            final var row = Ui.div("fb-upload-item" + (selected ? " fb-upload-item--on" : "")
+                    + (archive != null ? " fb-upload-item--attached" : ""), glyph, name, size, box);
             row.getElement().setAttribute("role", "checkbox");
             final var ariaChecked = String.valueOf(selected);
             row.getElement().setAttribute("aria-checked", ariaChecked);
@@ -148,8 +159,68 @@ public class UploadDialog extends FbDialog {
                 render();
             });
             list.add(row);
+            if (archive != null) {
+                list.add(extractOptions(f, archive));
+            }
         }
         confirm.setText(picked.isEmpty() ? "Upload" : "Upload " + picked.size());
         confirm.setEnabled(!picked.isEmpty());
+    }
+
+    /**
+     * A panel joined to an archive's row: "Extract", and when on, where to, what to do on clashes
+     * and whether to keep the archive.
+     */
+    private Div extractOptions(IncomingFile f, ArchiveFormat.Match match) {
+        final var single = match.format().singleFile();
+        final var options = extract.get(f.name());
+        final var panel = Ui.div("fb-upload-extract");
+        final var toggle = new Switch(options != null);
+        toggle.addValueChangeListener(e -> {
+            if (e.getValue()) {
+                // a single compressed file has just one file to put next to the others
+                extract.put(f.name(), single ? new ExtractOptions(false, false, ExtractOptions.Clash.KEEP_BOTH)
+                        : ExtractOptions.DEFAULT);
+            } else {
+                extract.remove(f.name());
+            }
+            render();
+        });
+        addOption(panel, single ? "Decompress" : "Extract", toggle);
+        if (options == null) {
+            return panel;
+        }
+        if (!single) {
+            final var newFolder = Segmented.Option.text(true, "New folder");
+            final var here = Segmented.Option.text(false, "This folder");
+            final var where = new Segmented<>("fb-seg--extract", List.of(newFolder, here), options.newFolder(), v -> {
+                extract.put(f.name(), new ExtractOptions(v, options.keepArchive(), options.clash()));
+                render();
+            });
+            addOption(panel, "Into", where);
+        }
+        if (!options.newFolder()) {
+            final var keepBoth = Segmented.Option.text(ExtractOptions.Clash.KEEP_BOTH, "Keep both");
+            final var replace = Segmented.Option.text(ExtractOptions.Clash.REPLACE, "Replace");
+            final var skip = Segmented.Option.text(ExtractOptions.Clash.SKIP, "Skip");
+            final var clash = new Segmented<>("fb-seg--extract", List.of(keepBoth, replace, skip), options.clash(), v -> {
+                extract.put(f.name(), new ExtractOptions(options.newFolder(), options.keepArchive(), v));
+                render();
+            });
+            addOption(panel, "If a name exists", clash);
+        }
+        final var keep = new Switch(options.keepArchive());
+        keep.addValueChangeListener(e -> {
+            extract.put(f.name(), new ExtractOptions(options.newFolder(), e.getValue(), options.clash()));
+            render();
+        });
+        addOption(panel, "Keep archive", keep);
+        return panel;
+    }
+
+    private static void addOption(Div panel, String label, Component control) {
+        final var text = Ui.span("fb-upload-extract-label", label);
+        final var cell = Ui.div("fb-upload-extract-control", control);
+        panel.add(text, cell);
     }
 }
