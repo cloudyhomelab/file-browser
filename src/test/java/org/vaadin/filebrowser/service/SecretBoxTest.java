@@ -32,7 +32,7 @@ class SecretBoxTest {
     }
 
     private static FileBrowserProperties withKeyFile(Path file) {
-        return new FileBrowserProperties(null, null, null, null, true, null, null, file);
+        return new FileBrowserProperties(null, null, null, null, true, null, null, file, null);
     }
 
     @Test
