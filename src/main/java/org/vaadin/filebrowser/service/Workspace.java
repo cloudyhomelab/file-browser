@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsEntry;
 import org.vaadin.filebrowser.data.FsRoot;
@@ -47,6 +48,7 @@ public class Workspace implements Serializable {
     private static final String NEW_ITEM_OWNER = "Maya Lindqvist";
 
     private final Catalog catalog;
+    private final CurrentUser currentUser;
     private final IdSource ids = new IdSource();
     private final List<FsRoot> roots;
     private final Map<String, List<FsEntry>> trees;
@@ -57,8 +59,9 @@ public class Workspace implements Serializable {
     private Density density = Density.DENSE;
     private Sort sort = Sort.DEFAULT;
 
-    public Workspace(Catalog catalog) {
+    public Workspace(Catalog catalog, CurrentUser currentUser) {
         this.catalog = catalog;
+        this.currentUser = currentUser;
         this.roots = new ArrayList<>();
         this.trees = new LinkedHashMap<>();
     }
@@ -86,6 +89,9 @@ public class Workspace implements Serializable {
     }
 
     public void addRoot(FsRoot root) {
+        if (!currentUser.isAdmin()) {
+            throw new AccessDeniedException("Only admins can add file systems");
+        }
         roots.add(root);
         trees.put(root.id(), new ArrayList<>());
     }

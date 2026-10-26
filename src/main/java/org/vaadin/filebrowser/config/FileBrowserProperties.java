@@ -9,7 +9,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /** Deployment-time settings under {@code filebrowser.*}, also settable as {@code FILEBROWSER_*} env vars. */
 @ConfigurationProperties("filebrowser")
 public record FileBrowserProperties(Path databasePath, Map<String, Provider> oidc, List<String> allowedDomains,
-                                    List<String> allowedEmails, boolean requireVerifiedEmail) {
+                                    List<String> allowedEmails, boolean requireVerifiedEmail,
+                                    List<String> adminEmails) {
 
     public enum ProviderIcon { GOOGLE, KEYCLOAK, POCKET_ID, GENERIC }
 
@@ -21,6 +22,11 @@ public record FileBrowserProperties(Path databasePath, Map<String, Provider> oid
         oidc = oidc == null ? Map.of() : Map.copyOf(oidc);
         allowedDomains = allowedDomains == null ? List.of() : List.copyOf(allowedDomains);
         allowedEmails = allowedEmails == null ? List.of() : List.copyOf(allowedEmails);
+        adminEmails = adminEmails == null ? List.of() : List.copyOf(adminEmails);
+    }
+
+    public boolean isAdminEmail(String email) {
+        return email != null && adminEmails.stream().anyMatch(a -> a.trim().equalsIgnoreCase(email.trim()));
     }
 
     public Provider provider(String registrationId) {

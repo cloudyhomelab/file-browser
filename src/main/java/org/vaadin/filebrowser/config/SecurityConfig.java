@@ -34,7 +34,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectProvider<ClientRegistrationRepository> repository,
-                                                   SignInPolicy policy) throws Exception {
+                                                   SignInPolicy policy, FileBrowserProperties properties)
+            throws Exception {
         final var registrations = registrations(repository);
         // with a single provider the chooser would be a page with one button, so go straight to it
         final var loginPage = registrations.size() == 1
@@ -42,7 +43,7 @@ public class SecurityConfig {
                 : SIGN_IN_PATH;
         http.authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC_RESOURCES).permitAll());
         http.with(VaadinSecurityConfigurer.vaadin(), vaadin -> vaadin.oauth2LoginPage(loginPage));
-        final var userService = new PolicyCheckingOidcUserService(policy);
+        final var userService = new FileBrowserOidcUserService(policy, properties);
         // the default failure URL is loginPage?error, which with one provider would loop straight back to it
         http.oauth2Login(oauth -> oauth
                 .userInfoEndpoint(userInfo -> userInfo.oidcUserService(userService))

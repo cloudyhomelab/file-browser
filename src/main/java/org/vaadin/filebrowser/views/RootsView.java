@@ -53,13 +53,20 @@ public class RootsView extends Div {
         final var accessible = roots.stream().filter(r -> !r.locked()).toList();
         final var restricted = roots.stream().filter(FsRoot::locked).toList();
 
-        final var add = Buttons.create(Buttons.Kind.PRIMARY, "Add file system", "plus", this::openAddDialog);
+        final var admin = currentUser.isAdmin();
         final var title = new H1("Your file systems");
         final var spacer = Ui.spacer();
-        final var titlebar = Ui.div("fb-page-titlebar", title, spacer, add);
+        final var titlebar = Ui.div("fb-page-titlebar", title, spacer);
+        if (admin) {
+            final var add = Buttons.create(Buttons.Kind.PRIMARY, "Add file system", "plus", this::openAddDialog);
+            titlebar.add(add);
+        }
         main.add(titlebar);
-        final var introText = roots.isEmpty()
+        final var emptyText = admin
                 ? "No file systems are connected yet. Add a local disk, NFS share or S3 bucket to get started."
+                : "No file systems are connected yet. Ask an administrator to add one.";
+        final var introText = roots.isEmpty()
+                ? emptyText
                 : "Pick a root to browse. You have access to " + accessible.size() + " of " + roots.size()
                         + " connected systems.";
         final var intro = new Paragraph(introText);
@@ -74,13 +81,17 @@ public class RootsView extends Div {
 
         final var grid = Ui.div("fb-drive-grid");
         accessible.forEach(r -> grid.add(card(r)));
-        final var plusIcon = new Icon("plus");
-        final var addCardIcon = Ui.span("fb-addroot-card-icon", plusIcon);
-        final var addCardTitle = Ui.span("fb-addroot-card-title", "Add file system");
-        final var addCardSub = Ui.span("fb-addroot-card-sub", "Connect a local disk, NFS share or S3 bucket");
-        final var addCard = Ui.button("fb-addroot-card", this::openAddDialog, addCardIcon, addCardTitle, addCardSub);
-        grid.add(addCard);
-        main.add(grid);
+        if (admin) {
+            final var plusIcon = new Icon("plus");
+            final var addCardIcon = Ui.span("fb-addroot-card-icon", plusIcon);
+            final var addCardTitle = Ui.span("fb-addroot-card-title", "Add file system");
+            final var addCardSub = Ui.span("fb-addroot-card-sub", "Connect a local disk, NFS share or S3 bucket");
+            final var addCard = Ui.button("fb-addroot-card", this::openAddDialog, addCardIcon, addCardTitle, addCardSub);
+            grid.add(addCard);
+        }
+        if (grid.getComponentCount() > 0) {
+            main.add(grid);
+        }
 
         if (!restricted.isEmpty()) {
             final var ruleLabel = Ui.span("fb-section-rule-label", "Restricted");

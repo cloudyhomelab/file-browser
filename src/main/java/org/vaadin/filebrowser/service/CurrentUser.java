@@ -7,6 +7,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.vaadin.filebrowser.config.FileBrowserProperties;
+import org.vaadin.filebrowser.config.Roles;
 
 import com.vaadin.flow.spring.annotation.SpringComponent;
 import com.vaadin.flow.spring.security.AuthenticationContext;
@@ -15,7 +16,7 @@ import com.vaadin.flow.spring.security.AuthenticationContext;
 @SpringComponent
 public class CurrentUser implements Serializable {
 
-    public record User(String email, String name, String providerLabel) implements Serializable {
+    public record User(String email, String name, String providerLabel, boolean admin) implements Serializable {
     }
 
     private final AuthenticationContext authenticationContext;
@@ -34,7 +35,12 @@ public class CurrentUser implements Serializable {
         final var email = oidc.getEmail();
         final var name = firstPresent(oidc.getFullName(), oidc.getPreferredUsername(), email, oidc.getSubject());
         final var provider = properties.provider(token.getAuthorizedClientRegistrationId());
-        return Optional.of(new User(email, name, provider.label()));
+        final var admin = token.getAuthorities().stream().anyMatch(a -> Roles.ADMIN_AUTHORITY.equals(a.getAuthority()));
+        return Optional.of(new User(email, name, provider.label(), admin));
+    }
+
+    public boolean isAdmin() {
+        return get().map(User::admin).orElse(false);
     }
 
     public void signOut() {
