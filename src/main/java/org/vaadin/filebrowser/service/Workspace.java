@@ -9,6 +9,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.Located;
@@ -91,6 +92,17 @@ public class Workspace implements Serializable {
 
     public void addRoot(FsRoot root) {
         registry.add(root);
+    }
+
+    public void updateRoot(FsRoot root, String name, Access access) {
+        registry.update(root.id(), name, access);
+    }
+
+    public void removeRoot(FsRoot root) {
+        registry.remove(root.id());
+        storage.forget(root);
+        final var prefix = starKey(root.id(), "");
+        starred.removeIf(key -> key.startsWith(prefix));
     }
 
     public String newRootId() {

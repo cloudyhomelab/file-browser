@@ -63,6 +63,13 @@ public class StorageService {
         return providers.computeIfAbsent(cacheKey(root), k -> create(root));
     }
 
+    /** Drops the cached provider and status of a file system that was removed. */
+    public void forget(FsRoot root) {
+        final var key = cacheKey(root);
+        providers.remove(key);
+        statuses.remove(key);
+    }
+
     private static String cacheKey(FsRoot root) {
         return root.id() + "|" + root.endpoint();
     }

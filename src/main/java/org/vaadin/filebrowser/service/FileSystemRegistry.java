@@ -83,6 +83,26 @@ public class FileSystemRegistry {
                 .update();
     }
 
+    /** Renames it and changes its access; the path never changes, since stars are stored relative to it. */
+    public void update(String id, String name, Access access) {
+        if (!isAdmin.getAsBoolean()) {
+            throw new AccessDeniedException("Only admins can change file systems");
+        }
+        jdbc.sql("UPDATE file_system SET name = :name, access = :access WHERE id = :id")
+                .param("id", id)
+                .param("name", name)
+                .param("access", access.name())
+                .update();
+    }
+
+    /** Unregisters it; the files stay where they are. Stars on it go with it (foreign key cascade). */
+    public void remove(String id) {
+        if (!isAdmin.getAsBoolean()) {
+            throw new AccessDeniedException("Only admins can remove file systems");
+        }
+        jdbc.sql("DELETE FROM file_system WHERE id = :id").param("id", id).update();
+    }
+
     // capacity, online state and mount are read from the storage, not stored
     private FsRoot map(ResultSet rs, int row) throws SQLException {
         final var type = RootType.valueOf(rs.getString("type"));
