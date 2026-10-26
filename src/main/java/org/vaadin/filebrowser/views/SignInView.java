@@ -3,6 +3,7 @@ package org.vaadin.filebrowser.views;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.vaadin.filebrowser.config.FileBrowserProperties;
+import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.config.SecurityConfig;
 import org.vaadin.filebrowser.ui.Brand;
 import org.vaadin.filebrowser.ui.Icon;
@@ -13,6 +14,7 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
@@ -27,9 +29,13 @@ public class SignInView extends Div implements BeforeEnterObserver {
 
     private static final String ERROR_PARAM = "error";
 
+    private final Catalog catalog;
     private final Div error = Ui.div("fb-signin-error");
+    private final Span errorText = Ui.span("", "");
 
-    public SignInView(ObjectProvider<ClientRegistrationRepository> repository, FileBrowserProperties properties) {
+    public SignInView(ObjectProvider<ClientRegistrationRepository> repository, FileBrowserProperties properties,
+                      Catalog catalog) {
+        this.catalog = catalog;
         setClassName("fb-login");
 
         final var title = new H1("Log in to FileBrowser");
@@ -39,7 +45,6 @@ public class SignInView extends Div implements BeforeEnterObserver {
         final var heading = Ui.div("fb-login-heading", brand, titles);
 
         final var warnIcon = new Icon("warn");
-        final var errorText = Ui.span("", "Sign-in failed. Try again, or contact your administrator.");
         error.add(warnIcon, errorText);
         error.setVisible(false);
 
@@ -69,7 +74,8 @@ public class SignInView extends Div implements BeforeEnterObserver {
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        final var failed = event.getLocation().getQueryParameters().getParameters().containsKey(ERROR_PARAM);
-        error.setVisible(failed);
+        final var code = event.getLocation().getQueryParameters().getSingleParameter(ERROR_PARAM);
+        error.setVisible(code.isPresent());
+        code.ifPresent(c -> errorText.setText(catalog.signInError(c)));
     }
 }

@@ -21,6 +21,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class Catalog implements Serializable {
 
     private static final String GENERIC_TYPE = "generic";
+    private static final String DEFAULT_SIGN_IN_ERROR = "default";
 
     record MockData(LocalDate referenceDate, List<IncomingFile> sampleFiles) implements Serializable {
     }
@@ -28,6 +29,7 @@ public class Catalog implements Serializable {
     private final Map<RootType, RootTypeInfo> rootTypes;
     private final Map<String, FileTypeInfo> fileTypes;
     private final MockData mock;
+    private final Map<String, String> signInErrors;
 
     public Catalog() {
         final var mapper = JsonMapper.builder()
@@ -36,6 +38,7 @@ public class Catalog implements Serializable {
         this.rootTypes = read(mapper, "data/root-types.json", new TypeReference<Map<RootType, RootTypeInfo>>() { });
         this.fileTypes = read(mapper, "data/file-types.json", new TypeReference<LinkedHashMap<String, FileTypeInfo>>() { });
         this.mock = read(mapper, "data/mock-data.json", new TypeReference<MockData>() { });
+        this.signInErrors = read(mapper, "data/sign-in-errors.json", new TypeReference<Map<String, String>>() { });
     }
 
     private static <T> T read(JsonMapper mapper, String path, TypeReference<T> type) {
@@ -65,6 +68,11 @@ public class Catalog implements Serializable {
                 .map(Map.Entry::getKey)
                 .findFirst()
                 .orElse(GENERIC_TYPE);
+    }
+
+    /** User-facing text for a sign-in failure code; unknown codes get the generic message. */
+    public String signInError(String code) {
+        return signInErrors.getOrDefault(code, signInErrors.get(DEFAULT_SIGN_IN_ERROR));
     }
 
     public LocalDate referenceDate() {
