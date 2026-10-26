@@ -1,0 +1,35 @@
+{
+  "disk": {
+    "displayName": "Local disk",
+    "endpointLabel": "Mount path",
+    "endpointPlaceholder": "/mnt/data/projects",
+    "endpointPrefix": "/",
+    "endpointError": "Path must be absolute, starting with /",
+    "namePlaceholder": "Project disk",
+    "regionLabel": "Host",
+    "defaultRegion": "node-fra-01",
+    "newCapacity": { "used": 0, "total": 512 }
+  },
+  "nfs": {
+    "displayName": "NFS share",
+    "endpointLabel": "Export URL",
+    "endpointPlaceholder": "nfs://10.0.4.5/exports/share",
+    "endpointPrefix": "nfs://",
+    "endpointError": "Use the form nfs://host/export",
+    "namePlaceholder": "Design team share",
+    "regionLabel": "Network",
+    "defaultRegion": "10.0.4.0/24",
+    "newCapacity": null
+  },
+  "s3": {
+    "displayName": "S3 bucket",
+    "endpointLabel": "Bucket URL",
+    "endpointPlaceholder": "s3://bucket-name",
+    "endpointPrefix": "s3://",
+    "endpointError": "Use the form s3://bucket-name",
+    "namePlaceholder": "Marketing assets",
+    "regionLabel": "Region",
+    "defaultRegion": "eu-central-1",
+    "newCapacity": { "used": 0, "total": null }
+  }
+}

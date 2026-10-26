@@ -1,0 +1,14 @@
+{
+  "folder":  { "label": "",     "icon": null,    "extensions": [] },
+  "image":   { "label": "IMG",  "icon": "photo", "extensions": ["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "heic"] },
+  "pdf":     { "label": "PDF",  "icon": null,    "extensions": ["pdf"] },
+  "doc":     { "label": "DOC",  "icon": "doc",   "extensions": ["doc", "docx", "odt", "rtf", "pages"] },
+  "sheet":   { "label": "XLS",  "icon": null,    "extensions": ["xls", "xlsx", "csv", "ods", "numbers"] },
+  "slide":   { "label": "PPT",  "icon": null,    "extensions": ["ppt", "pptx", "odp", "key"] },
+  "video":   { "label": "MP4",  "icon": "play",  "extensions": ["mp4", "mov", "mkv", "avi", "webm"] },
+  "audio":   { "label": "WAV",  "icon": null,    "extensions": ["wav", "mp3", "flac", "aac", "ogg", "m4a"] },
+  "zip":     { "label": "ZIP",  "icon": null,    "extensions": ["zip", "tar", "gz", "tgz", "7z", "rar"] },
+  "code":    { "label": "{ }",  "icon": null,    "extensions": ["json", "js", "ts", "tsx", "jsx", "java", "py", "xml", "yml", "yaml", "html", "css", "sh"] },
+  "text":    { "label": "TXT",  "icon": null,    "extensions": ["txt", "md", "log"] },
+  "generic": { "label": "FILE", "icon": null,    "extensions": [] }
+}
