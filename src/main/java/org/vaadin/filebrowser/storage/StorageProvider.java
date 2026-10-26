@@ -32,7 +32,7 @@ public interface StorageProvider {
 
     WriteHandle openWrite(String folder, String name, boolean replace);
 
-    /** Used and total space in GB; total is null when the storage has no fixed size. */
+    /** Used and total space in GB; total is null when the storage has no fixed size; null when usage isn't known. */
     Capacity capacity();
 
     /** True when the root can be read right now. */

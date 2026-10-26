@@ -19,6 +19,14 @@ public final class StoragePaths {
         return folder.isEmpty() ? name : folder + SEPARATOR + name;
     }
 
+    /** A single path segment that every storage accepts: no separators, no {@code .}/{@code ..}. */
+    public static void requireValidName(String name) {
+        if (name == null || name.isBlank() || name.equals(".") || name.equals("..")
+                || name.contains(SEPARATOR) || name.contains("\\") || name.indexOf('\0') >= 0) {
+            throw new StorageException("“" + name + "” is not a valid name.");
+        }
+    }
+
     public static List<String> segments(String path) {
         if (path.isEmpty()) {
             return List.of();

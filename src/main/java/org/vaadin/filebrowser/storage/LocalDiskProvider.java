@@ -93,13 +93,6 @@ public class LocalDiskProvider implements StorageProvider {
         return out;
     }
 
-    private static void requireValidName(String name) {
-        if (name == null || name.isBlank() || name.equals(".") || name.equals("..")
-                || name.contains(StoragePaths.SEPARATOR) || name.contains("\\") || name.indexOf('\0') >= 0) {
-            throw new StorageException("“" + name + "” is not a valid name.");
-        }
-    }
-
     private Path existing(String path) {
         final var absolute = resolve(path);
         if (!Files.exists(absolute)) {
@@ -208,7 +201,7 @@ public class LocalDiskProvider implements StorageProvider {
 
     @Override
     public void createFolder(String parent, String name) {
-        requireValidName(name);
+        StoragePaths.requireValidName(name);
         final var target = resolve(StoragePaths.child(parent, name));
         existingFolder(parent);
         try {
@@ -222,7 +215,7 @@ public class LocalDiskProvider implements StorageProvider {
 
     @Override
     public void rename(String path, String newName) {
-        requireValidName(newName);
+        StoragePaths.requireValidName(newName);
         final var source = existing(path);
         final var target = resolve(StoragePaths.child(StoragePaths.join(parentOf(path)), newName));
         try {
@@ -253,7 +246,7 @@ public class LocalDiskProvider implements StorageProvider {
 
     @Override
     public void copy(String path, String targetName) {
-        requireValidName(targetName);
+        StoragePaths.requireValidName(targetName);
         final var source = existing(path);
         final var target = resolve(StoragePaths.child(StoragePaths.join(parentOf(path)), targetName));
         if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
@@ -318,7 +311,7 @@ public class LocalDiskProvider implements StorageProvider {
 
     @Override
     public WriteHandle openWrite(String folder, String name, boolean replace) {
-        requireValidName(name);
+        StoragePaths.requireValidName(name);
         existingFolder(folder);
         final var target = resolve(StoragePaths.child(folder, name));
         if (!replace && Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
