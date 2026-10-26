@@ -1,6 +1,6 @@
 {
-  "missing_email": "Your identity provider did not share an email address. Ask your administrator to release the email claim to this app.",
-  "unverified_email": "Your email address is not verified with your identity provider. Verify it there, then sign in again.",
+  "missing_email": "Your identity provider did not share an email address, which FileBrowser needs to sign you in. Contact your administrator.",
+  "unverified_email": "Your identity provider reports your email address as not verified. Contact your administrator.",
   "email_not_allowed": "This email address is not allowed to use FileBrowser. Contact your administrator.",
   "default": "Sign-in failed. Try again, or contact your administrator."
 }

@@ -43,7 +43,7 @@ Providers use Spring's standard client registration properties; `<ID>` is any na
 
 Register the app at each provider with the redirect URI `<app-url>/login/oauth2/code/<ID>` and the
 post-logout redirect URI `<app-url>`. Signing out also ends the provider session when the provider
-supports it (Keycloak and Pocket ID do, Google does not).
+advertises an `end_session_endpoint`.
 
 ### Mock provider (development)
 
