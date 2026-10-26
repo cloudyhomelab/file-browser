@@ -14,6 +14,7 @@ import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.Located;
+import org.vaadin.filebrowser.data.S3Settings;
 import org.vaadin.filebrowser.data.Sort;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
@@ -42,6 +43,7 @@ public class Workspace implements Serializable {
     private final Catalog catalog;
     private final FileSystemRegistry registry;
     private final StorageService storage;
+    private final S3Connections s3Connections;
     private final Set<String> starred = new LinkedHashSet<>();
     private final UploadQueue uploads;
     private final UserData userData;
@@ -52,11 +54,12 @@ public class Workspace implements Serializable {
     private Density density = UserData.Preferences.DEFAULT.density();
     private Sort sort = UserData.Preferences.DEFAULT.sort();
 
-    public Workspace(Catalog catalog, FileSystemRegistry registry, StorageService storage, UserData userData,
-                     CurrentUser currentUser) {
+    public Workspace(Catalog catalog, FileSystemRegistry registry, StorageService storage, S3Connections s3Connections,
+                     UserData userData, CurrentUser currentUser) {
         this.catalog = catalog;
         this.registry = registry;
         this.storage = storage;
+        this.s3Connections = s3Connections;
         this.uploads = new UploadQueue(storage);
         this.userData = userData;
         this.currentUser = currentUser;
@@ -101,8 +104,25 @@ public class Workspace implements Serializable {
         return registry.endpointTaken(endpoint);
     }
 
-    public void addRoot(FsRoot root) {
+    /** @param s3 the endpoint and keys of an S3 file system; null for a local disk */
+    public void addRoot(FsRoot root, S3Settings s3) {
+        // sealing first: without a secret key nothing is saved
+        final var sealed = s3 == null ? null : s3Connections.seal(s3);
         registry.add(root);
+        if (sealed != null) {
+            s3Connections.store(root.id(), sealed);
+        }
+    }
+
+    /** Why a bucket can't be added with these settings, or null when it answers; admins only. */
+    public String checkS3(String endpoint, String region, S3Settings settings) {
+        if (!currentUser.isAdmin()) {
+            throw new AccessDeniedException("Only admins can add file systems");
+        }
+        if (!settings.anonymous() && !s3Connections.canStoreKeys()) {
+            return "Set FILEBROWSER_SECRET_KEY on the server to store S3 credentials.";
+        }
+        return storage.checkS3(S3Connections.connection(endpoint, region, settings));
     }
 
     public void updateRoot(FsRoot root, String name, Access access) {

@@ -17,14 +17,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.vaadin.filebrowser.data.Capacity;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.storage.LocalDiskProvider;
 import org.vaadin.filebrowser.storage.MountInfo;
+import org.vaadin.filebrowser.storage.S3Provider;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.storage.StorageProvider;
 
@@ -36,6 +39,8 @@ public class StorageService {
     private static final Duration STATUS_TTL = Duration.ofSeconds(30);
     /** A storage that takes longer to answer (e.g. a hung network mount) counts as offline. */
     private static final Duration STATUS_TIMEOUT = Duration.ofSeconds(2);
+    /** Checking a bucket before adding it may reach a remote region, so it gets longer than a status read. */
+    private static final Duration CHECK_TIMEOUT = Duration.ofSeconds(10);
 
     public record RootStatus(Capacity capacity, boolean online, MountInfo mount) implements Serializable {
 
@@ -53,13 +58,27 @@ public class StorageService {
     }
 
     private final Catalog catalog;
+    private final Function<FsRoot, S3Provider.Connection> s3Connections;
     private final Clock clock = Clock.systemUTC();
     private final Map<String, StorageProvider> providers = new ConcurrentHashMap<>();
     private final Map<String, CachedStatus> statuses = new ConcurrentHashMap<>();
     private final ExecutorService probes = Executors.newVirtualThreadPerTaskExecutor();
 
-    public StorageService(Catalog catalog) {
+    @Autowired
+    public StorageService(Catalog catalog, S3Connections s3Connections) {
+        this(catalog, s3Connections::connection);
+    }
+
+    /** For local disks only, e.g. in tests. */
+    StorageService(Catalog catalog) {
+        this(catalog, root -> {
+            throw new StorageException("S3 is not configured.");
+        });
+    }
+
+    StorageService(Catalog catalog, Function<FsRoot, S3Provider.Connection> s3Connections) {
         this.catalog = catalog;
+        this.s3Connections = s3Connections;
     }
 
     public StorageProvider provider(FsRoot root) {
@@ -69,7 +88,13 @@ public class StorageService {
     /** Drops the cached provider and status of a file system that was removed. */
     public void forget(FsRoot root) {
         final var key = cacheKey(root);
-        providers.remove(key);
+        if (providers.remove(key) instanceof AutoCloseable closeable) {
+            try {
+                closeable.close();
+            } catch (Exception e) {
+                // the file system is gone either way
+            }
+        }
         statuses.remove(key);
     }
 
@@ -80,7 +105,7 @@ public class StorageService {
     private StorageProvider create(FsRoot root) {
         return switch (root.type()) {
             case DISK -> new LocalDiskProvider(Path.of(root.endpoint()), catalog::typeForFileName, catalog::mountKind);
-            case S3 -> throw new StorageException("S3 buckets aren't supported yet.");
+            case S3 -> new S3Provider(s3Connections.apply(root), catalog::typeForFileName);
         };
     }
 
@@ -146,10 +171,30 @@ public class StorageService {
         }
     }
 
+    /** Why a bucket can't be used with these settings, or null when it answers. */
+    public String checkS3(S3Provider.Connection connection) {
+        return withTimeout(() -> readS3Problem(connection), "The bucket didn't answer in time.", CHECK_TIMEOUT);
+    }
+
+    private String readS3Problem(S3Provider.Connection connection) {
+        try (final var provider = new S3Provider(connection, catalog::typeForFileName)) {
+            provider.list("");
+            return null;
+        } catch (StorageException e) {
+            return e.getMessage();
+        } catch (RuntimeException e) {
+            return "The bucket can't be reached with these settings.";
+        }
+    }
+
     private <T> T withTimeout(Supplier<T> task, T fallback) {
+        return withTimeout(task, fallback, STATUS_TIMEOUT);
+    }
+
+    private <T> T withTimeout(Supplier<T> task, T fallback, Duration timeout) {
         final var future = CompletableFuture.supplyAsync(task, probes);
         try {
-            return future.get(STATUS_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+            return future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException | ExecutionException e) {
             future.cancel(true);
             return fallback;

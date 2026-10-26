@@ -5,6 +5,7 @@ import java.util.List;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.service.CurrentUser;
 import org.vaadin.filebrowser.service.Workspace;
+import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.ui.AppHeader;
 import org.vaadin.filebrowser.ui.Buttons;
 import org.vaadin.filebrowser.ui.DriveCard;
@@ -144,8 +145,13 @@ public class RootsView extends Div {
         final var newId = workspace.newRootId();
         final SubfolderLoader serverFolders = folder -> workspace.serverFolders("/" + String.join("/", folder));
         final var dialog = new AddRootDialog(workspace.catalog(), workspace::endpointTaken, workspace::probe,
-                serverFolders, newId, root -> {
-            workspace.addRoot(root);
+                serverFolders, workspace::checkS3, newId, (root, s3) -> {
+            try {
+                workspace.addRoot(root, s3);
+            } catch (StorageException e) {
+                Toasts.error(e.getMessage());
+                return;
+            }
             Toasts.show("Connected “" + root.name() + "”", "check");
             render();
         });
