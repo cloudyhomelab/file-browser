@@ -96,6 +96,22 @@ sudo umount /tmp/fb-smb /tmp/fb-nfs
 docker compose -f environment/dev/docker-compose.yml --profile shares stop smb nfs
 ```
 
+## Trying S3 buckets
+
+The opt-in `s3` profile runs [RustFS](https://rustfs.com), an S3-compatible server, on port 9000
+(console on http://localhost:9001), and seeds `dev-bucket` (with `team-a/` and `team-b/` folders) and
+`public-bucket` (readable without keys):
+
+```bash
+docker compose -f environment/dev/docker-compose.yml --profile s3 up -d
+```
+
+Add a file system of type S3 bucket with `s3://dev-bucket` (or `s3://dev-bucket/team-a`), endpoint
+URL `http://localhost:9000`, region `us-east-1`, access key `dev-access-key` and secret
+`dev-secret-key`; or `s3://public-bucket` with both keys blank. The `dev` profile sets a dev-only
+`filebrowser.secret-key`. The S3 tests start RustFS through Testcontainers and are skipped where
+Docker isn't available.
+
 ## Build and test
 
 CI runs the same production build that goes into the image:

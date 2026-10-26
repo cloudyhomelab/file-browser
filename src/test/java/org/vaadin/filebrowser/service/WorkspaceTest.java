@@ -51,7 +51,8 @@ class WorkspaceTest {
                 storage::status);
         // no one is signed in during the test, so nothing is saved per user
         final var currentUser = new CurrentUser(null, null);
-        workspace = new Workspace(catalog, registry, storage, new UserData(jdbc), currentUser);
+        final var s3Connections = new S3Connections(jdbc, new SecretBox((String) null));
+        workspace = new Workspace(catalog, registry, storage, s3Connections, new UserData(jdbc), currentUser);
 
         folder = Files.createDirectory(dir.resolve("projects"));
         Files.writeString(folder.resolve("notes.txt"), "notes");

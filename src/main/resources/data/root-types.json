@@ -12,7 +12,7 @@
     "endpointLabel": "Bucket URL",
     "endpointPlaceholder": "s3://bucket-name",
     "endpointPrefix": "s3://",
-    "endpointError": "Use the form s3://bucket-name",
+    "endpointError": "Use the form s3://bucket or s3://bucket/folder",
     "namePlaceholder": "Marketing assets",
     "regionLabel": "Region",
     "defaultRegion": "eu-central-1"
