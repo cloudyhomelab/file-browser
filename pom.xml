@@ -16,6 +16,14 @@
     <version>1.0-SNAPSHOT</version>
     <name>FileBrowser</name>
 
+    <licenses>
+        <license>
+            <name>GPL-3.0-or-later</name>
+            <url>https://www.gnu.org/licenses/gpl-3.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
     <properties>
         <java.version>21</java.version>
         <vaadin.version>25.3.3</vaadin.version>
