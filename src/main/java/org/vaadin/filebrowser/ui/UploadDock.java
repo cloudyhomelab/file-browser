@@ -76,7 +76,7 @@ public class UploadDock extends Composite<Div> {
             final var name = Ui.div("fb-dock-name", nameText);
             final var body = Ui.div("fb-dock-body", name);
             if (u.complete()) {
-                final var sizeText = Formats.size(u.size());
+                final var sizeText = Formats.size(u.knownSize());
                 final var doneText = new Span(sizeText + " · Done");
                 final var doneLine = Ui.div("fb-dock-done", doneText);
                 body.add(doneLine);

@@ -10,6 +10,7 @@ import java.time.Clock;
 import java.util.List;
 
 import org.flywaydb.core.Flyway;
+import org.apache.hc.client5.http.SystemDefaultDnsResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -52,7 +53,8 @@ class WorkspaceTest {
         // no one is signed in during the test, so nothing is saved per user
         final var currentUser = new CurrentUser(null, null);
         final var s3Connections = new S3Connections(jdbc, new SecretBox((String) null));
-        workspace = new Workspace(catalog, registry, storage, s3Connections, new UserData(jdbc), currentUser);
+        final var links = new LinkFetcher(address -> false, SystemDefaultDnsResolver.INSTANCE);
+        workspace = new Workspace(catalog, registry, storage, s3Connections, links, new UserData(jdbc), currentUser);
 
         folder = Files.createDirectory(dir.resolve("projects"));
         Files.writeString(folder.resolve("notes.txt"), "notes");
@@ -71,7 +73,7 @@ class WorkspaceTest {
                 .hasMessageContaining("read only");
         final var file = new IncomingFile("c1", "upload.txt", "text", 5);
         final var planned = List.of(new UploadQueue.Planned(file, "upload.txt", false));
-        assertThatThrownBy(() -> workspace.upload(held, List.of(), planned)).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> workspace.upload(held, List.of(), planned, Long.MAX_VALUE)).isInstanceOf(StorageException.class);
         assertThat(folder.resolve("Research")).doesNotExist();
         assertThat(workspace.list(held, List.of())).extracting(e -> e.name()).containsExactly("notes.txt");
     }

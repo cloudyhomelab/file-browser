@@ -23,13 +23,15 @@ public final class UploadTask implements Serializable {
     private final FsRoot root;
     private final List<String> folder;
     private final boolean replace;
+    /** The web link the server downloads it from; null for a file sent by the browser. */
+    private final String url;
     private volatile long received;
     private volatile State state = State.QUEUED;
     private volatile String error;
     private boolean announced;
 
     UploadTask(String id, String clientId, String name, String type, long size, FsRoot root, List<String> folder,
-               boolean replace) {
+               boolean replace, String url) {
         this.id = id;
         this.clientId = clientId;
         this.name = name;
@@ -38,6 +40,16 @@ public final class UploadTask implements Serializable {
         this.root = root;
         this.folder = folder;
         this.replace = replace;
+        this.url = url;
+    }
+
+    public String url() {
+        return url;
+    }
+
+    /** For display: null when unknown (a link that didn't say). */
+    public Long knownSize() {
+        return size < 0 ? null : size;
     }
 
     void received(long bytes) {

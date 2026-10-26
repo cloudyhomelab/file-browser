@@ -11,7 +11,8 @@ import org.springframework.util.unit.DataSize;
 @ConfigurationProperties("filebrowser")
 public record FileBrowserProperties(Path databasePath, Map<String, Provider> oidc, List<String> allowedDomains,
                                     List<String> allowedEmails, boolean requireVerifiedEmail,
-                                    List<String> adminEmails, DataSize maxUploadSize, Path secretKeyFile) {
+                                    List<String> adminEmails, DataSize maxUploadSize, Path secretKeyFile,
+                                    List<String> linkUploadAllowedNetworks) {
 
     public enum ProviderIcon { GOOGLE, KEYCLOAK, POCKET_ID, GENERIC }
 
@@ -24,6 +25,7 @@ public record FileBrowserProperties(Path databasePath, Map<String, Provider> oid
         allowedDomains = allowedDomains == null ? List.of() : List.copyOf(allowedDomains);
         allowedEmails = allowedEmails == null ? List.of() : List.copyOf(allowedEmails);
         adminEmails = adminEmails == null ? List.of() : List.copyOf(adminEmails);
+        linkUploadAllowedNetworks = linkUploadAllowedNetworks == null ? List.of() : List.copyOf(linkUploadAllowedNetworks);
     }
 
     public boolean isAdminEmail(String email) {
