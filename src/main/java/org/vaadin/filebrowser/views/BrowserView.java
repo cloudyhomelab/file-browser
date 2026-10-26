@@ -1,5 +1,7 @@
 package org.vaadin.filebrowser.views;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -9,6 +11,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import org.vaadin.filebrowser.config.FileBrowserProperties;
+import org.vaadin.filebrowser.data.AutoRefresh;
 import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.IncomingFile;
@@ -76,6 +79,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private static final String PATH_PARAM = "path";
     private static final String FOCUS_PARAM = "focus";
     private static final int UPLOAD_POLL_MS = 320;
+    /** Poll ticks don't land exactly on the interval; one this close to it counts as due. */
+    private static final Duration AUTO_REFRESH_SLACK = Duration.ofSeconds(1);
 
     private final Workspace workspace;
     private final long maxUploadBytes;
@@ -104,6 +109,10 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private boolean starredView;
     private boolean resetting;
     private Registration pollRegistration;
+    private AutoRefresh autoRefresh = AutoRefresh.OFF;
+    private Instant lastLoad = Instant.MIN;
+    /** What the last render showed, so an auto refresh that finds no change renders nothing. */
+    private List<String> shownSignature = List.of();
 
     public BrowserView(Workspace workspace, CurrentUser currentUser, FileBrowserProperties properties) {
         this.workspace = workspace;
@@ -111,7 +120,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         this.maxUploadBytes = properties.maxUploadSize().toBytes();
         setClassName("fb-browser");
 
-        final var toolbarCallbacks = new Toolbar.Callbacks(this::onQuery, this::sortBy,
+        final var toolbarCallbacks = new Toolbar.Callbacks(this::onQuery, this::sortBy, this::setAutoRefresh,
                 this::toggleDensity, this::setLayout, this::newFolder, this::openUploadDialog);
         toolbar = new Toolbar(toolbarCallbacks);
         dock = new UploadDock(workspace.catalog(), this::clearUploads);
@@ -172,6 +181,9 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         root = target.get();
         path = List.copyOf(newPath);
         if (rootChanged) {
+            // auto refresh is chosen per file system and never carried over
+            autoRefresh = AutoRefresh.OFF;
+            updatePollInterval();
             final var sidebarCallbacks = new Sidebar.Callbacks(this::navTo, this::openRoot, this::backToRoots,
                     this::showStarred, this::logout);
             final var browsable = workspace.browsableRoots();
@@ -204,6 +216,12 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private void openRoot(FsRoot target) {
         navigate(target.id(), List.of(), null);
+    }
+
+    private void setAutoRefresh(AutoRefresh option) {
+        autoRefresh = option;
+        updatePollInterval();
+        refresh();
     }
 
     private void toggleDensity() {
@@ -255,6 +273,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     /** Reads the open folder from storage; called once per refresh. */
     private void loadFolder() {
+        lastLoad = Instant.now();
         try {
             root = workspace.current(root);
             currentEntries = workspace.list(root, path);
@@ -293,7 +312,40 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private void refresh() {
         loadFolder();
+        render();
+    }
+
+    private static List<String> signature(List<Located> entries, String error) {
+        final var out = new ArrayList<String>();
+        out.add(String.valueOf(error));
+        entries.forEach(l -> out.add(l.rootId() + ":" + l.entry().path() + "|" + l.entry().size() + "|"
+                + l.entry().modified()));
+        return out;
+    }
+
+    /** A poll tick with auto refresh on: re-read, and render only if the folder changed. */
+    private void autoRefreshTick() {
+        if (!autoRefresh.on() || Duration.between(lastLoad, Instant.now()).plus(AUTO_REFRESH_SLACK)
+                .compareTo(autoRefresh.interval()) < 0) {
+            return;
+        }
+        loadFolder();
         final var entries = displayEntries();
+        if (signature(entries, loadError).equals(shownSignature)) {
+            return;
+        }
+        final var present = new HashSet<String>();
+        entries.forEach(l -> present.add(l.entry().path()));
+        selected.retainAll(present);
+        if (focused != null && !present.contains(focused)) {
+            focused = null;
+        }
+        render();
+    }
+
+    private void render() {
+        final var entries = displayEntries();
+        shownSignature = signature(entries, loadError);
         final var starredCount = workspace.starredIn(root).size();
         sidebar.update(path, starredView, starredCount);
         renderTitleRow(entries.size());
@@ -302,8 +354,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         if (!starredView) {
             final var bulk = selected.isEmpty() ? null
                     : new HeaderBulkActions(selected.size(), readOnly(), a -> handleAction(a, null), this::clearSelection);
-            final var toolbarState = new Toolbar.State(workspace.sort(), workspace.density(), workspace.layout(),
-                    readOnly(), bulk);
+            final var toolbarState = new Toolbar.State(workspace.sort(), autoRefresh, workspace.density(),
+                    workspace.layout(), readOnly(), bulk);
             toolbar.render(toolbarState);
         }
         renderContent(entries);
@@ -741,7 +793,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             Toasts.error(e.getMessage());
             return;
         }
-        getUI().ifPresent(ui -> ui.setPollInterval(UPLOAD_POLL_MS));
+        updatePollInterval();
         refresh();
     }
 
@@ -756,10 +808,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         final var ui = attachEvent.getUI();
-        pollRegistration = ui.addPollListener(e -> onUploadPoll(ui));
-        if (workspace.uploads().active()) {
-            ui.setPollInterval(UPLOAD_POLL_MS);
-        }
+        pollRegistration = ui.addPollListener(e -> onPoll());
+        updatePollInterval();
     }
 
     @Override
@@ -772,7 +822,21 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         super.onDetach(detachEvent);
     }
 
-    private void onUploadPoll(UI ui) {
+    /** One timer for both: fast while uploads run, else at the auto refresh interval, else off. */
+    private void updatePollInterval() {
+        final var interval = workspace.uploads().active() ? UPLOAD_POLL_MS
+                : autoRefresh.on() ? (int) autoRefresh.interval().toMillis()
+                : -1;
+        getUI().ifPresent(ui -> ui.setPollInterval(interval));
+    }
+
+    private void onPoll() {
+        onUploadPoll();
+        autoRefreshTick();
+        updatePollInterval();
+    }
+
+    private void onUploadPoll() {
         final var finished = workspace.uploads().takeFinished();
         for (final var t : finished) {
             switch (t.state()) {
@@ -780,9 +844,6 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                 case FAILED -> Toasts.error(t.error());
                 default -> { }
             }
-        }
-        if (!workspace.uploads().active()) {
-            ui.setPollInterval(-1);
         }
         if (finished.isEmpty()) {
             dock.show(workspace.uploads().all());

@@ -2,6 +2,7 @@ package org.vaadin.filebrowser.ui;
 
 import java.util.List;
 
+import org.vaadin.filebrowser.data.AutoRefresh;
 import org.vaadin.filebrowser.data.Sort;
 import org.vaadin.filebrowser.data.SortKey;
 import org.vaadin.filebrowser.service.Workspace.Density;
@@ -20,15 +21,17 @@ import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.function.SerializableRunnable;
 
 /**
- * Search, sort, density, layout and create/upload actions. The search field is kept across
+ * Search, sort, auto refresh, density, layout and create/upload actions. The search field is kept across
  * refreshes so typing never loses focus; everything else is re-rendered from {@link State}.
  */
 public class Toolbar extends Composite<Div> {
 
-    public record State(Sort sort, Density density, Layout layout, boolean readOnly, Component bulkSlot) {
+    public record State(Sort sort, AutoRefresh autoRefresh, Density density, Layout layout, boolean readOnly,
+                        Component bulkSlot) {
     }
 
-    public record Callbacks(SerializableConsumer<String> onQuery, SerializableConsumer<SortKey> onSort, SerializableRunnable onToggleDensity,
+    public record Callbacks(SerializableConsumer<String> onQuery, SerializableConsumer<SortKey> onSort,
+                            SerializableConsumer<AutoRefresh> onAutoRefresh, SerializableRunnable onToggleDensity,
                             SerializableConsumer<Layout> onLayout, SerializableRunnable onNewFolder,
                             SerializableRunnable onUpload) {
     }
@@ -66,7 +69,8 @@ public class Toolbar extends Composite<Div> {
             actions.add(state.bulkSlot(), bulkSeparator);
         }
         final var sort = sortMenu(state.sort());
-        actions.add(sort);
+        final var autoRefresh = autoRefreshMenu(state.autoRefresh());
+        actions.add(sort, autoRefresh);
         final var dense = state.density() == Density.DENSE;
         final var densityToggle = Ui.iconButton(dense ? "list" : "menu", dense ? "Comfortable rows" : "Dense rows",
                 callbacks.onToggleDensity());
@@ -111,6 +115,43 @@ public class Toolbar extends Composite<Div> {
                 item.add(mark);
             }
             menu.add(item);
+        }
+        popover.add(menu);
+        return Ui.span("fb-sort-wrap", trigger, popover);
+    }
+
+    private Component autoRefreshMenu(AutoRefresh current) {
+        final var trigger = new NativeButton();
+        trigger.setClassName("fb-ghost-btn" + (current.on() ? " fb-ghost-btn--on" : ""));
+        final var refreshIcon = new Icon("refresh");
+        final var label = Ui.span("", current.label());
+        trigger.add(refreshIcon, label);
+        trigger.getElement().setAttribute("aria-label", "Auto refresh: " + current.label());
+        trigger.getElement().setAttribute("title", "Auto refresh");
+
+        final var popover = new Popover();
+        popover.setTarget(trigger);
+        popover.setPosition(PopoverPosition.BOTTOM_END);
+        popover.addThemeVariants(PopoverVariant.NO_PADDING);
+        final var menu = Ui.div("fb-menu fb-sort-menu");
+        final var heading = Ui.div("fb-menu-heading", Ui.span("", "Auto refresh"));
+        menu.add(heading);
+        for (final var option : AutoRefresh.values()) {
+            final var optionLabel = Ui.span("fb-grow", option == AutoRefresh.OFF ? "Off" : "Every " + option.label());
+            final var item = Ui.button("fb-menu-item", () -> {
+                popover.close();
+                callbacks.onAutoRefresh().accept(option);
+            }, optionLabel);
+            if (option == current) {
+                final var markIcon = new Icon("check");
+                final var mark = Ui.span("fb-menu-item-mark", markIcon);
+                item.add(mark);
+            }
+            menu.add(item);
+            if (option == AutoRefresh.OFF) {
+                final var separator = Ui.divider("fb-menu-sep");
+                menu.add(separator);
+            }
         }
         popover.add(menu);
         return Ui.span("fb-sort-wrap", trigger, popover);
