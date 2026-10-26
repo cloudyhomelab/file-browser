@@ -31,6 +31,7 @@ public class SecurityConfig {
 
     public static final String SIGN_IN_PATH = "/sign-in";
     public static final String AUTHORIZATION_PATH = "/oauth2/authorization/";
+    private static final String POST_LOGOUT_REDIRECT = "{baseUrl}";
     private static final String[] PUBLIC_RESOURCES = {"/styles.css", "/icons.svg", "/favicon.svg", "/oidc/**"};
 
     @Bean
@@ -43,7 +44,8 @@ public class SecurityConfig {
                 ? AUTHORIZATION_PATH + registrations.getFirst().getRegistrationId()
                 : SIGN_IN_PATH;
         http.authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC_RESOURCES).permitAll());
-        http.with(VaadinSecurityConfigurer.vaadin(), vaadin -> vaadin.oauth2LoginPage(loginPage));
+        // the provider session is ended too when it advertises end_session_endpoint (Google does not)
+        http.with(VaadinSecurityConfigurer.vaadin(), vaadin -> vaadin.oauth2LoginPage(loginPage, POST_LOGOUT_REDIRECT));
         final var userService = new FileBrowserOidcUserService(policy, properties, accounts);
         // the default failure URL is loginPage?error, which with one provider would loop straight back to it
         http.oauth2Login(oauth -> oauth
