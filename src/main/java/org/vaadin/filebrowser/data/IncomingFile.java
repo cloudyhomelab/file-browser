@@ -2,6 +2,10 @@ package org.vaadin.filebrowser.data;
 
 import java.io.Serializable;
 
-/** A file offered for upload: a sample file or the metadata of a file the user dropped. */
-public record IncomingFile(String name, String type, long size) implements Serializable {
+/**
+ * A file the user picked or dropped, before it is uploaded.
+ *
+ * @param clientId the browser's handle for the file's contents, which stay in the browser until uploaded
+ */
+public record IncomingFile(String clientId, String name, String type, long size) implements Serializable {
 }

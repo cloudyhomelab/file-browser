@@ -7,13 +7,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
-import org.vaadin.filebrowser.data.IncomingFile;
 import org.vaadin.filebrowser.data.Located;
 import org.vaadin.filebrowser.data.Sort;
 import org.vaadin.filebrowser.storage.StorageEntry;
@@ -26,7 +23,7 @@ import com.vaadin.flow.spring.annotation.VaadinSessionScope;
 
 /**
  * The signed-in user's view of the shared file systems (from {@link FileSystemRegistry}): file
- * operations through {@link StorageService}, starred items, view preferences and simulated uploads.
+ * operations through {@link StorageService}, starred items, view preferences and uploads.
  * Lives for the Vaadin session.
  */
 @SpringComponent
@@ -39,17 +36,12 @@ public class Workspace implements Serializable {
 
     public enum ConflictChoice { REPLACE, KEEP_BOTH, SKIP }
 
-    public record PlannedUpload(IncomingFile file, String finalName, boolean replace) {
-    }
-
-    private static final int UPLOAD_STEP_MIN = 8;
-    private static final int UPLOAD_STEP_SPREAD = 22;
 
     private final Catalog catalog;
     private final FileSystemRegistry registry;
     private final StorageService storage;
     private final Set<String> starred = new LinkedHashSet<>();
-    private final List<UploadTask> uploads = new ArrayList<>();
+    private final UploadQueue uploads;
 
     private Layout layout = Layout.LIST;
     private Density density = Density.DENSE;
@@ -59,6 +51,7 @@ public class Workspace implements Serializable {
         this.catalog = catalog;
         this.registry = registry;
         this.storage = storage;
+        this.uploads = new UploadQueue(storage);
     }
 
     public Catalog catalog() {
@@ -99,6 +92,11 @@ public class Workspace implements Serializable {
 
     private StorageProvider provider(FsRoot root) {
         return storage.provider(root);
+    }
+
+    /** The provider behind a file system, for streaming downloads outside the UI thread. */
+    public StorageProvider storage(FsRoot root) {
+        return provider(root);
     }
 
     public List<StorageEntry> list(FsRoot root, List<String> folder) {
@@ -261,36 +259,8 @@ public class Workspace implements Serializable {
         return candidate;
     }
 
-    public List<UploadTask> uploads() {
-        return List.copyOf(uploads);
-    }
-
-    public boolean uploading() {
-        return uploads.stream().anyMatch(u -> !u.complete());
-    }
-
-    public void clearUploads() {
-        uploads.clear();
-    }
-
-    public void enqueue(String rootId, List<String> path, List<PlannedUpload> planned) {
-        for (final var p : planned) {
-            final var task = new UploadTask(UUID.randomUUID().toString(), p.finalName(), p.file().type(), p.file().size(), rootId,
-                    List.copyOf(path), p.replace());
-            uploads.add(task);
-        }
-    }
-
-    /** Advances the simulated transfers; returns those that finished. Nothing is stored yet. */
-    public List<UploadTask> advanceUploads() {
-        final var random = ThreadLocalRandom.current();
-        final var finished = new ArrayList<UploadTask>();
-        for (final var task : uploads) {
-            if (task.advance(UPLOAD_STEP_MIN + random.nextInt(UPLOAD_STEP_SPREAD + 1))) {
-                finished.add(task);
-            }
-        }
-        return finished;
+    public UploadQueue uploads() {
+        return uploads;
     }
 
     // ---- view preferences -----------------------------------------------------------------

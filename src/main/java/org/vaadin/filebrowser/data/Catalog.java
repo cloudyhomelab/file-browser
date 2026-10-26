@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.io.UncheckedIOException;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -26,12 +25,8 @@ public class Catalog implements Serializable {
     record MountKinds(Map<String, MountInfo.Kind> storeTypes, Map<String, KindInfo> kinds) implements Serializable {
     }
 
-    record MockData(List<IncomingFile> sampleFiles) implements Serializable {
-    }
-
     private final Map<RootType, RootTypeInfo> rootTypes;
     private final Map<String, FileTypeInfo> fileTypes;
-    private final MockData mock;
     private final Map<String, String> signInErrors;
     private final MountKinds mountKinds;
 
@@ -41,7 +36,6 @@ public class Catalog implements Serializable {
                 .build();
         this.rootTypes = read(mapper, "data/root-types.json", new TypeReference<Map<RootType, RootTypeInfo>>() { });
         this.fileTypes = read(mapper, "data/file-types.json", new TypeReference<LinkedHashMap<String, FileTypeInfo>>() { });
-        this.mock = read(mapper, "data/mock-data.json", new TypeReference<MockData>() { });
         this.signInErrors = read(mapper, "data/sign-in-errors.json", new TypeReference<Map<String, String>>() { });
         this.mountKinds = read(mapper, "data/mount-kinds.json", new TypeReference<MountKinds>() { });
     }
@@ -93,7 +87,4 @@ public class Catalog implements Serializable {
         return signInErrors.getOrDefault(code, signInErrors.get(DEFAULT_SIGN_IN_ERROR));
     }
 
-    public List<IncomingFile> sampleFiles() {
-        return mock.sampleFiles();
-    }
 }

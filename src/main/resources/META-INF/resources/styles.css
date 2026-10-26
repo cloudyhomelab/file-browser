@@ -832,6 +832,7 @@ vaadin-text-field.fb-search [slot="prefix"] { color: var(--fb-fg-secondary); }
 .fb-dock-bar { margin-top: 5px; height: 4px; border-radius: 999px; background: var(--fb-bg-subtle); overflow: hidden; }
 .fb-dock-fill { height: 100%; background: var(--fb-accent); border-radius: 999px; transition: width 0.2s linear; }
 .fb-dock-done { margin-top: 2px; font: 400 11.5px/1 var(--fb-font-sans); color: var(--fb-green); }
+.fb-dock-failed { margin-top: 2px; font: 400 11.5px/1.3 var(--fb-font-sans); color: var(--fb-red); }
 .fb-dock-pct { font: 400 12px/1 var(--fb-font-mono); color: var(--fb-fg-tertiary); }
 
 /* ================= dialogs ================= */

@@ -11,7 +11,7 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.function.SerializableRunnable;
 
-/** Bottom-right panel listing simulated uploads with their progress. */
+/** Bottom-right panel listing uploads with their progress; dismissing it cancels unfinished ones. */
 public class UploadDock extends Composite<Div> {
 
     private static final int GLYPH_LABEL_CHARS = 3;
@@ -34,15 +34,17 @@ public class UploadDock extends Composite<Div> {
         if (uploads.isEmpty()) {
             return;
         }
-        final var active = (int) uploads.stream().filter(u -> !u.complete()).count();
-        final var done = uploads.size() - active;
+        final var active = (int) uploads.stream().filter(u -> !u.finished()).count();
+        final var failed = (int) uploads.stream().filter(u -> u.state() == UploadTask.State.FAILED).count();
+        final var done = (int) uploads.stream().filter(UploadTask::complete).count();
         final var title = active > 0 ? "Uploading " + Formats.plural(active, "item") + "…"
+                : failed > 0 ? Formats.plural(done, "upload") + " complete, " + failed + " failed"
                 : Formats.plural(done, "upload") + " complete";
 
         final var caret = new Icon("angle-down");
         caret.addClassName("fb-dock-caret");
         final var titleLabel = Ui.span("fb-dock-title", title);
-        final var dismiss = Ui.iconButton("cross", "Dismiss", onDismiss);
+        final var dismiss = Ui.iconButton("cross", active > 0 ? "Cancel uploads" : "Dismiss", onDismiss);
         final var head = Ui.div("fb-dock-head", titleLabel, caret, dismiss);
         head.addClickListener(e -> {
             collapsed = !collapsed;
@@ -58,9 +60,13 @@ public class UploadDock extends Composite<Div> {
         for (final var u : uploads) {
             final var info = catalog.fileType(u.type());
             final var badge = Ui.span("fb-dock-glyph fb-type-" + u.type());
+            final var failedRow = u.state() == UploadTask.State.FAILED;
             if (u.complete()) {
                 final var checkIcon = new Icon("check");
                 badge.add(checkIcon);
+            } else if (failedRow) {
+                final var warnIcon = new Icon("warn");
+                badge.add(warnIcon);
             } else {
                 final var label = info.label().isEmpty() ? "•" : info.label();
                 final var shortLabel = label.substring(0, Math.min(GLYPH_LABEL_CHARS, label.length()));
@@ -74,6 +80,10 @@ public class UploadDock extends Composite<Div> {
                 final var doneText = new Span(sizeText + " · Done");
                 final var doneLine = Ui.div("fb-dock-done", doneText);
                 body.add(doneLine);
+            } else if (failedRow) {
+                final var errorText = new Span(u.error());
+                final var errorLine = Ui.div("fb-dock-failed", errorText);
+                body.add(errorLine);
             } else {
                 final var fill = Ui.div("fb-dock-fill");
                 fill.getStyle().setWidth(u.progress() + "%");
@@ -81,7 +91,7 @@ public class UploadDock extends Composite<Div> {
                 body.add(bar);
             }
             final var row = Ui.div("fb-dock-row", badge, body);
-            if (!u.complete()) {
+            if (!u.finished()) {
                 final var percent = Ui.span("fb-mono fb-dock-pct", u.progress() + "%");
                 row.add(percent);
             }

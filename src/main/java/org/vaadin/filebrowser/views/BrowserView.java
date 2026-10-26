@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import org.vaadin.filebrowser.config.FileBrowserProperties;
 import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.IncomingFile;
@@ -19,7 +20,8 @@ import org.vaadin.filebrowser.service.Workspace;
 import org.vaadin.filebrowser.service.Workspace.ConflictChoice;
 import org.vaadin.filebrowser.service.Workspace.Density;
 import org.vaadin.filebrowser.service.Workspace.Layout;
-import org.vaadin.filebrowser.service.Workspace.PlannedUpload;
+import org.vaadin.filebrowser.service.Downloads;
+import org.vaadin.filebrowser.service.UploadQueue.Planned;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.ui.Badge;
@@ -53,13 +55,16 @@ import jakarta.annotation.security.PermitAll;
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.dom.Style;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.HasDynamicTitle;
 import com.vaadin.flow.router.QueryParameters;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteParameters;
+import com.vaadin.flow.server.streams.UploadHandler;
 import com.vaadin.flow.shared.Registration;
 
 /** Browses one file system: sidebar tree, header with breadcrumb and toolbar, list/grid, details. */
@@ -73,6 +78,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private static final int UPLOAD_POLL_MS = 320;
 
     private final Workspace workspace;
+    private final long maxUploadBytes;
     private final CurrentUser currentUser;
 
     private final Div sidebarSlot = Ui.div("fb-sidebar-slot");
@@ -84,6 +90,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private final Div bulkSlot = Ui.div("fb-bulk-slot");
     private final UploadDock dock;
     private final EntryMenu entryMenu = new EntryMenu();
+    private final Anchor downloadLink = new Anchor();
 
     private FsRoot root;
     private List<String> path = List.of();
@@ -98,9 +105,10 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private boolean resetting;
     private Registration pollRegistration;
 
-    public BrowserView(Workspace workspace, CurrentUser currentUser) {
+    public BrowserView(Workspace workspace, CurrentUser currentUser, FileBrowserProperties properties) {
         this.workspace = workspace;
         this.currentUser = currentUser;
+        this.maxUploadBytes = properties.maxUploadSize().toBytes();
         setClassName("fb-browser");
 
         final var toolbarCallbacks = new Toolbar.Callbacks(this::onQuery, this::sortBy,
@@ -111,6 +119,15 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         main = new FileDropArea(workspace.catalog(), false);
         main.addClassName("fb-main");
         main.onFiles(this::onFilesDropped);
+        final var queue = workspace.uploads();
+        final var maxBytes = maxUploadBytes;
+        // runs on the upload request thread, outside the session lock: only touch the thread-safe queue here
+        final UploadHandler uploadHandler = event -> {
+            final var taskId = event.getRequest().getParameter("task");
+            queue.receive(taskId, event.getInputStream(), maxBytes);
+        };
+        main.setUploadHandler(uploadHandler);
+        main.onUploadLost(this::uploadLost);
         final var uploadIcon = new Icon("upload");
         final var dropIcon = Ui.span("fb-drop-overlay-icon", uploadIcon);
         final var dropTitle = Ui.span("fb-drop-overlay-title", "Drop files to upload");
@@ -120,7 +137,9 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var body = Ui.div("fb-body", content, detailsSlot);
         main.add(header, body, dropOverlay, bulkSlot, dock);
 
-        add(sidebarSlot, main, entryMenu);
+        downloadLink.getElement().setAttribute("download", true);
+        downloadLink.getStyle().setDisplay(Style.Display.NONE);
+        add(sidebarSlot, main, entryMenu, downloadLink);
     }
 
     public static RouteParameters params(String rootId, List<String> path) {
@@ -198,7 +217,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void clearUploads() {
-        workspace.clearUploads();
+        workspace.uploads().clear();
+        main.cancelUploads();
         refresh();
     }
 
@@ -292,7 +312,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             final var bulkBar = new BulkBar(selected.size(), readOnly(), a -> handleAction(a, null), this::clearSelection);
             bulkSlot.add(bulkBar);
         }
-        dock.show(workspace.uploads());
+        dock.show(workspace.uploads().all());
     }
 
     private void renderTitleRow(int count) {
@@ -517,8 +537,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var first = targets.getFirst();
         switch (action) {
             case OPEN -> open(first);
-            case DOWNLOAD -> Toasts.show(targets.size() > 1 ? "Downloading " + targets.size() + " items…"
-                    : "Downloading “" + first.entry().name() + "”…", "download");
+            case DOWNLOAD -> download(targets);
             case RENAME -> {
                 final var dialog = NameDialog.rename(first.entry().name(), first.entry().folder(), name -> rename(first, name));
                 dialog.open();
@@ -640,8 +659,9 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             Toasts.readOnly();
             return;
         }
-        // transfers are wired to storage in the next step; until then don't pretend to upload
-        Toasts.show("Uploading isn't available yet", "info");
+        final var limit = Formats.size(maxUploadBytes);
+        final var dialog = new UploadDialog(workspace.catalog(), limit, this::startUploads);
+        dialog.open();
     }
 
     private void onFilesDropped(List<IncomingFile> files) {
@@ -652,15 +672,32 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             Toasts.readOnly();
             return;
         }
-        openUploadDialog();
+        startUploads(files);
     }
 
-    private void startUploads(List<IncomingFile> files) {
+    private void startUploads(List<IncomingFile> picked) {
+        final var tooLarge = picked.stream().filter(f -> f.size() > maxUploadBytes).toList();
+        if (!tooLarge.isEmpty()) {
+            final var limit = Formats.size(maxUploadBytes);
+            final var names = tooLarge.size() == 1 ? "“" + tooLarge.getFirst().name() + "” is" : tooLarge.size() + " files are";
+            Toasts.error(names + " larger than " + limit + " and won't be uploaded");
+        }
+        final var files = picked.stream().filter(f -> f.size() <= maxUploadBytes).toList();
+        if (files.isEmpty()) {
+            return;
+        }
         final var destination = path;
-        final var existing = workspace.fileNames(root, destination);
+        final Set<String> existing;
+        try {
+            existing = workspace.fileNames(root, destination);
+        } catch (StorageException e) {
+            Toasts.error(e.getMessage());
+            return;
+        }
         final var conflicts = files.stream().filter(f -> existing.contains(f.name())).toList();
         if (conflicts.isEmpty()) {
-            enqueue(destination, files.stream().map(f -> new PlannedUpload(f, f.name(), false)).toList());
+            final var planned = files.stream().map(f -> new Planned(f, f.name(), false)).toList();
+            enqueue(destination, planned);
             return;
         }
         final var dialog = new ConflictDialog(workspace.catalog(), conflicts, files.size(), existing,
@@ -671,19 +708,19 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private void resolveConflicts(List<IncomingFile> files, List<String> destination, Set<String> existing,
                                   Map<String, ConflictChoice> choices) {
         final var taken = new HashSet<>(existing);
-        final var planned = new ArrayList<PlannedUpload>();
+        final var planned = new ArrayList<Planned>();
         for (final var f : files) {
             final var choice = choices.get(f.name());
             if (choice == null) {
-                final var upload = new PlannedUpload(f, f.name(), false);
+                final var upload = new Planned(f, f.name(), false);
                 planned.add(upload);
             } else if (choice == ConflictChoice.REPLACE) {
-                final var upload = new PlannedUpload(f, f.name(), true);
+                final var upload = new Planned(f, f.name(), true);
                 planned.add(upload);
             } else if (choice == ConflictChoice.KEEP_BOTH) {
                 final var renamed = Workspace.keepBothName(f.name(), taken);
                 taken.add(renamed);
-                final var upload = new PlannedUpload(f, renamed, false);
+                final var upload = new Planned(f, renamed, false);
                 planned.add(upload);
             }
         }
@@ -695,18 +732,31 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         enqueue(destination, planned);
     }
 
-    private void enqueue(List<String> destination, List<PlannedUpload> planned) {
-        workspace.enqueue(root.id(), destination, planned);
+    private void enqueue(List<String> destination, List<Planned> planned) {
+        try {
+            final var tasks = workspace.uploads().enqueue(root, destination, planned);
+            main.upload(tasks);
+        } catch (StorageException e) {
+            Toasts.error(e.getMessage());
+            return;
+        }
         getUI().ifPresent(ui -> ui.setPollInterval(UPLOAD_POLL_MS));
         refresh();
+    }
+
+    private void uploadLost(String taskId) {
+        workspace.uploads().all().stream()
+                .filter(t -> t.id().equals(taskId))
+                .findFirst()
+                .ifPresent(workspace.uploads()::lost);
     }
 
     @Override
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         final var ui = attachEvent.getUI();
-        pollRegistration = ui.addPollListener(e -> advanceUploads(ui));
-        if (workspace.uploading()) {
+        pollRegistration = ui.addPollListener(e -> onUploadPoll(ui));
+        if (workspace.uploads().active()) {
             ui.setPollInterval(UPLOAD_POLL_MS);
         }
     }
@@ -721,17 +771,37 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         super.onDetach(detachEvent);
     }
 
-    private void advanceUploads(UI ui) {
-        if (!workspace.uploading()) {
-            ui.setPollInterval(-1);
-            return;
+    private void onUploadPoll(UI ui) {
+        final var finished = workspace.uploads().takeFinished();
+        for (final var t : finished) {
+            switch (t.state()) {
+                case DONE -> Toasts.show((t.replace() ? "Replaced “" : "Uploaded “") + t.name() + "”", "check");
+                case FAILED -> Toasts.error(t.error());
+                default -> { }
+            }
         }
-        final var finished = workspace.advanceUploads();
-        finished.forEach(t -> Toasts.show((t.replace() ? "Replaced “" : "Uploaded “") + t.name() + "”", "check"));
-        if (!workspace.uploading()) {
+        if (!workspace.uploads().active()) {
             ui.setPollInterval(-1);
         }
-        refresh();
+        if (finished.isEmpty()) {
+            dock.show(workspace.uploads().all());
+        } else {
+            refresh();
+        }
+    }
+
+    // ---- downloads ------------------------------------------------------------------------
+
+    private void download(List<Located> targets) {
+        final var entries = targets.stream().map(Located::entry).toList();
+        final var single = entries.size() == 1 ? entries.getFirst() : null;
+        final var zipBase = single != null ? single.name() : path.isEmpty() ? root.name() : path.getLast();
+        final var provider = workspace.storage(root);
+        final var handler = Downloads.of(provider, entries, zipBase + ".zip");
+        // the link stays in place: removing it right after the click can unregister the download before the
+        // browser's request for it arrives; the next download replaces its target instead
+        downloadLink.setHref(handler);
+        downloadLink.getElement().executeJs("this.click()");
     }
 
     private static List<String> append(List<String> base, String name) {

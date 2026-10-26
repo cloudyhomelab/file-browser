@@ -5,12 +5,13 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.unit.DataSize;
 
 /** Deployment-time settings under {@code filebrowser.*}, also settable as {@code FILEBROWSER_*} env vars. */
 @ConfigurationProperties("filebrowser")
 public record FileBrowserProperties(Path databasePath, Map<String, Provider> oidc, List<String> allowedDomains,
                                     List<String> allowedEmails, boolean requireVerifiedEmail,
-                                    List<String> adminEmails) {
+                                    List<String> adminEmails, DataSize maxUploadSize) {
 
     public enum ProviderIcon { GOOGLE, KEYCLOAK, POCKET_ID, GENERIC }
 

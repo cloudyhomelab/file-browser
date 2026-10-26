@@ -18,19 +18,20 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.function.SerializableConsumer;
 
-/** Pick files to upload: drop or browse real files, or choose from the demo sample set. */
+/** Pick files to upload by dropping them or browsing; every picked file starts selected. */
 public class UploadDialog extends FbDialog {
 
     private final Catalog catalog;
     private final Map<String, IncomingFile> picked = new LinkedHashMap<>();
     private final List<IncomingFile> offered;
     private final Div list = Ui.div("fb-upload-list");
+    private final Div sectionLabel;
     private final Button confirm;
 
-    public UploadDialog(Catalog catalog, SerializableConsumer<List<IncomingFile>> onConfirm) {
+    public UploadDialog(Catalog catalog, String sizeLimit, SerializableConsumer<List<IncomingFile>> onConfirm) {
         super("Upload files", "upload", Tone.ACCENT, Width.MEDIUM);
         this.catalog = catalog;
-        this.offered = new ArrayList<>(catalog.sampleFiles());
+        this.offered = new ArrayList<>();
 
         final var zone = new FileDropArea(catalog, true);
         zone.addClassName("fb-upload-zone");
@@ -38,8 +39,8 @@ public class UploadDialog extends FbDialog {
         zone.getElement().setAttribute("tabindex", "0");
         final var uploadIcon = new Icon("upload");
         final var zoneIcon = Ui.span("fb-upload-zone-icon", uploadIcon);
-        final var zoneTitle = Ui.span("fb-upload-zone-title", "Drag files here, click to browse, or pick from the sample set below");
-        final var zoneSub = Ui.span("fb-upload-zone-sub", "Up to 5 GB per file");
+        final var zoneTitle = Ui.span("fb-upload-zone-title", "Drag files here, or click to browse");
+        final var zoneSub = Ui.span("fb-upload-zone-sub", "Up to " + sizeLimit + " per file");
         zone.add(zoneIcon, zoneTitle, zoneSub);
         zone.onFiles(files -> {
             for (final var f : files) {
@@ -50,8 +51,8 @@ public class UploadDialog extends FbDialog {
             render();
         });
 
-        final var sectionText = Ui.span("", "Sample files");
-        final var sectionLabel = Ui.div("fb-section-label", sectionText);
+        final var sectionText = Ui.span("", "Selected files");
+        sectionLabel = Ui.div("fb-section-label", sectionText);
         add(zone, sectionLabel, list);
         confirm = Buttons.create(Buttons.Kind.PRIMARY, "Upload", "upload", () -> {
             if (!picked.isEmpty()) {
@@ -66,6 +67,7 @@ public class UploadDialog extends FbDialog {
     }
 
     private void render() {
+        sectionLabel.setVisible(!offered.isEmpty());
         list.removeAll();
         for (final var f : offered) {
             final var selected = picked.containsKey(f.name());
