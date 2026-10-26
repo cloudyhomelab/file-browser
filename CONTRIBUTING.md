@@ -108,8 +108,8 @@ docker compose -f environment/dev/docker-compose.yml --profile s3 up -d
 
 Add a file system of type S3 bucket with `s3://dev-bucket` (or `s3://dev-bucket/team-a`), endpoint
 URL `http://localhost:9000`, region `us-east-1`, access key `dev-access-key` and secret
-`dev-secret-key`; or `s3://public-bucket` with both keys blank. The `dev` profile sets a dev-only
-`filebrowser.secret-key`. The S3 tests start RustFS through Testcontainers and are skipped where
+`dev-secret-key`; or `s3://public-bucket` with both keys blank. The `dev` profile reads a dev-only
+secret key from `environment/dev/secret-key`. The S3 tests start RustFS through Testcontainers and are skipped where
 Docker isn't available.
 
 ## Build and test
