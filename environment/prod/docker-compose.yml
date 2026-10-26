@@ -1,0 +1,35 @@
+# Sample deployment. Copy .env.example to .env next to this file and fill it in.
+services:
+  file-browser:
+    image: docker.io/binarycodes/file-browser:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_SSO_CLIENT_ID: ${OIDC_CLIENT_ID:?}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_SSO_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_SSO_SCOPE: openid,email,profile
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_SSO_ISSUER_URI: ${OIDC_ISSUER_URI:?}
+      FILEBROWSER_OIDC_SSO_LABEL: ${OIDC_LABEL:-Single sign-on}
+      FILEBROWSER_OIDC_SSO_ICON: ${OIDC_ICON:-generic}
+      # A second provider: same variables under another one-word id; the sign-in page then shows a chooser.
+      # Redirect URI at that provider: <app-url>/login/oauth2/code/google
+      # SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?}
+      # SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?}
+      # SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_SCOPE: openid,email,profile
+      # SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_GOOGLE_ISSUER_URI: https://accounts.google.com
+      # FILEBROWSER_OIDC_GOOGLE_LABEL: Google
+      # FILEBROWSER_OIDC_GOOGLE_ICON: google
+      FILEBROWSER_ADMIN_EMAILS: ${ADMIN_EMAILS:?}
+      FILEBROWSER_ALLOWED_DOMAINS: ${ALLOWED_DOMAINS:-}
+      FILEBROWSER_ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
+      # Behind a TLS-terminating reverse proxy, so redirect URIs use the public https URL.
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+    volumes:
+      # SQLite database: file systems, accounts, stars and preferences.
+      - file-browser-data:/app/data
+      # Each folder mounted here can be added as a file system under its container path.
+      - ${FILES_PATH:?}:/srv/files
+
+volumes:
+  file-browser-data:

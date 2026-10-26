@@ -18,6 +18,16 @@ mvn -Dspring-boot.run.profiles=dev
 The app runs on http://localhost:8080. The `dev` profile signs in against the mock provider and
 makes `admin@example.com` an admin.
 
+## Deploy
+
+`environment/prod/` has a sample `docker-compose.yml` that runs the published image with one OIDC
+provider, a volume for the database and one host folder to add as a file system. Copy
+`.env.example` to `.env` next to it, fill it in, then:
+
+```bash
+docker compose -f environment/prod/docker-compose.yml up -d
+```
+
 ## Sign-in
 
 Sign-in is OIDC only: the app has no passwords or accounts of its own and identifies users by the
