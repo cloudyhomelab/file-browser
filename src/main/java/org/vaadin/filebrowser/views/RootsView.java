@@ -12,6 +12,7 @@ import org.vaadin.filebrowser.ui.Icon;
 import org.vaadin.filebrowser.ui.MenuPosition;
 import org.vaadin.filebrowser.ui.RootMenu;
 import org.vaadin.filebrowser.ui.StarredBanner;
+import org.vaadin.filebrowser.ui.SubfolderLoader;
 import org.vaadin.filebrowser.ui.Toasts;
 import org.vaadin.filebrowser.ui.Ui;
 import org.vaadin.filebrowser.ui.dialog.AddRootDialog;
@@ -141,7 +142,9 @@ public class RootsView extends Div {
 
     private void openAddDialog() {
         final var newId = workspace.newRootId();
-        final var dialog = new AddRootDialog(workspace.catalog(), workspace::endpointTaken, workspace::probe, newId, root -> {
+        final SubfolderLoader serverFolders = folder -> workspace.serverFolders("/" + String.join("/", folder));
+        final var dialog = new AddRootDialog(workspace.catalog(), workspace::endpointTaken, workspace::probe,
+                serverFolders, newId, root -> {
             workspace.addRoot(root);
             Toasts.show("Connected “" + root.name() + "”", "check");
             render();
