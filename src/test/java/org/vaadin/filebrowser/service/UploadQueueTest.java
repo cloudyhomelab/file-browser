@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.ZipInputStream;
 
+import org.apache.hc.client5.http.SystemDefaultDnsResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -23,6 +26,8 @@ import org.vaadin.filebrowser.data.IncomingFile;
 import org.vaadin.filebrowser.data.RootType;
 import org.vaadin.filebrowser.storage.MountInfo;
 import org.vaadin.filebrowser.storage.StorageException;
+
+import com.sun.net.httpserver.HttpServer;
 
 class UploadQueueTest {
 
@@ -118,5 +123,39 @@ class UploadQueueTest {
             }
         }
         assertThat(names).containsExactlyInAnyOrder("Docs/", "Docs/a.txt", "Docs/Inner/", "Docs/Inner/b.txt");
+    }
+
+    @Test
+    void linksAreDownloadedIntoTheFolderAndOversizedOnesFail() throws IOException {
+        final var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/note.txt", exchange -> {
+            final var body = "from the web".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.createContext("/huge.bin", exchange -> {
+            // no length announced, so only the streamed limit can stop it
+            exchange.sendResponseHeaders(200, 0);
+            exchange.getResponseBody().write(new byte[(int) LIMIT * 2]);
+            exchange.close();
+        });
+        server.start();
+        final var base = "http://127.0.0.1:" + server.getAddress().getPort();
+        try (final var links = new LinkFetcher(InetAddress::isLoopbackAddress, SystemDefaultDnsResolver.INSTANCE)) {
+            final var note = IncomingFile.link(base + "/note.txt", "note.txt", "text", null);
+            final var huge = IncomingFile.link(base + "/huge.bin", "huge.bin", "generic", null);
+            final var tasks = queue.enqueue(root, List.of(), List.of(new UploadQueue.Planned(note, "note.txt", false),
+                    new UploadQueue.Planned(huge, "huge.bin", false)));
+            tasks.forEach(t -> queue.download(t, links, LIMIT));
+
+            assertThat(Files.readString(dir.resolve("note.txt"))).isEqualTo("from the web");
+            assertThat(tasks.getFirst().complete()).isTrue();
+            assertThat(tasks.get(1).state()).isEqualTo(UploadTask.State.FAILED);
+            assertThat(tasks.get(1).error()).contains("larger than the upload limit");
+            assertThat(dir.resolve("huge.bin")).doesNotExist();
+        } finally {
+            server.stop(0);
+        }
     }
 }

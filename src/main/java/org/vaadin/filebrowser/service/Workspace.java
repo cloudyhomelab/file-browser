@@ -44,6 +44,7 @@ public class Workspace implements Serializable {
     private final FileSystemRegistry registry;
     private final StorageService storage;
     private final S3Connections s3Connections;
+    private final LinkFetcher links;
     private final Set<String> starred = new LinkedHashSet<>();
     private final UploadQueue uploads;
     private final UserData userData;
@@ -55,11 +56,12 @@ public class Workspace implements Serializable {
     private Sort sort = UserData.Preferences.DEFAULT.sort();
 
     public Workspace(Catalog catalog, FileSystemRegistry registry, StorageService storage, S3Connections s3Connections,
-                     UserData userData, CurrentUser currentUser) {
+                     LinkFetcher links, UserData userData, CurrentUser currentUser) {
         this.catalog = catalog;
         this.registry = registry;
         this.storage = storage;
         this.s3Connections = s3Connections;
+        this.links = links;
         this.uploads = new UploadQueue(storage);
         this.userData = userData;
         this.currentUser = currentUser;
@@ -338,8 +340,18 @@ public class Workspace implements Serializable {
         return candidate;
     }
 
-    public List<UploadTask> upload(FsRoot root, List<String> folder, List<UploadQueue.Planned> planned) {
-        return uploads.enqueue(writableRoot(root), folder, planned);
+    /** Queues uploads; files from web links start downloading on the server right away. */
+    public List<UploadTask> upload(FsRoot root, List<String> folder, List<UploadQueue.Planned> planned, long maxBytes) {
+        final var tasks = uploads.enqueue(writableRoot(root), folder, planned);
+        tasks.stream()
+                .filter(t -> t.url() != null)
+                .forEach(t -> Thread.ofVirtual().name("link-upload-" + t.id()).start(() -> uploads.download(t, links, maxBytes)));
+        return tasks;
+    }
+
+    /** The name and size a web link offers, read on the server with the same checks as the download. */
+    public LinkFetcher.LinkInfo inspectLink(String url) {
+        return links.inspect(url);
     }
 
     public UploadQueue uploads() {

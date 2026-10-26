@@ -39,7 +39,7 @@ public class UploadQueue implements Serializable {
         final var added = new ArrayList<UploadTask>();
         for (final var p : planned) {
             final var task = new UploadTask(UUID.randomUUID().toString(), p.file().clientId(), p.finalName(),
-                    p.file().type(), p.file().size(), root, List.copyOf(folder), p.replace());
+                    p.file().type(), p.file().size(), root, List.copyOf(folder), p.replace(), p.file().url());
             added.add(task);
         }
         tasks.addAll(added);
@@ -115,8 +115,30 @@ public class UploadQueue implements Serializable {
             task.state(UploadTask.State.DONE, null);
         } catch (StorageException e) {
             task.state(UploadTask.State.FAILED, e.getMessage());
+        } catch (LinkFetcher.TooLargeException e) {
+            task.state(UploadTask.State.FAILED, "“" + task.name() + "” is larger than the upload limit.");
         } catch (IOException e) {
             task.state(UploadTask.State.FAILED, "The upload of “" + task.name() + "” was interrupted.");
+        }
+    }
+
+    /** Downloads a link task's file on the calling thread and streams it in like any upload. */
+    public void download(UploadTask task, LinkFetcher links, long maxBytes) {
+        final InputStream in;
+        try {
+            in = links.fetch(task.url(), maxBytes);
+        } catch (StorageException e) {
+            synchronized (task) {
+                if (task.state() == UploadTask.State.QUEUED) {
+                    task.state(UploadTask.State.FAILED, e.getMessage());
+                }
+            }
+            return;
+        }
+        try (in) {
+            receive(task.id(), in, maxBytes);
+        } catch (IOException e) {
+            // closing the download; the task's state is already settled
         }
     }
 }

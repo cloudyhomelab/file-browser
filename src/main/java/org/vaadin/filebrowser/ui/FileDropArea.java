@@ -101,7 +101,11 @@ public class FileDropArea extends Div {
     }
 
     public void upload(List<UploadTask> tasks) {
-        final var jobs = tasks.stream().map(t -> new UploadJob(t.id(), t.clientId())).toList();
+        // files from web links are downloaded by the server; only the browser's own files are sent from here
+        final var jobs = tasks.stream()
+                .filter(t -> t.clientId() != null)
+                .map(t -> new UploadJob(t.id(), t.clientId()))
+                .toList();
         final var json = JSON.writeValueAsString(jobs);
         getElement().executeJs("this.__fbUpload(JSON.parse($0))", json);
     }

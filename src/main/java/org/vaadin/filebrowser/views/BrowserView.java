@@ -712,8 +712,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             Toasts.readOnly();
             return;
         }
-        final var limit = Formats.size(maxUploadBytes);
-        final var dialog = new UploadDialog(workspace.catalog(), limit, this::startUploads);
+        final var dialog = new UploadDialog(workspace.catalog(), maxUploadBytes, workspace::inspectLink, this::startUploads);
         dialog.open();
     }
 
@@ -787,7 +786,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private void enqueue(List<String> destination, List<Planned> planned) {
         try {
-            final var tasks = workspace.upload(root, destination, planned);
+            final var tasks = workspace.upload(root, destination, planned, maxUploadBytes);
             main.upload(tasks);
         } catch (StorageException e) {
             Toasts.error(e.getMessage());
