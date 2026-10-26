@@ -1,0 +1,34 @@
+# Development only: Dex as a password sign-in provider (works in any browser, no passkeys).
+# Users: admin@example.com / admin (an admin in the dev profile) and alice@example.com / alice.
+issuer: http://localhost:5556/dex
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+oauth2:
+  skipApprovalScreen: true
+
+staticClients:
+  - id: filebrowser
+    name: FileBrowser
+    secret: dev-only-secret
+    redirectURIs:
+      - http://localhost:8080/login/oauth2/code/dex
+      - http://localhost:8081/login/oauth2/code/dex
+
+enablePasswordDB: true
+
+staticPasswords:
+  - email: admin@example.com
+    # bcrypt of "admin"
+    hash: "$2a$10$n7cSnR4N0/ywUI2e0mzCzOKsASHS1UnD40UrMEULfHobYwMQYUUJW"
+    username: Ada Admin
+    userID: 4f1c1a3e-6c1b-4b5e-9d2a-0a1d2c3b4e01
+  - email: alice@example.com
+    # bcrypt of "alice"
+    hash: "$2a$10$7Qa5fHDdFb/ps1QUhHTqoukX/M5glbWilmp5p5NoYk5QubBmRJVNi"
+    username: Alice Example
+    userID: 4f1c1a3e-6c1b-4b5e-9d2a-0a1d2c3b4e02

@@ -12,6 +12,15 @@ services:
     volumes:
       - ./oidc/mock-oauth2-server.json:/config/mock-oauth2-server.json:ro
 
+  # password sign-in for dev, usable in any browser: admin@example.com / admin, alice@example.com / alice
+  dex:
+    image: ghcr.io/dexidp/dex:v2.46.0
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    ports:
+      - "127.0.0.1:5556:5556"
+    volumes:
+      - ./dex/config.yaml:/etc/dex/config.yaml:ro
+
   pocket-id:
     image: ghcr.io/pocket-id/pocket-id:v2.19.1
     ports:

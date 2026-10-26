@@ -21,6 +21,12 @@ needs; `environment/prod/` holds deployment samples.
 
 ## Sign-in during development
 
+### Dex
+
+The simplest way in, in any browser: choose "Continue with Dex (dev)" and sign in with
+`admin@example.com` / `admin` (an admin) or `alice@example.com` / `alice` (a regular user). Users and
+the client are in `environment/dev/dex/config.yaml`.
+
 ### Mock provider
 
 The mock's sign-in page takes any username plus an optional claims JSON. Paste one of these into
