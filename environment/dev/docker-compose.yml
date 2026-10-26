@@ -52,5 +52,51 @@ services:
       - ../../data/shares/nfs:/export
       - /lib/modules:/lib/modules:ro
 
+  # S3-compatible storage for trying out S3 file systems; start with
+  # `docker compose -f environment/dev/docker-compose.yml --profile s3 up -d`. Console on http://localhost:9001.
+  rustfs:
+    image: rustfs/rustfs:1.0.1
+    profiles: [s3]
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    environment:
+      RUSTFS_ACCESS_KEY: dev-access-key
+      RUSTFS_SECRET_KEY: dev-secret-key
+      RUSTFS_CONSOLE_ENABLE: "true"
+    volumes:
+      - rustfs-data:/data
+
+  # one-shot: creates dev-bucket with a few files, including team-a/ and team-b/ for bucket-folder roots,
+  # and public-bucket, readable without keys
+  rustfs-seed:
+    image: amazon/aws-cli:2.37.9
+    profiles: [s3]
+    depends_on: [rustfs]
+    environment:
+      AWS_ACCESS_KEY_ID: dev-access-key
+      AWS_SECRET_ACCESS_KEY: dev-secret-key
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://rustfs:9000
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until aws s3 ls >/dev/null 2>&1; do sleep 1; done
+        mkdir -p /tmp/seed/team-a/Reports /tmp/seed/team-b
+        echo "Welcome to the dev bucket." > /tmp/seed/README.md
+        echo "Quarterly numbers" > /tmp/seed/team-a/Reports/q3.txt
+        echo "Team A notes" > /tmp/seed/team-a/notes.md
+        echo "Team B plan" > /tmp/seed/team-b/plan.md
+        if ! aws s3 ls s3://dev-bucket >/dev/null 2>&1; then
+          aws s3 mb s3://dev-bucket
+          aws s3 cp --recursive /tmp/seed s3://dev-bucket/
+        fi
+        if ! aws s3 ls s3://public-bucket >/dev/null 2>&1; then
+          aws s3 mb s3://public-bucket
+          aws s3 cp /tmp/seed/README.md s3://public-bucket/README.md
+          aws s3api put-bucket-policy --bucket public-bucket --policy '{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": "*", "Action": ["s3:GetBucketLocation", "s3:ListBucket", "s3:GetObject"], "Resource": ["arn:aws:s3:::public-bucket", "arn:aws:s3:::public-bucket/*"]}]}'
+        fi
+
 volumes:
   pocket-id-data:
+  rustfs-data:
