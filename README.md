@@ -111,6 +111,45 @@ Each user's starred items and view settings are saved per email. Renaming, movin
 item in the app updates everyone's stars; stars on items removed outside the app disappear the next
 time they're looked up.
 
+### Testing with NFS and SMB shares (development)
+
+`docker-compose.yml` has an opt-in `shares` profile with a Samba server and an NFS v4 server. Their
+contents live in the git-ignored `data/shares/`. Mounting needs root and the client tools
+(`cifs-utils`, `nfs-common`).
+
+```bash
+mkdir -p data/shares/smb data/shares/nfs /tmp/fb-smb /tmp/fb-nfs
+```
+
+The NFS server uses the host kernel's NFS server; load its modules on the host first:
+
+```bash
+sudo modprobe nfs && sudo modprobe nfsd
+```
+
+```bash
+docker compose --profile shares up -d smb nfs
+```
+
+```bash
+sudo mount -t cifs //127.0.0.1/share /tmp/fb-smb -o username=test,password=test,uid=$(id -u),gid=$(id -g),vers=3.0
+```
+
+```bash
+sudo mount -t nfs4 127.0.0.1:/ /tmp/fb-nfs
+```
+
+Add `/tmp/fb-smb` and `/tmp/fb-nfs` as file systems; their cards show "SMB mount" and "NFS mount"
+with the mount source. Unmount before stopping the servers, otherwise access to `/tmp` can stall:
+
+```bash
+sudo umount /tmp/fb-smb /tmp/fb-nfs
+```
+
+```bash
+docker compose --profile shares stop smb nfs
+```
+
 ## Layout
 
 - `config/` – settings (`FileBrowserProperties`), database, security and OIDC user loading.

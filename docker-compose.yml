@@ -20,5 +20,34 @@ services:
     volumes:
       - pocket-id-data:/app/data
 
+  # Test shares for checking NFS/SMB detection; start with `docker compose --profile shares up -d`.
+  # Mounting them on the host needs root, see the README.
+  smb:
+    image: ghcr.io/servercontainers/samba:latest
+    profiles: [shares]
+    ports:
+      - "127.0.0.1:445:445"
+    environment:
+      ACCOUNT_test: "test"
+      UID_test: "1000"
+      SAMBA_VOLUME_CONFIG_share: "[share]; path = /shares/share; valid users = test; guest ok = no; read only = no; browseable = yes"
+    volumes:
+      - ./data/shares/smb:/shares/share
+
+  nfs:
+    image: ghcr.io/obeone/nfs-server:latest
+    profiles: [shares]
+    # uses the host kernel's NFS server and loads the nfsd module, which needs full privileges
+    privileged: true
+    ports:
+      - "127.0.0.1:2049:2049"
+    environment:
+      NFS_VERSION: "4.2"
+      NFS_DISABLE_VERSION_3: "1"
+      NFS_EXPORT_0: "/export *(rw,fsid=0,insecure,no_subtree_check,no_root_squash)"
+    volumes:
+      - ./data/shares/nfs:/export
+      - /lib/modules:/lib/modules:ro
+
 volumes:
   pocket-id-data:
