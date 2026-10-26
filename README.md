@@ -83,8 +83,9 @@ Pocket ID runs on http://localhost:1411 and signs in with passkeys, so it is set
 
 ## Data
 
-Application data lives in one SQLite file, `./data/filebrowser.db` by default; set
-`FILEBROWSER_DATABASE_PATH` to move it. Flyway creates and upgrades the schema at startup.
+Application data (file systems, user accounts, starred items, view settings) lives in one SQLite
+file, `./data/filebrowser.db` by default; set `FILEBROWSER_DATABASE_PATH` to move it. Flyway creates
+and upgrades the schema at startup. Files themselves stay where they are on disk.
 
 Backup: copy the file while the app is stopped, or take a consistent copy while it runs:
 
@@ -94,25 +95,33 @@ sqlite3 data/filebrowser.db "VACUUM INTO 'backup.db'"
 
 Restore: stop the app and put the copy in place.
 
-## What is simulated
+## File systems
 
-Sign-in and user accounts are real; file storage is not yet. The following lives in the Vaadin
-session and is lost when it ends:
+Admins add file systems from the app; everyone sees all of them. A file system is a folder on the
+server: a local disk, or an NFS/SMB share the OS has mounted. The app detects which (from the mount
+type), shows the real capacity, and marks a file system offline when it can't be read in time. Any
+absolute path the server process can read may be added; it is added read-only when the server can't
+write to it. Deleting is permanent.
 
-- File systems (`Workspace`): the app starts with none; added ones are not connected to, start
-  empty, and their contents live in memory. S3 secrets are discarded.
-- Uploads: only the names and sizes of picked or dropped files reach the server, and progress is
-  simulated. Downloads only show a notification.
+Uploads are streamed straight into the folder and appear only when complete; the limit per file is
+`FILEBROWSER_MAX_UPLOAD_SIZE` (default `5GB`). Downloading a folder or several items produces a
+zip built on the fly.
+
+Each user's starred items and view settings are saved per email. Renaming, moving or deleting an
+item in the app updates everyone's stars; stars on items removed outside the app disappear the next
+time they're looked up.
 
 ## Layout
 
 - `config/` – settings (`FileBrowserProperties`), database, security and OIDC user loading.
 - `data/` – model records, JSON-backed reference data (`Catalog`), formatting and sorting.
-- `service/` – session state (`Workspace`), the signed-in user (`CurrentUser`), sign-in rules
-  (`SignInPolicy`) and accounts (`UserAccounts`).
+- `storage/` – the `StorageProvider` interface and the local-disk implementation.
+- `service/` – session state (`Workspace`), file systems (`FileSystemRegistry`, `StorageService`),
+  uploads and downloads, the signed-in user (`CurrentUser`), sign-in rules (`SignInPolicy`),
+  accounts (`UserAccounts`) and per-user data (`UserData`).
 - `ui/` – reusable components; `ui/dialog/` – modal dialogs.
 - `views/` – routes: `sign-in`, `` (file systems), `starred`, `fs/:rootId/:path*`.
-- `src/main/resources/data/` – file-system types, file types, sign-in error texts and demo data.
+- `src/main/resources/data/` – file-system types, mount kinds, file types and sign-in error texts.
 - `src/main/resources/db/migration/` – Flyway migrations.
 - `src/main/resources/META-INF/resources/oidc/` – sign-in button marks.
 - `src/main/resources/META-INF/resources/` – `styles.css` (design tokens as `--fb-*`, on top of Aura) and the `icons.svg` sprite.
