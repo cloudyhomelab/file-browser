@@ -3,6 +3,7 @@ package org.vaadin.filebrowser.ui;
 import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.KindInfo;
+import org.vaadin.filebrowser.data.RootType;
 import org.vaadin.filebrowser.storage.MountInfo;
 
 import com.vaadin.flow.component.Component;
@@ -49,12 +50,17 @@ public class DriveCard extends Composite<Div> {
 
         final var typeBadge = new Badge(Badge.Tone.NEUTRAL, kind.label());
         final var network = root.mount().kind() == MountInfo.Kind.NFS || root.mount().kind() == MountInfo.Kind.SMB;
-        final var detail = network ? root.mount().source() : root.region();
-        final var region = Ui.span("fb-drive-region", detail);
-        region.getElement().setAttribute("title", detail);
+        // a network share is identified by its mount source, a bucket by its region; a local disk needs neither
+        final var detail = network ? root.mount().source() : root.type() == RootType.S3 ? root.region() : "";
+        final var foot = Ui.div("fb-drive-foot", typeBadge);
+        if (!detail.isBlank()) {
+            final var region = Ui.span("fb-drive-region", detail);
+            region.getElement().setAttribute("title", detail);
+            foot.add(region);
+        }
         final var spacer = Ui.spacer();
         final var access = accessBadge(root);
-        final var foot = Ui.div("fb-drive-foot", typeBadge, region, spacer, access);
+        foot.add(spacer, access);
 
         final var rule = Ui.span("fb-drive-rule", "");
         final var capacity = new CapacityMeter(root, CapacityMeter.Style.CARD);

@@ -157,8 +157,11 @@ public class AddRootDialog extends FbDialog {
         name.setPlaceholder(info.namePlaceholder());
         endpoint.setLabel(info.endpointLabel());
         endpoint.setPlaceholder(info.endpointPlaceholder());
-        region.setLabel(info.regionLabel() + " (optional)");
-        region.setPlaceholder(info.defaultRegion());
+        region.setVisible(info.regionLabel() != null);
+        if (info.regionLabel() != null) {
+            region.setLabel(info.regionLabel() + " (optional)");
+            region.setPlaceholder(info.defaultRegion());
+        }
 
         final var ep = endpoint.getValue().trim();
         final var badShape = ep.length() > 0 && (!ep.startsWith(info.endpointPrefix()) || ep.length() <= info.endpointPrefix().length());
@@ -237,7 +240,8 @@ public class AddRootDialog extends FbDialog {
             return;
         }
         final var info = catalog.rootType(type);
-        final var regionValue = region.getValue().trim().isEmpty() ? info.defaultRegion() : region.getValue().trim();
+        final var regionValue = info.regionLabel() == null ? ""
+                : region.getValue().trim().isEmpty() ? info.defaultRegion() : region.getValue().trim();
         final var root = new FsRoot(id, name.getValue().trim(), type, endpoint.getValue().trim(), regionValue,
                 null, true, effectiveAccess(), MountInfo.UNKNOWN);
         close();
