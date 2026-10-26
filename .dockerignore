@@ -1,0 +1,14 @@
+.git
+
+target/
+node_modules/
+src/main/bundles/
+.claude/
+.github/
+config/
+data/
+design/
+environment/
+docs/
+*.zip
+*.md
