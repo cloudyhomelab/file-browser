@@ -2,32 +2,32 @@ package org.vaadin.filebrowser.service;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
 import org.vaadin.filebrowser.data.Catalog;
-import org.vaadin.filebrowser.data.FsEntry;
 import org.vaadin.filebrowser.data.FsRoot;
-import org.vaadin.filebrowser.data.IdSource;
 import org.vaadin.filebrowser.data.IncomingFile;
 import org.vaadin.filebrowser.data.Located;
 import org.vaadin.filebrowser.data.Sort;
+import org.vaadin.filebrowser.storage.StorageEntry;
+import org.vaadin.filebrowser.storage.StorageException;
+import org.vaadin.filebrowser.storage.StoragePaths;
+import org.vaadin.filebrowser.storage.StorageProvider;
 
 import com.vaadin.flow.spring.annotation.SpringComponent;
 import com.vaadin.flow.spring.annotation.VaadinSessionScope;
 
 /**
- * The signed-in user's view of the shared file systems (from {@link FileSystemRegistry}): folder
- * contents, starred items, view preferences and simulated uploads. Lives for the Vaadin session.
+ * The signed-in user's view of the shared file systems (from {@link FileSystemRegistry}): file
+ * operations through {@link StorageService}, starred items, view preferences and simulated uploads.
+ * Lives for the Vaadin session.
  */
 @SpringComponent
 @VaadinSessionScope
@@ -44,13 +44,10 @@ public class Workspace implements Serializable {
 
     private static final int UPLOAD_STEP_MIN = 8;
     private static final int UPLOAD_STEP_SPREAD = 22;
-    private static final String NEW_ITEM_OWNER = "Maya Lindqvist";
 
     private final Catalog catalog;
     private final FileSystemRegistry registry;
-    private final IdSource ids = new IdSource();
-    // folder contents are still per-session and in memory until the storage providers exist (plan 01, item 2)
-    private final Map<String, List<FsEntry>> trees;
+    private final StorageService storage;
     private final Set<String> starred = new LinkedHashSet<>();
     private final List<UploadTask> uploads = new ArrayList<>();
 
@@ -58,10 +55,10 @@ public class Workspace implements Serializable {
     private Density density = Density.DENSE;
     private Sort sort = Sort.DEFAULT;
 
-    public Workspace(Catalog catalog, FileSystemRegistry registry) {
+    public Workspace(Catalog catalog, FileSystemRegistry registry, StorageService storage) {
         this.catalog = catalog;
         this.registry = registry;
-        this.trees = new LinkedHashMap<>();
+        this.storage = storage;
     }
 
     public Catalog catalog() {
@@ -96,81 +93,46 @@ public class Workspace implements Serializable {
 
     // ---- reading --------------------------------------------------------------------------
 
-    public List<FsEntry> tree(String rootId) {
-        final var contents = contents(rootId);
-        return contents == null ? List.of() : contents;
+    private StorageProvider provider(FsRoot root) {
+        return storage.provider(root);
     }
 
-    /** The in-memory contents of a registered file system, or null for an unknown id. */
-    private List<FsEntry> contents(String rootId) {
-        final var existing = trees.get(rootId);
-        if (existing != null || registry.find(rootId).isEmpty()) {
-            return existing;
-        }
-        final var created = new ArrayList<FsEntry>();
-        trees.put(rootId, created);
-        return created;
+    public List<StorageEntry> list(FsRoot root, List<String> folder) {
+        return provider(root).list(StoragePaths.join(folder));
     }
 
-    /** Children of the folder at {@code path}, or null when the folder does not exist. */
-    public List<FsEntry> dir(String rootId, List<String> path) {
-        List<FsEntry> level = contents(rootId);
-        if (level == null) {
-            return null;
-        }
-        for (final var segment : path) {
-            final var next = level.stream().filter(e -> e.folder() && e.name().equals(segment)).findFirst();
-            if (next.isEmpty()) {
-                return null;
+    /** Whether {@code folder} exists and is a folder; false when the file system can't be read. */
+    public boolean isFolder(FsRoot root, List<String> folder) {
+        try {
+            if (folder.isEmpty()) {
+                return provider(root).healthy();
             }
-            level = next.get().children();
-        }
-        return level;
-    }
-
-    public List<Located> search(FsRoot root, String query) {
-        final var q = query.toLowerCase(Locale.ROOT);
-        final var hits = new ArrayList<Located>();
-        walk(tree(root.id()), new ArrayList<>(), (entry, location) -> {
-            if (entry.name().toLowerCase(Locale.ROOT).contains(q)) {
-                hits.add(locate(root, entry, location));
-            }
-        });
-        return hits;
-    }
-
-    private interface Visitor {
-        void visit(FsEntry entry, List<String> location);
-    }
-
-    private static void walk(List<FsEntry> nodes, List<String> location, Visitor visitor) {
-        for (final var n : nodes) {
-            visitor.visit(n, List.copyOf(location));
-            if (n.folder()) {
-                location.add(n.name());
-                walk(n.children(), location, visitor);
-                location.removeLast();
-            }
+            return provider(root).stat(StoragePaths.join(folder)).map(StorageEntry::folder).orElse(false);
+        } catch (StorageException e) {
+            return false;
         }
     }
 
-    private static Located locate(FsRoot root, FsEntry entry, List<String> location) {
-        final var label = String.join(" / ", Stream.concat(Stream.of(root.name()), location.stream()).toList());
-        return new Located(entry, root.id(), location, label);
+    public List<String> subfolders(FsRoot root, List<String> folder) {
+        return list(root, folder).stream()
+                .filter(StorageEntry::folder)
+                .map(StorageEntry::name)
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList();
     }
 
     // ---- starred --------------------------------------------------------------------------
 
-    private static String starKey(String rootId, String entryId) {
-        return rootId + ":" + entryId;
+    private static String starKey(String rootId, String path) {
+        return rootId + ":" + path;
     }
 
-    public boolean isStarred(String rootId, String entryId) {
-        return starred.contains(starKey(rootId, entryId));
+    public boolean isStarred(String rootId, String path) {
+        return starred.contains(starKey(rootId, path));
     }
 
-    public void setStarred(String rootId, String entryId, boolean on) {
-        final var key = starKey(rootId, entryId);
+    public void setStarred(String rootId, String path, boolean on) {
+        final var key = starKey(rootId, path);
         if (on) {
             starred.add(key);
         } else {
@@ -178,71 +140,106 @@ public class Workspace implements Serializable {
         }
     }
 
+    /** Starred items that still exist; stars on items deleted outside the app are dropped. */
     public List<Located> starredIn(FsRoot root) {
+        final var prefix = starKey(root.id(), "");
         final var out = new ArrayList<Located>();
-        walk(tree(root.id()), new ArrayList<>(), (entry, location) -> {
-            if (isStarred(root.id(), entry.id())) {
-                out.add(locate(root, entry, location));
+        for (final var key : List.copyOf(starred)) {
+            if (!key.startsWith(prefix)) {
+                continue;
             }
-        });
+            final var path = key.substring(prefix.length());
+            final Optional<StorageEntry> entry;
+            try {
+                entry = provider(root).stat(path);
+            } catch (StorageException e) {
+                continue;
+            }
+            if (entry.isEmpty()) {
+                starred.remove(key);
+                continue;
+            }
+            final var location = entry.get().parent();
+            final var label = String.join(" / ", Stream.concat(Stream.of(root.name()), location.stream()).toList());
+            final var located = new Located(entry.get(), root.id(), location, label);
+            out.add(located);
+        }
         return sort.apply(out);
     }
 
-    // ---- mutations ------------------------------------------------------------------------
-
-    public void createFolder(String rootId, List<String> path, String name) {
-        final var newFolder = FsEntry.folder(ids.next(), name, 0, NEW_ITEM_OWNER);
-        requireDir(rootId, path).add(newFolder);
-    }
-
-    public void rename(String rootId, List<String> path, String entryId, String name) {
-        requireDir(rootId, path).stream().filter(e -> e.id().equals(entryId)).findFirst()
-                .ifPresent(e -> e.rename(name));
-    }
-
-    public void delete(String rootId, List<String> path, Collection<String> entryIds) {
-        requireDir(rootId, path).removeIf(e -> entryIds.contains(e.id()));
-    }
-
-    public void move(String rootId, List<String> from, Collection<String> entryIds, List<String> to) {
-        final var source = requireDir(rootId, from);
-        final var moved = source.stream().filter(e -> entryIds.contains(e.id())).toList();
-        source.removeAll(moved);
-        requireDir(rootId, to).addAll(moved);
-    }
-
-    public void duplicate(String rootId, List<String> path, String entryId) {
-        final var dir = requireDir(rootId, path);
-        for (int i = 0; i < dir.size(); i++) {
-            final var original = dir.get(i);
-            if (original.id().equals(entryId)) {
-                final var copyName = copyName(original.name());
-                final var copy = original.deepCopy(ids::next, copyName);
-                dir.add(i + 1, copy);
-                return;
+    private void moveStars(String rootId, String oldPath, String newPath) {
+        final var exact = starKey(rootId, oldPath);
+        final var nested = exact + StoragePaths.SEPARATOR;
+        for (final var key : List.copyOf(starred)) {
+            if (key.equals(exact) || key.startsWith(nested)) {
+                starred.remove(key);
+                starred.add(starKey(rootId, newPath) + key.substring(exact.length()));
             }
         }
     }
 
-    private static String copyName(String name) {
-        final var dot = name.lastIndexOf('.');
-        return dot > 0 ? name.substring(0, dot) + " copy" + name.substring(dot) : name + " copy";
+    private void dropStars(String rootId, String path) {
+        final var exact = starKey(rootId, path);
+        starred.removeIf(key -> key.equals(exact) || key.startsWith(exact + StoragePaths.SEPARATOR));
     }
 
-    private List<FsEntry> requireDir(String rootId, List<String> path) {
-        final var dir = dir(rootId, path);
-        if (dir == null) {
-            throw new IllegalArgumentException("No folder " + path + " in " + rootId);
+    // ---- changes --------------------------------------------------------------------------
+
+    private StorageProvider writable(FsRoot root) {
+        if (root.readOnly()) {
+            throw new StorageException("This file system is read only.");
         }
-        return dir;
+        return provider(root);
+    }
+
+    public void createFolder(FsRoot root, List<String> folder, String name) {
+        writable(root).createFolder(StoragePaths.join(folder), name);
+    }
+
+    public void rename(FsRoot root, StorageEntry entry, String newName) {
+        writable(root).rename(entry.path(), newName);
+        final var renamed = StoragePaths.child(StoragePaths.join(entry.parent()), newName);
+        moveStars(root.id(), entry.path(), renamed);
+    }
+
+    public void delete(FsRoot root, StorageEntry entry) {
+        writable(root).delete(entry.path());
+        dropStars(root.id(), entry.path());
+    }
+
+    public void move(FsRoot root, StorageEntry entry, List<String> destination) {
+        final var destinationPath = StoragePaths.join(destination);
+        writable(root).move(entry.path(), destinationPath);
+        final var moved = StoragePaths.child(destinationPath, entry.name());
+        moveStars(root.id(), entry.path(), moved);
+    }
+
+    /** Copies next to the original as "name copy.ext", "name copy 2.ext", … */
+    public String duplicate(FsRoot root, StorageEntry entry) {
+        final var provider = writable(root);
+        final var siblings = new HashSet<String>();
+        provider.list(StoragePaths.join(entry.parent())).forEach(e -> siblings.add(e.name()));
+        final var name = copyName(entry.name(), siblings);
+        provider.copy(entry.path(), name);
+        return name;
+    }
+
+    private static String copyName(String name, Set<String> taken) {
+        final var dot = name.lastIndexOf('.');
+        final var base = dot > 0 ? name.substring(0, dot) : name;
+        final var ext = dot > 0 ? name.substring(dot) : "";
+        var candidate = base + " copy" + ext;
+        for (int n = 2; taken.contains(candidate); n++) {
+            candidate = base + " copy " + n + ext;
+        }
+        return candidate;
     }
 
     // ---- uploads --------------------------------------------------------------------------
 
-    public Set<String> fileNames(String rootId, List<String> path) {
-        final var dir = requireDir(rootId, path);
+    public Set<String> fileNames(FsRoot root, List<String> folder) {
         final var names = new HashSet<String>();
-        dir.stream().filter(e -> !e.folder()).forEach(e -> names.add(e.name()));
+        list(root, folder).stream().filter(e -> !e.folder()).forEach(e -> names.add(e.name()));
         return names;
     }
 
@@ -274,13 +271,13 @@ public class Workspace implements Serializable {
 
     public void enqueue(String rootId, List<String> path, List<PlannedUpload> planned) {
         for (final var p : planned) {
-            final var task = new UploadTask(ids.next(), p.finalName(), p.file().type(), p.file().size(), rootId,
+            final var task = new UploadTask(UUID.randomUUID().toString(), p.finalName(), p.file().type(), p.file().size(), rootId,
                     List.copyOf(path), p.replace());
             uploads.add(task);
         }
     }
 
-    /** Advances the simulated transfers and stores files that finished; returns those. */
+    /** Advances the simulated transfers; returns those that finished. Nothing is stored yet. */
     public List<UploadTask> advanceUploads() {
         final var random = ThreadLocalRandom.current();
         final var finished = new ArrayList<UploadTask>();
@@ -289,20 +286,7 @@ public class Workspace implements Serializable {
                 finished.add(task);
             }
         }
-        finished.forEach(this::store);
         return finished;
-    }
-
-    private void store(UploadTask task) {
-        final var dir = dir(task.rootId(), task.path());
-        if (dir == null) {
-            return;
-        }
-        if (task.replace()) {
-            dir.removeIf(e -> !e.folder() && e.name().equals(task.name()));
-        }
-        final var file = FsEntry.file(ids.next(), task.name(), task.type(), task.size(), 0, NEW_ITEM_OWNER);
-        dir.add(file);
     }
 
     // ---- view preferences -----------------------------------------------------------------

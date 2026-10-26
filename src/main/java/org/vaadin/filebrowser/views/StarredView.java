@@ -116,7 +116,7 @@ public class StarredView extends Div implements EntryHandler {
             final var section = new Section(head);
             final var entries = workspace.layout() == Layout.GRID
                     ? new FileGridView(g.entries(), this, workspace.catalog())
-                    : new FileListView(g.entries(), this, workspace.density(), workspace.catalog(), workspace.catalog().referenceDate());
+                    : new FileListView(g.entries(), this, workspace.density(), workspace.catalog());
             section.add(entries);
             sections.add(section);
         }
@@ -144,7 +144,7 @@ public class StarredView extends Div implements EntryHandler {
 
     @Override
     public boolean starred(Located entry) {
-        return workspace.isStarred(entry.rootId(), entry.entry().id());
+        return workspace.isStarred(entry.rootId(), entry.entry().path());
     }
 
     @Override
@@ -160,7 +160,7 @@ public class StarredView extends Div implements EntryHandler {
         final var target = entry.entry().folder()
                 ? Stream.concat(entry.location().stream(), Stream.of(entry.entry().name())).toList()
                 : entry.location();
-        final var query = entry.entry().folder() ? QueryParameters.empty() : QueryParameters.of("focus", entry.entry().id());
+        final var query = entry.entry().folder() ? QueryParameters.empty() : QueryParameters.of("focus", entry.entry().path());
         final var params = BrowserView.params(entry.rootId(), target);
         UI.getCurrent().navigate(BrowserView.class, params, query);
     }
@@ -186,7 +186,7 @@ public class StarredView extends Div implements EntryHandler {
     @Override
     public void toggleStar(Located entry) {
         final var on = starred(entry);
-        workspace.setStarred(entry.rootId(), entry.entry().id(), !on);
+        workspace.setStarred(entry.rootId(), entry.entry().path(), !on);
         Toasts.show(on ? "Removed “" + entry.entry().name() + "” from starred" : "Added “" + entry.entry().name() + "” to starred", "star");
         render();
     }

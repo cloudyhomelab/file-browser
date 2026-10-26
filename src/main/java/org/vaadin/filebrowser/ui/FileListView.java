@@ -1,6 +1,5 @@
 package org.vaadin.filebrowser.ui;
 
-import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,7 +21,7 @@ public class FileListView extends Composite<Div> {
     private final EntryHandler handler;
     private final Map<Located, Div> rows = new LinkedHashMap<>();
 
-    public FileListView(List<Located> entries, EntryHandler handler, Density density, Catalog catalog, LocalDate today) {
+    public FileListView(List<Located> entries, EntryHandler handler, Density density, Catalog catalog) {
         this.handler = handler;
         final var table = getContent();
         table.addClassNames("fb-table", "fb-table--" + density.name().toLowerCase());
@@ -46,7 +45,7 @@ public class FileListView extends Composite<Div> {
         table.add(header);
 
         for (final var entry : entries) {
-            final var row = row(entry, handler, catalog, today);
+            final var row = row(entry, handler, catalog);
             rows.put(entry, row);
             table.add(row);
         }
@@ -72,7 +71,7 @@ public class FileListView extends Composite<Div> {
         return button;
     }
 
-    private static Div row(Located located, EntryHandler handler, Catalog catalog, LocalDate today) {
+    private static Div row(Located located, EntryHandler handler, Catalog catalog) {
         final var entry = located.entry();
         final var selected = handler.selectable() && handler.selected(located);
         final var starred = handler.starred(located);
@@ -95,7 +94,7 @@ public class FileListView extends Composite<Div> {
             final var location = Ui.span("fb-row-sub fb-row-loc", folderIcon, locationText);
             names.add(location);
         } else if (entry.folder()) {
-            final var itemCount = Ui.span("fb-row-sub", entry.children().size() + " items");
+            final var itemCount = Ui.span("fb-row-sub", entry.childCount() == null ? "" : Formats.plural(entry.childCount(), "item"));
             names.add(itemCount);
         }
         final var glyph = new FileGlyph(entry.type(), catalog);
@@ -106,7 +105,7 @@ public class FileListView extends Composite<Div> {
         final var ownerName = Ui.span("fb-ellipsis", firstName);
         final var owner = Ui.div("fb-row-owner", avatar, ownerName);
         row.add(owner);
-        final var modifiedText = Formats.daysAgo(entry.modifiedDaysAgo(), today);
+        final var modifiedText = Formats.modified(entry.modified());
         final var modified = Ui.span("fb-row-meta", modifiedText);
         row.add(modified);
         final var sizeText = entry.folder() ? "—" : Formats.size(entry.size());

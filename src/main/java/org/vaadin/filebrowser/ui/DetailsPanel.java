@@ -1,14 +1,12 @@
 package org.vaadin.filebrowser.ui;
 
-import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.Formats;
-import org.vaadin.filebrowser.data.FsEntry;
 import org.vaadin.filebrowser.data.FsRoot;
+import org.vaadin.filebrowser.storage.StorageEntry;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Composite;
@@ -20,8 +18,8 @@ import com.vaadin.flow.function.SerializableRunnable;
 
 public class DetailsPanel extends Composite<Aside> {
 
-    public DetailsPanel(FsEntry entry, FsRoot root, List<String> path, boolean readOnly, boolean starred, Catalog catalog,
-                        LocalDate today, SerializableRunnable onClose, SerializableConsumer<EntryAction> onAction) {
+    public DetailsPanel(StorageEntry entry, FsRoot root, boolean readOnly, boolean starred, Catalog catalog,
+                        SerializableRunnable onClose, SerializableConsumer<EntryAction> onAction) {
         final var aside = getContent();
         aside.setClassName("fb-details");
 
@@ -49,19 +47,15 @@ public class DetailsPanel extends Composite<Aside> {
             badges.add(readOnlyBadge);
         }
 
-        final var location = new ArrayList<String>();
-        location.add(root.name());
-        location.addAll(path);
-        location.add(entry.name());
         final var kindValue = new Span(entry.folder() ? "Folder" : kind + " file");
-        final var sizeText = entry.folder() ? entry.children().size() + " items" : Formats.size(entry.size());
+        final var sizeText = entry.folder() ? itemCount(entry) : Formats.size(entry.size());
         final var sizeValue = new Span(sizeText);
-        final var modifiedText = Formats.daysAgo(entry.modifiedDaysAgo(), today);
+        final var modifiedText = Formats.modified(entry.modified());
         final var modifiedValue = new Span(modifiedText);
         final var ownerAvatar = new UserAvatar(entry.owner(), UserAvatar.Size.XS);
-        final var ownerName = new Span(entry.owner());
+        final var ownerName = new Span(entry.owner() == null ? "—" : entry.owner());
         final var ownerValue = Ui.span("fb-details-owner", ownerAvatar, ownerName);
-        final var locationText = "/" + String.join("/", location);
+        final var locationText = "/" + root.name() + "/" + entry.path();
         final var locationValue = new Span(locationText);
         final var kindRow = metaRow("Kind", kindValue, "");
         final var sizeRow = metaRow("Size", sizeValue, "");
@@ -98,5 +92,9 @@ public class DetailsPanel extends Composite<Aside> {
         final var key = Ui.span("fb-details-meta-key", label);
         final var valueWrapper = Ui.span("fb-details-meta-value " + valueClass, value);
         return Ui.div("fb-details-meta-row", key, valueWrapper);
+    }
+
+    private static String itemCount(StorageEntry folder) {
+        return folder.childCount() == null ? "—" : Formats.plural(folder.childCount(), "item");
     }
 }

@@ -1,5 +1,4 @@
 {
-  "referenceDate": "2026-06-02",
   "sampleFiles": [
     { "name": "README.md", "type": "text", "size": 5200 },
     { "name": "inventory.csv", "type": "sheet", "size": 1900000 },

@@ -46,7 +46,7 @@ public class FileGridView extends Composite<Div> {
         card.add(actions);
 
         final var sub = located.elsewhere() ? located.locationLabel()
-                : entry.folder() ? entry.children().size() + " items" : Formats.size(entry.size());
+                : entry.folder() ? (entry.childCount() == null ? "" : Formats.plural(entry.childCount(), "item")) : Formats.size(entry.size());
         final var tile = new FileTile(entry, catalog);
         final var tileFrame = Ui.span("fb-card-tile", tile);
         final var name = Ui.span("fb-card-name", entry.name());

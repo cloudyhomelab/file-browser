@@ -1,14 +1,17 @@
 package org.vaadin.filebrowser.ui.dialog;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
-import org.vaadin.filebrowser.data.FsEntry;
 import org.vaadin.filebrowser.data.FsRoot;
+import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.ui.Buttons;
 import org.vaadin.filebrowser.ui.Icon;
+import org.vaadin.filebrowser.ui.SubfolderLoader;
 import org.vaadin.filebrowser.ui.Ui;
 
 import com.vaadin.flow.component.button.Button;
@@ -19,7 +22,8 @@ import com.vaadin.flow.function.SerializableConsumer;
 public class MoveDialog extends FbDialog {
 
     private final FsRoot root;
-    private final List<FsEntry> tree;
+    private final SubfolderLoader loader;
+    private final Map<String, List<String>> loaded = new HashMap<>();
     private final List<String> currentPath;
     private final Set<String> movedFolderKeys = new HashSet<>();
     private final Set<String> expanded = new HashSet<>();
@@ -28,15 +32,14 @@ public class MoveDialog extends FbDialog {
     private final Button confirm;
     private List<String> dest = List.of();
 
-    public MoveDialog(List<FsEntry> entries, FsRoot root, List<FsEntry> tree, List<String> currentPath,
+    public MoveDialog(List<StorageEntry> entries, FsRoot root, SubfolderLoader loader, List<String> currentPath,
                       SerializableConsumer<List<String>> onConfirm) {
         super("Move " + (entries.size() > 1 ? entries.size() + " items" : "“" + entries.getFirst().name() + "”"),
                 "move", Tone.ACCENT, Width.MEDIUM);
         this.root = root;
-        this.tree = tree;
+        this.loader = loader;
         this.currentPath = currentPath;
-        entries.stream().filter(FsEntry::folder).forEach(e -> movedFolderKeys.add(key(append(currentPath, e.name()))));
-        tree.stream().filter(FsEntry::folder).forEach(e -> expanded.add(key(List.of(e.name()))));
+        entries.stream().filter(StorageEntry::folder).forEach(e -> movedFolderKeys.add(e.path()));
 
         final var introLead = new Span("Choose a destination folder in ");
         final var introRoot = Ui.span("fb-strong", root.name());
@@ -84,7 +87,9 @@ public class MoveDialog extends FbDialog {
         final var rootRow = row(List.of(), 0, homeIcon, root.name() + " (root)", currentPath.isEmpty());
         rootRow.addClassName("fb-move-row--root");
         picker.add(rootRow);
-        tree.stream().filter(FsEntry::folder).forEach(f -> addNode(f, List.of(f.name()), 0));
+        for (final var name : subfolders(List.of())) {
+            addNode(List.of(name), 0);
+        }
 
         status.removeAll();
         final var bad = intoSelf() || sameAsCurrent();
@@ -105,13 +110,24 @@ public class MoveDialog extends FbDialog {
         confirm.setEnabled(valid());
     }
 
-    private void addNode(FsEntry folder, List<String> path, int depth) {
-        final var subfolders = folder.children().stream().filter(FsEntry::folder).toList();
+    private List<String> subfolders(List<String> path) {
+        return loaded.computeIfAbsent(key(path), k -> {
+            try {
+                return loader.subfolders(path);
+            } catch (RuntimeException e) {
+                return List.of();
+            }
+        });
+    }
+
+    private void addNode(List<String> path, int depth) {
         final var pathKey = key(path);
         final var open = expanded.contains(pathKey);
+        final var subfolders = open ? subfolders(path) : null;
+        final var leaf = subfolders != null && subfolders.isEmpty();
         final var folderIcon = new Icon("folder");
-        final var row = row(path, depth, folderIcon, folder.name(), movedFolderKeys.contains(pathKey));
-        if (!subfolders.isEmpty()) {
+        final var row = row(path, depth, folderIcon, path.getLast(), movedFolderKeys.contains(pathKey));
+        if (!leaf) {
             final var caretIcon = new Icon("angle-right");
             final var caret = Ui.button("fb-caret" + (open ? " fb-caret--open" : ""), () -> {
                 if (!expanded.remove(pathKey)) {
@@ -126,8 +142,8 @@ public class MoveDialog extends FbDialog {
             row.addComponentAsFirst(noCaret);
         }
         picker.add(row);
-        if (open) {
-            subfolders.forEach(sub -> addNode(sub, append(path, sub.name()), depth + 1));
+        if (subfolders != null) {
+            subfolders.forEach(sub -> addNode(append(path, sub), depth + 1));
         }
     }
 

@@ -3,7 +3,6 @@ package org.vaadin.filebrowser.data;
 import java.io.IOException;
 import java.io.Serializable;
 import java.io.UncheckedIOException;
-import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -23,7 +22,7 @@ public class Catalog implements Serializable {
     private static final String GENERIC_TYPE = "generic";
     private static final String DEFAULT_SIGN_IN_ERROR = "default";
 
-    record MockData(LocalDate referenceDate, List<IncomingFile> sampleFiles) implements Serializable {
+    record MockData(List<IncomingFile> sampleFiles) implements Serializable {
     }
 
     private final Map<RootType, RootTypeInfo> rootTypes;
@@ -73,10 +72,6 @@ public class Catalog implements Serializable {
     /** User-facing text for a sign-in failure code; unknown codes get the generic message. */
     public String signInError(String code) {
         return signInErrors.getOrDefault(code, signInErrors.get(DEFAULT_SIGN_IN_ERROR));
-    }
-
-    public LocalDate referenceDate() {
-        return mock.referenceDate();
     }
 
     public List<IncomingFile> sampleFiles() {

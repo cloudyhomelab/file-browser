@@ -2,13 +2,13 @@ package org.vaadin.filebrowser.views;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
-import org.vaadin.filebrowser.data.FsEntry;
+import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.IncomingFile;
 import org.vaadin.filebrowser.data.Located;
@@ -20,6 +20,8 @@ import org.vaadin.filebrowser.service.Workspace.ConflictChoice;
 import org.vaadin.filebrowser.service.Workspace.Density;
 import org.vaadin.filebrowser.service.Workspace.Layout;
 import org.vaadin.filebrowser.service.Workspace.PlannedUpload;
+import org.vaadin.filebrowser.storage.StorageEntry;
+import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.ui.Badge;
 import org.vaadin.filebrowser.ui.BulkBar;
 import org.vaadin.filebrowser.ui.DetailsPanel;
@@ -38,7 +40,6 @@ import org.vaadin.filebrowser.ui.Segmented;
 import org.vaadin.filebrowser.ui.Sidebar;
 import org.vaadin.filebrowser.ui.Toasts;
 import org.vaadin.filebrowser.ui.Toolbar;
-import org.vaadin.filebrowser.ui.Toolbar.Scope;
 import org.vaadin.filebrowser.ui.Ui;
 import org.vaadin.filebrowser.ui.UploadDock;
 import org.vaadin.filebrowser.ui.dialog.ConflictDialog;
@@ -89,7 +90,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private Sidebar sidebar;
     private FileListView listView;
     private String query = "";
-    private Scope scope = Scope.FOLDER;
+    private List<StorageEntry> currentEntries = List.of();
+    private String loadError;
     private final Set<String> selected = new HashSet<>();
     private String focused;
     private boolean starredView;
@@ -101,7 +103,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         this.currentUser = currentUser;
         setClassName("fb-browser");
 
-        final var toolbarCallbacks = new Toolbar.Callbacks(this::onQuery, this::setScope, this::sortBy,
+        final var toolbarCallbacks = new Toolbar.Callbacks(this::onQuery, this::sortBy,
                 this::toggleDensity, this::setLayout, this::newFolder, this::openUploadDialog);
         toolbar = new Toolbar(toolbarCallbacks);
         dock = new UploadDock(workspace.catalog(), this::clearUploads);
@@ -141,7 +143,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return;
         }
         final var newPath = event.getRouteParameters().getWildcard(PATH_PARAM);
-        if (workspace.dir(target.get().id(), newPath) == null) {
+        // an unreadable root is shown with its error; only a missing subfolder sends you back to the root
+        if (!newPath.isEmpty() && !workspace.isFolder(target.get(), newPath)) {
             final var rootParams = params(target.get().id(), List.of());
             event.forwardTo(BrowserView.class, rootParams);
             return;
@@ -153,9 +156,10 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             final var sidebarCallbacks = new Sidebar.Callbacks(this::navTo, this::openRoot, this::backToRoots,
                     this::showStarred, this::logout);
             final var browsable = workspace.browsableRoots();
-            final var tree = workspace.tree(root.id());
+            final var sidebarRoot = root;
             final var user = currentUser.get().orElse(null);
-            sidebar = new Sidebar(root, browsable, tree, workspace.catalog(), user, sidebarCallbacks);
+            sidebar = new Sidebar(root, browsable, folder -> workspace.subfolders(sidebarRoot, folder), workspace.catalog(),
+                    user, sidebarCallbacks);
             sidebarSlot.removeAll();
             sidebarSlot.add(sidebar);
         }
@@ -181,11 +185,6 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private void openRoot(FsRoot target) {
         navigate(target.id(), List.of(), null);
-    }
-
-    private void setScope(Scope newScope) {
-        scope = newScope;
-        refresh();
     }
 
     private void toggleDensity() {
@@ -234,13 +233,15 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         return root.readOnly();
     }
 
-    private boolean treeSearch() {
-        return !query.isBlank() && scope == Scope.TREE;
-    }
-
-    private List<FsEntry> here() {
-        final var dir = workspace.dir(root.id(), path);
-        return dir == null ? List.of() : dir;
+    /** Reads the open folder from storage; called once per refresh. */
+    private void loadFolder() {
+        try {
+            currentEntries = workspace.list(root, path);
+            loadError = null;
+        } catch (StorageException e) {
+            currentEntries = List.of();
+            loadError = e.getMessage();
+        }
     }
 
     private List<Located> displayEntries() {
@@ -248,26 +249,21 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return workspace.starredIn(root);
         }
         final var q = query.trim().toLowerCase(Locale.ROOT);
-        final List<Located> filtered;
-        if (treeSearch()) {
-            filtered = workspace.search(root, q);
-        } else {
-            filtered = here().stream()
-                    .filter(e -> q.isEmpty() || e.name().toLowerCase(Locale.ROOT).contains(q))
-                    .map(e -> Located.here(e, root.id()))
-                    .toList();
-        }
+        final var filtered = currentEntries.stream()
+                .filter(e -> q.isEmpty() || e.name().toLowerCase(Locale.ROOT).contains(q))
+                .map(e -> Located.here(e, root.id()))
+                .toList();
         return workspace.sort().apply(filtered);
     }
 
-    private FsEntry focusedEntry() {
+    private StorageEntry focusedEntry() {
         if (focused == null) {
             return null;
         }
-        return here().stream().filter(e -> e.id().equals(focused)).findFirst().orElse(null);
+        return currentEntries.stream().filter(e -> e.path().equals(focused)).findFirst().orElse(null);
     }
 
-    /** The folder an entry lives in: its own location for search hits and starred items. */
+    /** The folder an entry lives in: its own location for starred items. */
     private List<String> folderOf(Located e) {
         return e.elsewhere() ? e.location() : path;
     }
@@ -275,6 +271,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     // ---- rendering ------------------------------------------------------------------------
 
     private void refresh() {
+        loadFolder();
         final var entries = displayEntries();
         final var starredCount = workspace.starredIn(root).size();
         sidebar.update(path, starredView, starredCount);
@@ -284,7 +281,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         if (!starredView) {
             final var bulk = selected.isEmpty() ? null
                     : new HeaderBulkActions(selected.size(), readOnly(), a -> handleAction(a, null), this::clearSelection);
-            final var toolbarState = new Toolbar.State(workspace.sort(), workspace.density(), workspace.layout(), scope,
+            final var toolbarState = new Toolbar.State(workspace.sort(), workspace.density(), workspace.layout(),
                     readOnly(), bulk);
             toolbar.render(toolbarState);
         }
@@ -317,7 +314,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                 titleRow.add(readOnlyBadge);
             }
         }
-        final String noun = starredView ? "starred item" : treeSearch() ? "result" : "item";
+        final String noun = starredView ? "starred item" : "item";
         final var spacer = Ui.spacer();
         final var countLabel = Ui.span("fb-header-count", count + " " + noun + (count == 1 ? "" : "s"));
         titleRow.add(spacer, countLabel);
@@ -351,6 +348,11 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private void renderContent(List<Located> entries) {
         content.removeAll();
         listView = null;
+        if (loadError != null && !starredView) {
+            final var unavailable = EmptyState.unavailable(loadError);
+            content.add(unavailable);
+            return;
+        }
         if (entries.isEmpty()) {
             final EmptyState.Kind kind = starredView ? EmptyState.Kind.STARRED_ROOT
                     : query.isBlank() ? EmptyState.Kind.FOLDER : EmptyState.Kind.SEARCH;
@@ -360,7 +362,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return;
         }
         if (workspace.layout() == Layout.LIST) {
-            listView = new FileListView(entries, this, workspace.density(), workspace.catalog(), workspace.catalog().referenceDate());
+            listView = new FileListView(entries, this, workspace.density(), workspace.catalog());
             content.add(listView);
         } else {
             final var gridView = new FileGridView(entries, this, workspace.catalog());
@@ -373,9 +375,9 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var entry = focusedEntry();
         if (entry != null && !starredView) {
             final var located = Located.here(entry, root.id());
-            final var starred = workspace.isStarred(root.id(), entry.id());
-            final var details = new DetailsPanel(entry, root, path, readOnly(), starred, workspace.catalog(),
-                    workspace.catalog().referenceDate(), () -> setFocused(null), a -> handleAction(a, located));
+            final var starred = workspace.isStarred(root.id(), entry.path());
+            final var details = new DetailsPanel(entry, root, readOnly(), starred, workspace.catalog(),
+                    () -> setFocused(null), a -> handleAction(a, located));
             detailsSlot.add(details);
         }
     }
@@ -397,23 +399,23 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     @Override
     public boolean selected(Located entry) {
-        return selected.contains(entry.entry().id());
+        return selected.contains(entry.entry().path());
     }
 
     @Override
     public boolean focused(Located entry) {
-        return entry.entry().id().equals(focused);
+        return entry.entry().path().equals(focused);
     }
 
     @Override
     public boolean starred(Located entry) {
-        return workspace.isStarred(entry.rootId(), entry.entry().id());
+        return workspace.isStarred(entry.rootId(), entry.entry().path());
     }
 
     @Override
     public void toggleSelected(Located entry) {
-        if (!selected.remove(entry.entry().id())) {
-            selected.add(entry.entry().id());
+        if (!selected.remove(entry.entry().path())) {
+            selected.add(entry.entry().path());
         }
         refresh();
     }
@@ -422,7 +424,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     public void toggleAll(boolean on) {
         selected.clear();
         if (on) {
-            displayEntries().forEach(e -> selected.add(e.entry().id()));
+            displayEntries().forEach(e -> selected.add(e.entry().path()));
         }
         refresh();
     }
@@ -438,9 +440,9 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             final var folderPath = append(folderOf(entry), entryValue.name());
             navTo(folderPath);
         } else if (entry.elsewhere()) {
-            navigate(root.id(), entry.location(), entryValue.id());
+            navigate(root.id(), entry.location(), entryValue.path());
         } else {
-            setFocused(entryValue.id());
+            setFocused(entryValue.path());
         }
     }
 
@@ -450,7 +452,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             open(entry);
             return;
         }
-        setFocused(entry.entry().id().equals(focused) ? null : entry.entry().id());
+        setFocused(entry.entry().path().equals(focused) ? null : entry.entry().path());
     }
 
     private void openStarred(Located entry) {
@@ -458,7 +460,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             final var folderPath = append(entry.location(), entry.entry().name());
             navigate(entry.rootId(), folderPath, null);
         } else {
-            navigate(entry.rootId(), entry.location(), entry.entry().id());
+            navigate(entry.rootId(), entry.location(), entry.entry().path());
         }
     }
 
@@ -470,7 +472,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     @Override
     public void toggleStar(Located entry) {
         final var on = starred(entry);
-        workspace.setStarred(entry.rootId(), entry.entry().id(), !on);
+        workspace.setStarred(entry.rootId(), entry.entry().path(), !on);
         Toasts.show(on ? "Removed “" + entry.entry().name() + "” from starred" : "Added “" + entry.entry().name() + "” to starred", "star");
         refresh();
     }
@@ -523,9 +525,10 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             }
             case MOVE -> {
                 final var entries = targets.stream().map(Located::entry).toList();
-                final var tree = workspace.tree(root.id());
+                final var moveRoot = root;
                 final var from = folderOf(first);
-                final var dialog = new MoveDialog(entries, root, tree, from, dest -> move(targets, dest));
+                final var dialog = new MoveDialog(entries, root, folder -> workspace.subfolders(moveRoot, folder), from,
+                        dest -> move(targets, dest));
                 dialog.open();
             }
             case DELETE -> {
@@ -538,7 +541,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                 if (targets.size() == 1) {
                     toggleStar(first);
                 } else {
-                    targets.forEach(t -> workspace.setStarred(t.rootId(), t.entry().id(), true));
+                    targets.forEach(t -> workspace.setStarred(t.rootId(), t.entry().path(), true));
                     Toasts.show("Added " + targets.size() + " items to starred", "star");
                     refresh();
                 }
@@ -547,49 +550,65 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void rename(Located target, String name) {
-        final var folder = folderOf(target);
-        workspace.rename(root.id(), folder, target.entry().id(), name);
-        Toasts.show("Renamed to “" + name + "”", "edit");
-        refresh();
+        try {
+            workspace.rename(root, target.entry(), name);
+            Toasts.show("Renamed to “" + name + "”", "edit");
+        } catch (StorageException e) {
+            Toasts.error(e.getMessage());
+        }
+        afterChange();
     }
 
-    private Map<List<String>, List<String>> idsByFolder(List<Located> targets) {
-        final var groups = new LinkedHashMap<List<String>, List<String>>();
+    /** Applies {@code change} to each target, stopping at the first failure; returns how many succeeded. */
+    private int forEachTarget(List<Located> targets, Consumer<StorageEntry> change) {
+        int done = 0;
         for (final var t : targets) {
-            final var folder = folderOf(t);
-            groups.computeIfAbsent(folder, k -> new ArrayList<>()).add(t.entry().id());
+            try {
+                change.accept(t.entry());
+                done++;
+            } catch (StorageException e) {
+                Toasts.error(e.getMessage());
+                break;
+            }
         }
-        return groups;
+        return done;
     }
 
     private void move(List<Located> targets, List<String> dest) {
-        idsByFolder(targets).forEach((from, ids) -> workspace.move(root.id(), from, ids, dest));
+        final var done = forEachTarget(targets, e -> workspace.move(root, e, dest));
         selected.clear();
-        final var destName = dest.isEmpty() ? root.name() : dest.getLast();
-        final var movedLabel = label(targets);
-        Toasts.show("Moved " + movedLabel + " to “" + destName + "”", "move");
-        refresh();
+        if (done > 0) {
+            final var destName = dest.isEmpty() ? root.name() : dest.getLast();
+            final var movedLabel = done == targets.size() ? label(targets) : Formats.plural(done, "item");
+            Toasts.show("Moved " + movedLabel + " to “" + destName + "”", "move");
+        }
+        afterChange();
     }
 
     private void delete(List<Located> targets) {
-        idsByFolder(targets).forEach((from, ids) -> workspace.delete(root.id(), from, ids));
-        targets.forEach(t -> workspace.setStarred(t.rootId(), t.entry().id(), false));
+        final var done = forEachTarget(targets, e -> workspace.delete(root, e));
         selected.clear();
         if (targets.stream().anyMatch(this::focused)) {
             focused = null;
         }
-        final var deletedLabel = label(targets);
-        Toasts.show(deletedLabel + " deleted", "trash");
-        refresh();
+        if (done > 0) {
+            final var deletedLabel = done == targets.size() ? label(targets) : Formats.plural(done, "item");
+            Toasts.show(deletedLabel + " deleted", "trash");
+        }
+        afterChange();
     }
 
     private void duplicate(List<Located> targets) {
-        for (final var t : targets) {
-            final var folder = folderOf(t);
-            workspace.duplicate(root.id(), folder, t.entry().id());
+        final var done = forEachTarget(targets, e -> workspace.duplicate(root, e));
+        if (done > 0) {
+            final var duplicatedLabel = done == targets.size() ? label(targets) : Formats.plural(done, "item");
+            Toasts.show("Duplicated " + duplicatedLabel, "copy");
         }
-        final var duplicatedLabel = label(targets);
-        Toasts.show("Duplicated " + duplicatedLabel, "copy");
+        afterChange();
+    }
+
+    private void afterChange() {
+        sidebar.reloadFolders();
         refresh();
     }
 
@@ -603,9 +622,13 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return;
         }
         final var dialog = NameDialog.newFolder(name -> {
-            workspace.createFolder(root.id(), path, name);
-            Toasts.show("Folder “" + name + "” created", "folder");
-            refresh();
+            try {
+                workspace.createFolder(root, path, name);
+                Toasts.show("Folder “" + name + "” created", "folder");
+            } catch (StorageException e) {
+                Toasts.error(e.getMessage());
+            }
+            afterChange();
         });
         dialog.open();
     }
@@ -617,8 +640,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             Toasts.readOnly();
             return;
         }
-        final var dialog = new UploadDialog(workspace.catalog(), this::startUploads);
-        dialog.open();
+        // transfers are wired to storage in the next step; until then don't pretend to upload
+        Toasts.show("Uploading isn't available yet", "info");
     }
 
     private void onFilesDropped(List<IncomingFile> files) {
@@ -629,12 +652,12 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             Toasts.readOnly();
             return;
         }
-        startUploads(files);
+        openUploadDialog();
     }
 
     private void startUploads(List<IncomingFile> files) {
         final var destination = path;
-        final var existing = workspace.fileNames(root.id(), destination);
+        final var existing = workspace.fileNames(root, destination);
         final var conflicts = files.stream().filter(f -> existing.contains(f.name())).toList();
         if (conflicts.isEmpty()) {
             enqueue(destination, files.stream().map(f -> new PlannedUpload(f, f.name(), false)).toList());

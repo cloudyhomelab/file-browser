@@ -6,9 +6,18 @@ import com.vaadin.flow.function.SerializableRunnable;
 
 public class EmptyState extends Composite<Div> {
 
-    public enum Kind { FOLDER, SEARCH, STARRED_ROOT, STARRED_ALL }
+    public enum Kind { FOLDER, SEARCH, STARRED_ROOT, STARRED_ALL, UNAVAILABLE }
 
     public EmptyState(Kind kind, SerializableRunnable onUpload) {
+        this(kind, null, onUpload);
+    }
+
+    /** A folder that could not be read; {@code reason} is the storage's user-facing message. */
+    public static EmptyState unavailable(String reason) {
+        return new EmptyState(Kind.UNAVAILABLE, reason, null);
+    }
+
+    private EmptyState(Kind kind, String reason, SerializableRunnable onUpload) {
         final var div = getContent();
         div.addClassNames("fb-empty", "fb-empty--" + kind.name().toLowerCase().replace('_', '-'));
         final String icon;
@@ -24,6 +33,11 @@ public class EmptyState extends Composite<Div> {
                 icon = "star-outline";
                 title = "No starred items yet";
                 text = "Star a file or folder to pin it here for quick access. Use the star button in a row, the right-click menu, or the details panel.";
+            }
+            case UNAVAILABLE -> {
+                icon = "warn";
+                title = "This folder can't be shown";
+                text = reason;
             }
             case STARRED_ALL -> {
                 icon = "star-outline";

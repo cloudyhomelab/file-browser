@@ -1,7 +1,10 @@
 package org.vaadin.filebrowser.data;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
 public final class Formats {
@@ -12,6 +15,7 @@ public final class Formats {
     private static final int WHOLE_NUMBER_FROM = 100;
     private static final int RELATIVE_DAYS_LIMIT = 7;
     private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MMM d", Locale.US);
+    private static final DateTimeFormatter MONTH_DAY_YEAR = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US);
 
     private Formats() {
     }
@@ -42,17 +46,28 @@ public final class Formats {
         return gb + " GB";
     }
 
-    public static String daysAgo(int days, LocalDate today) {
+    public static String modified(Instant instant) {
+        final var zone = ZoneId.systemDefault();
+        final var today = LocalDate.now(zone);
+        return modified(instant, today, zone);
+    }
+
+    static String modified(Instant instant, LocalDate today, ZoneId zone) {
+        if (instant == null) {
+            return "—";
+        }
+        final var date = instant.atZone(zone).toLocalDate();
+        final var days = ChronoUnit.DAYS.between(date, today);
         if (days == 0) {
             return "Today";
         }
         if (days == 1) {
             return "Yesterday";
         }
-        if (days < RELATIVE_DAYS_LIMIT) {
+        if (days > 1 && days < RELATIVE_DAYS_LIMIT) {
             return days + " days ago";
         }
-        return today.minusDays(days).format(MONTH_DAY);
+        return date.format(date.getYear() == today.getYear() ? MONTH_DAY : MONTH_DAY_YEAR);
     }
 
     public static String plural(int count, String noun) {

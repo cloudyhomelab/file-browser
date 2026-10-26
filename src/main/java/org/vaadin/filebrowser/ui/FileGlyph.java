@@ -1,7 +1,7 @@
 package org.vaadin.filebrowser.ui;
 
 import org.vaadin.filebrowser.data.Catalog;
-import org.vaadin.filebrowser.data.FsEntry;
+import org.vaadin.filebrowser.storage.StorageEntry;
 
 import com.vaadin.flow.component.html.Span;
 
@@ -10,7 +10,7 @@ public class FileGlyph extends Span {
 
     public FileGlyph(String type, Catalog catalog) {
         addClassNames("fb-glyph", "fb-type-" + type);
-        if (FsEntry.FOLDER_TYPE.equals(type)) {
+        if (StorageEntry.FOLDER_TYPE.equals(type)) {
             final var folderIcon = new Icon("folder");
             add(folderIcon);
             return;

@@ -25,21 +25,15 @@ import com.vaadin.flow.function.SerializableRunnable;
  */
 public class Toolbar extends Composite<Div> {
 
-    public enum Scope { FOLDER, TREE }
-
-    public record State(Sort sort, Density density, Layout layout, Scope scope, boolean readOnly, Component bulkSlot) {
+    public record State(Sort sort, Density density, Layout layout, boolean readOnly, Component bulkSlot) {
     }
 
-    public record Callbacks(SerializableConsumer<String> onQuery, SerializableConsumer<Scope> onScope,
-                            SerializableConsumer<SortKey> onSort, SerializableRunnable onToggleDensity,
+    public record Callbacks(SerializableConsumer<String> onQuery, SerializableConsumer<SortKey> onSort, SerializableRunnable onToggleDensity,
                             SerializableConsumer<Layout> onLayout, SerializableRunnable onNewFolder,
                             SerializableRunnable onUpload) {
     }
 
     private static final int SEARCH_DEBOUNCE_MS = 250;
-    private static final List<Segmented.Option<Scope>> SCOPES = List.of(
-            new Segmented.Option<>(Scope.FOLDER, "Folder", null, "Search the current folder"),
-            new Segmented.Option<>(Scope.TREE, "All files", null, "Search the entire file system"));
 
     private final TextField search = new TextField();
     private final Div actions = Ui.div("fb-toolbar-actions");
@@ -53,7 +47,8 @@ public class Toolbar extends Composite<Div> {
         search.setClearButtonVisible(true);
         search.setValueChangeMode(ValueChangeMode.LAZY);
         search.setValueChangeTimeout(SEARCH_DEBOUNCE_MS);
-        search.setAriaLabel("Search");
+        search.setAriaLabel("Search this folder");
+        search.setPlaceholder("Search this folder");
         search.addValueChangeListener(e -> callbacks.onQuery().accept(e.getValue()));
         getContent().setClassName("fb-toolbar");
         final var spacer = Ui.spacer();
@@ -65,10 +60,6 @@ public class Toolbar extends Composite<Div> {
     }
 
     public void render(State state) {
-        search.setPlaceholder(state.scope() == Scope.TREE ? "Search all files" : "Search this folder");
-        final var scopeToggle = new Segmented<>("fb-seg--s fb-search-scope", SCOPES, state.scope(), callbacks.onScope());
-        search.setSuffixComponent(scopeToggle);
-
         actions.removeAll();
         if (state.bulkSlot() != null) {
             final var bulkSeparator = Ui.divider("fb-vsep");

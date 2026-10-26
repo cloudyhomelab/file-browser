@@ -1,14 +1,14 @@
 package org.vaadin.filebrowser.ui;
 
 import org.vaadin.filebrowser.data.Catalog;
-import org.vaadin.filebrowser.data.FsEntry;
+import org.vaadin.filebrowser.storage.StorageEntry;
 
 import com.vaadin.flow.component.html.Span;
 
 /** Large page- or folder-shaped tile used in the grid and the details preview. */
 public class FileTile extends Span {
 
-    public FileTile(FsEntry entry, Catalog catalog) {
+    public FileTile(StorageEntry entry, Catalog catalog) {
         addClassName("fb-tile");
         if (entry.folder()) {
             addClassName("fb-tile--folder");

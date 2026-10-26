@@ -660,8 +660,6 @@ vaadin-text-field.fb-search {
 }
 vaadin-text-field.fb-search::part(input-field) { padding-left: 11px; padding-right: 5px; gap: 8px; }
 vaadin-text-field.fb-search [slot="prefix"] { color: var(--fb-fg-secondary); }
-vaadin-text-field.fb-search .fb-search-scope { margin-left: 8px; position: relative; }
-vaadin-text-field.fb-search .fb-search-scope::before { content: ""; position: absolute; left: -9px; top: 4px; bottom: 4px; width: 1px; background: var(--fb-border); }
 
 /* header bulk actions */
 .fb-header-bulk { display: inline-flex; align-items: center; gap: 2px; padding: 3px 4px; border-radius: var(--fb-radius-full); background: var(--fb-accent-bg-subtle); box-shadow: inset 0 0 0 1px rgba(50, 102, 228, 0.18); }

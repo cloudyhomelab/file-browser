@@ -3,7 +3,6 @@ package org.vaadin.filebrowser.ui;
 import java.util.List;
 
 import org.vaadin.filebrowser.data.Catalog;
-import org.vaadin.filebrowser.data.FsEntry;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.service.CurrentUser;
 
@@ -25,11 +24,11 @@ public class Sidebar extends Composite<Aside> {
     private final Div starredSlot = Ui.div("fb-sidebar-starred-slot");
     private final SerializableRunnable onStarred;
 
-    public Sidebar(FsRoot root, List<FsRoot> browsable, List<FsEntry> tree, Catalog catalog, CurrentUser.User user,
+    public Sidebar(FsRoot root, List<FsRoot> browsable, SubfolderLoader folders, Catalog catalog, CurrentUser.User user,
                    Callbacks callbacks) {
         final var aside = getContent();
         aside.setClassName("fb-sidebar");
-        folderTree = new FolderTree(tree, callbacks.onNavigate());
+        folderTree = new FolderTree(folders, callbacks.onNavigate());
         onStarred = callbacks.onStarred();
 
         final var nav = new Nav(folderTree);
@@ -70,5 +69,10 @@ public class Sidebar extends Composite<Aside> {
         }
         item.addClickListener(e -> onStarred.run());
         starredSlot.add(item);
+    }
+
+    /** Re-reads folders after something was created, renamed, moved or deleted. */
+    public void reloadFolders() {
+        folderTree.reload();
     }
 }

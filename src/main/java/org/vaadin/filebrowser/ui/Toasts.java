@@ -21,6 +21,10 @@ public final class Toasts {
         notification.open();
     }
 
+    public static void error(String message) {
+        show(message, "warn");
+    }
+
     public static void readOnly() {
         show("This file system is read only", "warn");
     }
