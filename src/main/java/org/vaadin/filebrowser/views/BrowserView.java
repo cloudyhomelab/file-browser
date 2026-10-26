@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import org.vaadin.filebrowser.config.FileBrowserProperties;
+import org.vaadin.filebrowser.data.ArchiveFormat;
 import org.vaadin.filebrowser.data.AutoRefresh;
 import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.FsRoot;
@@ -18,13 +19,15 @@ import org.vaadin.filebrowser.data.IncomingFile;
 import org.vaadin.filebrowser.data.Located;
 import org.vaadin.filebrowser.data.Sort;
 import org.vaadin.filebrowser.data.SortKey;
+import org.vaadin.filebrowser.service.ArchiveExtractor;
 import org.vaadin.filebrowser.service.CurrentUser;
-import org.vaadin.filebrowser.service.Workspace;
+import org.vaadin.filebrowser.service.Downloads;
+import org.vaadin.filebrowser.service.UploadQueue.Planned;
+import org.vaadin.filebrowser.service.UploadQueue;
 import org.vaadin.filebrowser.service.Workspace.ConflictChoice;
 import org.vaadin.filebrowser.service.Workspace.Density;
 import org.vaadin.filebrowser.service.Workspace.Layout;
-import org.vaadin.filebrowser.service.Downloads;
-import org.vaadin.filebrowser.service.UploadQueue.Planned;
+import org.vaadin.filebrowser.service.Workspace;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.ui.Badge;
@@ -84,6 +87,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private final Workspace workspace;
     private final long maxUploadBytes;
+    private final ArchiveExtractor.Limits extractLimits;
     private final CurrentUser currentUser;
 
     private final Div sidebarSlot = Ui.div("fb-sidebar-slot");
@@ -118,6 +122,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         this.workspace = workspace;
         this.currentUser = currentUser;
         this.maxUploadBytes = properties.maxUploadSize().toBytes();
+        this.extractLimits = new ArchiveExtractor.Limits(properties.maxExtractBytes(), properties.maxExtractEntries());
         setClassName("fb-browser");
 
         final var toolbarCallbacks = new Toolbar.Callbacks(this::onQuery, this::sortBy, this::setAutoRefresh,
@@ -739,22 +744,51 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return;
         }
         final var destination = path;
+        final Set<String> existingFiles;
         final Set<String> existing;
         try {
-            existing = workspace.fileNames(root, destination);
+            existingFiles = workspace.fileNames(root, destination);
+            existing = workspace.entryNames(root, destination);
         } catch (StorageException e) {
             Toasts.error(e.getMessage());
             return;
         }
-        final var conflicts = files.stream().filter(f -> existing.contains(f.name())).toList();
+        // a stored file clashes with a file of the same name; a new folder for an archive with anything
+        final var conflicts = new ArrayList<IncomingFile>();
+        final var folderConflicts = new HashSet<String>();
+        for (final var f : files) {
+            if (stored(f) && existingFiles.contains(f.name())) {
+                conflicts.add(f);
+            }
+            final var folderName = newFolderName(f);
+            if (folderName != null && existing.contains(folderName)) {
+                conflicts.add(new IncomingFile(null, folderName, StorageEntry.FOLDER_TYPE, 0));
+                folderConflicts.add(folderName);
+            }
+        }
         if (conflicts.isEmpty()) {
-            final var planned = files.stream().map(f -> new Planned(f, f.name(), false)).toList();
-            enqueue(destination, planned);
+            resolveConflicts(files, destination, existing, Map.of());
             return;
         }
-        final var dialog = new ConflictDialog(workspace.catalog(), conflicts, files.size(), existing,
+        final var dialog = new ConflictDialog(workspace.catalog(), conflicts, files.size(), existing, folderConflicts,
                 choices -> resolveConflicts(files, destination, existing, choices));
         dialog.open();
+    }
+
+    /** Whether the upload itself ends up in the folder: always, unless it's an archive extracted without keeping it. */
+    private static boolean stored(IncomingFile f) {
+        return f.extract() == null || f.extract().keepArchive();
+    }
+
+    /** The folder an archive is extracted into, or null when it isn't extracted into a new folder. */
+    private String newFolderName(IncomingFile f) {
+        if (f.extract() == null || !f.extract().newFolder()) {
+            return null;
+        }
+        return workspace.catalog().archiveFormat(f.name())
+                .filter(m -> !m.format().singleFile())
+                .map(ArchiveFormat.Match::baseName)
+                .orElse(null);
     }
 
     private void resolveConflicts(List<IncomingFile> files, List<String> destination, Set<String> existing,
@@ -762,19 +796,42 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var taken = new HashSet<>(existing);
         final var planned = new ArrayList<Planned>();
         for (final var f : files) {
-            final var choice = choices.get(f.name());
-            if (choice == null) {
-                final var upload = new Planned(f, f.name(), false);
-                planned.add(upload);
-            } else if (choice == ConflictChoice.REPLACE) {
-                final var upload = new Planned(f, f.name(), true);
-                planned.add(upload);
-            } else if (choice == ConflictChoice.KEEP_BOTH) {
-                final var renamed = Workspace.keepBothName(f.name(), taken);
-                taken.add(renamed);
-                final var upload = new Planned(f, renamed, false);
-                planned.add(upload);
+            var store = stored(f);
+            var finalName = f.name();
+            var replace = false;
+            if (store) {
+                final var choice = choices.get(f.name());
+                if (choice == ConflictChoice.REPLACE) {
+                    replace = true;
+                } else if (choice == ConflictChoice.KEEP_BOTH) {
+                    finalName = Workspace.keepBothName(f.name(), taken);
+                } else if (choice == ConflictChoice.SKIP) {
+                    // a skipped archive name still lets its contents be extracted, just without keeping it
+                    store = false;
+                }
+                taken.add(finalName);
             }
+            final var match = f.extract() == null ? null : workspace.catalog().archiveFormat(f.name()).orElse(null);
+            if (match == null) {
+                if (store) {
+                    planned.add(new Planned(f, finalName, replace));
+                }
+                continue;
+            }
+            var folderName = newFolderName(f);
+            if (folderName != null) {
+                final var choice = choices.get(folderName);
+                if (choice == ConflictChoice.SKIP) {
+                    continue;
+                }
+                if (choice == ConflictChoice.KEEP_BOTH) {
+                    folderName = Workspace.keepBothName(folderName, taken);
+                }
+                taken.add(folderName);
+            }
+            final var extraction = new UploadQueue.Extraction(match.format(), match.baseName(), folderName, store,
+                    f.extract().clash(), extractLimits);
+            planned.add(new Planned(f, finalName, replace, extraction));
         }
         final var skipped = files.size() - planned.size();
         if (planned.isEmpty() && skipped > 0) {
@@ -839,7 +896,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var finished = workspace.uploads().takeFinished();
         for (final var t : finished) {
             switch (t.state()) {
-                case DONE -> Toasts.show((t.replace() ? "Replaced “" : "Uploaded “") + t.name() + "”", "check");
+                case DONE -> Toasts.show(t.summary() != null ? "“" + t.name() + "”: " + t.summary()
+                        : (t.replace() ? "Replaced “" : "Uploaded “") + t.name() + "”", "check");
                 case FAILED -> Toasts.error(t.error());
                 default -> { }
             }

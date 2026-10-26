@@ -320,6 +320,13 @@ public class Workspace implements Serializable {
 
     // ---- uploads --------------------------------------------------------------------------
 
+    /** Names of everything in a folder, files and folders. */
+    public Set<String> entryNames(FsRoot root, List<String> folder) {
+        final var names = new HashSet<String>();
+        list(root, folder).forEach(e -> names.add(e.name()));
+        return names;
+    }
+
     public Set<String> fileNames(FsRoot root, List<String> folder) {
         final var names = new HashSet<String>();
         list(root, folder).stream().filter(e -> !e.folder()).forEach(e -> names.add(e.name()));

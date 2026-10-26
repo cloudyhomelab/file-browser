@@ -76,14 +76,18 @@ public class UploadDock extends Composite<Div> {
             final var name = Ui.div("fb-dock-name", nameText);
             final var body = Ui.div("fb-dock-body", name);
             if (u.complete()) {
-                final var sizeText = Formats.size(u.knownSize());
-                final var doneText = new Span(sizeText + " · Done");
+                final var sizeText = u.summary() != null ? u.summary() : Formats.size(u.knownSize()) + " · Done";
+                final var doneText = new Span(sizeText);
                 final var doneLine = Ui.div("fb-dock-done", doneText);
                 body.add(doneLine);
             } else if (failedRow) {
                 final var errorText = new Span(u.error());
                 final var errorLine = Ui.div("fb-dock-failed", errorText);
                 body.add(errorLine);
+            } else if (u.state() == UploadTask.State.EXTRACTING) {
+                final var extractingText = new Span("Extracting…");
+                final var extractingLine = Ui.div("fb-dock-done", extractingText);
+                body.add(extractingLine);
             } else {
                 final var fill = Ui.div("fb-dock-fill");
                 fill.getStyle().setWidth(u.progress() + "%");
