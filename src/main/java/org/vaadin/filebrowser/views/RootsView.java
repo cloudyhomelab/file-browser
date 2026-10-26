@@ -9,10 +9,13 @@ import org.vaadin.filebrowser.ui.AppHeader;
 import org.vaadin.filebrowser.ui.Buttons;
 import org.vaadin.filebrowser.ui.DriveCard;
 import org.vaadin.filebrowser.ui.Icon;
+import org.vaadin.filebrowser.ui.MenuPosition;
+import org.vaadin.filebrowser.ui.RootMenu;
 import org.vaadin.filebrowser.ui.StarredBanner;
 import org.vaadin.filebrowser.ui.Toasts;
 import org.vaadin.filebrowser.ui.Ui;
 import org.vaadin.filebrowser.ui.dialog.AddRootDialog;
+import org.vaadin.filebrowser.ui.dialog.RemoveRootDialog;
 
 import jakarta.annotation.security.PermitAll;
 
@@ -21,6 +24,7 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Main;
 import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
@@ -33,6 +37,7 @@ public class RootsView extends Div {
     private final Workspace workspace;
     private final CurrentUser currentUser;
     private final Main main = new Main();
+    private final RootMenu rootMenu = new RootMenu();
 
     public RootsView(Workspace workspace, CurrentUser currentUser) {
         this.workspace = workspace;
@@ -43,7 +48,7 @@ public class RootsView extends Div {
             final var header = new AppHeader(user, this::logout);
             add(header);
         });
-        add(main);
+        add(main, rootMenu);
         render();
     }
 
@@ -107,9 +112,31 @@ public class RootsView extends Div {
     private DriveCard card(FsRoot root) {
         final var kind = workspace.catalog().kind(root);
         final var rootParams = BrowserView.params(root.id(), List.of());
+        final SerializableConsumer<MenuPosition> onMenu = currentUser.isAdmin()
+                ? pos -> rootMenu.open(root, pos, this::openEditDialog, this::openRemoveDialog)
+                : null;
         return new DriveCard(root, kind,
                 () -> UI.getCurrent().navigate(BrowserView.class, rootParams),
-                () -> Toasts.show("Access requested for “" + root.name() + "”", "mail"));
+                () -> Toasts.show("Access requested for “" + root.name() + "”", "mail"),
+                onMenu);
+    }
+
+    private void openEditDialog(FsRoot root) {
+        final var dialog = AddRootDialog.edit(workspace.catalog(), workspace::probe, root, edited -> {
+            workspace.updateRoot(root, edited.name(), edited.access());
+            Toasts.show("Saved “" + edited.name() + "”", "check");
+            render();
+        });
+        dialog.open();
+    }
+
+    private void openRemoveDialog(FsRoot root) {
+        final var dialog = new RemoveRootDialog(root, () -> {
+            workspace.removeRoot(root);
+            Toasts.show("Removed “" + root.name() + "”", "trash");
+            render();
+        });
+        dialog.open();
     }
 
     private void openAddDialog() {

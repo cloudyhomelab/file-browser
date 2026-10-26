@@ -9,11 +9,14 @@ import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.function.SerializableRunnable;
 
 public class DriveCard extends Composite<Div> {
 
-    public DriveCard(FsRoot root, KindInfo kind, SerializableRunnable onOpen, SerializableRunnable onRequestAccess) {
+    /** {@code onMenu} opens the admin menu from the card's "⋯" button; null hides the button. */
+    public DriveCard(FsRoot root, KindInfo kind, SerializableRunnable onOpen, SerializableRunnable onRequestAccess,
+                     SerializableConsumer<MenuPosition> onMenu) {
         final var card = getContent();
         card.addClassNames("fb-drive", "fb-root-" + root.kindKey());
         final var disabled = !root.browsable();
@@ -23,7 +26,9 @@ public class DriveCard extends Composite<Div> {
             card.getElement().setAttribute("role", "button");
             card.getElement().setAttribute("tabindex", "0");
             card.addClickListener(e -> onOpen.run());
-            card.getElement().addEventListener("keydown", e -> onOpen.run()).setFilter("event.key === 'Enter'");
+            // only the card itself: Enter on the "⋯" button must not open it too
+            card.getElement().addEventListener("keydown", e -> onOpen.run())
+                    .setFilter("event.key === 'Enter' && event.target === element");
         }
 
         final var status = Ui.span("fb-drive-status" + (root.online() ? "" : " fb-drive-status--off"), "");
@@ -34,6 +39,13 @@ public class DriveCard extends Composite<Div> {
         final var endpoint = Ui.div("fb-drive-endpoint", endpointText);
         final var titles = Ui.div("fb-drive-titles", title, endpoint);
         final var head = Ui.div("fb-drive-head", chip, titles, status);
+        if (onMenu != null) {
+            final var dotsIcon = new Icon("dots");
+            final var dots = Ui.button("fb-icon-btn fb-icon-btn--s fb-drive-more", () -> { }, dotsIcon);
+            dots.getElement().setAttribute("aria-label", "File system actions");
+            MenuPosition.onClick(dots, onMenu);
+            head.add(dots);
+        }
 
         final var typeBadge = new Badge(Badge.Tone.NEUTRAL, kind.label());
         final var network = root.mount().kind() == MountInfo.Kind.NFS || root.mount().kind() == MountInfo.Kind.SMB;
