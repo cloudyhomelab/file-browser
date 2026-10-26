@@ -12,7 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
-/** Everyone who has signed in, keyed by lower-cased email. Plan 03 builds admin management on this. */
+/** Everyone who has signed in, keyed by lower-cased email. */
 @Repository
 public class UserAccounts {
 
