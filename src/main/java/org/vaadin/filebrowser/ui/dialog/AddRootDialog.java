@@ -29,7 +29,8 @@ import com.vaadin.flow.function.SerializableConsumer;
 /**
  * Register a folder on the server (a local disk or an OS-mounted share) as a file system. The path
  * is checked on the server as it is typed. S3 is not offered until it is supported; its fields stay
- * here for that, and S3 secrets are not kept.
+ * here for that, and S3 secrets are not kept. The same form edits an existing file system, with only
+ * its name and access open to change.
  */
 public class AddRootDialog extends FbDialog {
 
@@ -52,22 +53,46 @@ public class AddRootDialog extends FbDialog {
     private final Div accessPicker = Ui.div("");
     private final Div accessHint = Ui.div("fb-addroot-access-hint");
     private final Button connect;
+    /** The file system being edited, or null when adding one. */
+    private final FsRoot editing;
     private RootType type = RootType.DISK;
     private Access access = Access.READ_WRITE;
 
     public AddRootDialog(Catalog catalog, Predicate<String> endpointTaken, Function<String, PathProbe> probe,
                          String newId, SerializableConsumer<FsRoot> onConfirm) {
-        super("Add file system", "plus", Tone.ACCENT, Width.MEDIUM);
+        this(catalog, endpointTaken, probe, newId, null, onConfirm);
+    }
+
+    /** Edits the name and access of {@code root}; its path and host stay as they are. */
+    public static AddRootDialog edit(Catalog catalog, Function<String, PathProbe> probe, FsRoot root,
+                                     SerializableConsumer<FsRoot> onConfirm) {
+        return new AddRootDialog(catalog, endpoint -> false, probe, root.id(), root, onConfirm);
+    }
+
+    private AddRootDialog(Catalog catalog, Predicate<String> endpointTaken, Function<String, PathProbe> probe,
+                          String id, FsRoot editing, SerializableConsumer<FsRoot> onConfirm) {
+        super(editing == null ? "Add file system" : "Edit file system", editing == null ? "plus" : "edit",
+                Tone.ACCENT, Width.MEDIUM);
         this.catalog = catalog;
         this.endpointTaken = endpointTaken;
         this.probe = probe;
+        this.editing = editing;
+        if (editing != null) {
+            type = editing.type();
+            access = editing.access();
+            name.setValue(editing.name());
+            endpoint.setValue(editing.endpoint());
+            endpoint.setReadOnly(true);
+            region.setValue(editing.region());
+            region.setReadOnly(true);
+        }
 
         for (final TextFieldBase<?, String> field : new TextFieldBase[]{name, endpoint, keyId, secret, region}) {
             field.setWidthFull();
             field.addClassName("fb-field");
             field.setValueChangeMode(ValueChangeMode.EAGER);
             field.addValueChangeListener(e -> update());
-            field.addKeyPressListener(Key.ENTER, e -> submit(newId, onConfirm));
+            field.addKeyPressListener(Key.ENTER, e -> submit(id, onConfirm));
         }
         name.setAutofocus(true);
         endpoint.addClassName("fb-field--mono");
@@ -93,7 +118,7 @@ public class AddRootDialog extends FbDialog {
         final var form = Ui.div("fb-form", typeGroup, name, endpointGroup, credentials, region, accessGroup);
         add(form);
 
-        connect = Buttons.create(Buttons.Kind.PRIMARY, "Connect", null, () -> submit(newId, onConfirm));
+        connect = Buttons.create(Buttons.Kind.PRIMARY, editing == null ? "Connect" : "Save", null, () -> submit(id, onConfirm));
         final var cancel = cancelButton();
         footer(cancel, connect);
         update();
@@ -123,7 +148,9 @@ public class AddRootDialog extends FbDialog {
         final var ep = endpoint.getValue().trim();
         final var badShape = ep.length() > 0 && (!ep.startsWith(info.endpointPrefix()) || ep.length() <= info.endpointPrefix().length());
         final var dupe = !ep.isEmpty() && endpointTaken.test(ep);
-        final var folderProblem = ep.isEmpty() || badShape || dupe || type != RootType.DISK ? null : folderProblem(ep);
+        // an existing file system may be offline right now; that must not block renaming it
+        final var folderProblem = ep.isEmpty() || badShape || dupe || type != RootType.DISK || editing != null
+                ? null : folderProblem(ep);
         final var problem = dupe ? "This file system is already connected"
                 : badShape ? info.endpointError()
                 : folderProblem;
@@ -141,7 +168,7 @@ public class AddRootDialog extends FbDialog {
         credentialsHint.add(credsBad ? "Enter both the access key ID and the secret access key."
                 : "Leave blank to use the server's IAM role or public bucket access. Keys are stored encrypted and never shown again.");
 
-        final var writable = problem != null || ep.isEmpty() || type != RootType.DISK || probe.apply(ep).writable();
+        final var writable = problem != null || ep.isEmpty() || type != RootType.DISK || writableFolder(ep);
         if (!writable) {
             access = Access.READ_ONLY;
         }
@@ -156,6 +183,12 @@ public class AddRootDialog extends FbDialog {
         accessHint.setVisible(!writable);
 
         connect.setEnabled(!name.getValue().trim().isEmpty() && !ep.isEmpty() && problem == null && !credsBad);
+    }
+
+    // when editing, only a folder that is there and refuses writes limits the choice
+    private boolean writableFolder(String path) {
+        final var found = probe.apply(path);
+        return found.writable() || editing != null && !found.exists();
     }
 
     private String folderProblem(String path) {
@@ -181,13 +214,13 @@ public class AddRootDialog extends FbDialog {
         return hasKey != hasSecret;
     }
 
-    private void submit(String newId, SerializableConsumer<FsRoot> onConfirm) {
+    private void submit(String id, SerializableConsumer<FsRoot> onConfirm) {
         if (!connect.isEnabled()) {
             return;
         }
         final var info = catalog.rootType(type);
         final var regionValue = region.getValue().trim().isEmpty() ? info.defaultRegion() : region.getValue().trim();
-        final var root = new FsRoot(newId, name.getValue().trim(), type, endpoint.getValue().trim(), regionValue,
+        final var root = new FsRoot(id, name.getValue().trim(), type, endpoint.getValue().trim(), regionValue,
                 null, true, access, MountInfo.UNKNOWN);
         close();
         onConfirm.accept(root);
