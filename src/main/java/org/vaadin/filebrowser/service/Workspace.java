@@ -23,8 +23,8 @@ import com.vaadin.flow.spring.annotation.VaadinSessionScope;
 
 /**
  * The signed-in user's view of the shared file systems (from {@link FileSystemRegistry}): file
- * operations through {@link StorageService}, starred items, view preferences and uploads.
- * Lives for the Vaadin session.
+ * operations through {@link StorageService}, the user's starred items and view preferences (saved
+ * through {@link UserData}) and uploads. Lives for the Vaadin session.
  */
 @SpringComponent
 @VaadinSessionScope
@@ -42,16 +42,29 @@ public class Workspace implements Serializable {
     private final StorageService storage;
     private final Set<String> starred = new LinkedHashSet<>();
     private final UploadQueue uploads;
+    private final UserData userData;
+    private final String email;
 
-    private Layout layout = Layout.LIST;
-    private Density density = Density.DENSE;
-    private Sort sort = Sort.DEFAULT;
+    private Layout layout = UserData.Preferences.DEFAULT.layout();
+    private Density density = UserData.Preferences.DEFAULT.density();
+    private Sort sort = UserData.Preferences.DEFAULT.sort();
 
-    public Workspace(Catalog catalog, FileSystemRegistry registry, StorageService storage) {
+    public Workspace(Catalog catalog, FileSystemRegistry registry, StorageService storage, UserData userData,
+                     CurrentUser currentUser) {
         this.catalog = catalog;
         this.registry = registry;
         this.storage = storage;
         this.uploads = new UploadQueue(storage);
+        this.userData = userData;
+        // the session is created after sign-in, so the user is known here
+        this.email = currentUser.get().map(CurrentUser.User::email).orElse(null);
+        if (email != null) {
+            starred.addAll(userData.starred(email));
+            final var preferences = userData.preferences(email).orElse(UserData.Preferences.DEFAULT);
+            layout = preferences.layout();
+            density = preferences.density();
+            sort = preferences.sort();
+        }
     }
 
     public Catalog catalog() {
@@ -137,8 +150,14 @@ public class Workspace implements Serializable {
         final var key = starKey(rootId, path);
         if (on) {
             starred.add(key);
+            if (email != null) {
+                userData.star(email, rootId, path);
+            }
         } else {
             starred.remove(key);
+            if (email != null) {
+                userData.unstar(email, rootId, path);
+            }
         }
     }
 
@@ -158,7 +177,9 @@ public class Workspace implements Serializable {
                 continue;
             }
             if (entry.isEmpty()) {
+                // deleted outside the app: the star is gone for everyone
                 starred.remove(key);
+                userData.dropStars(root.id(), path);
                 continue;
             }
             final var location = entry.get().parent();
@@ -170,6 +191,7 @@ public class Workspace implements Serializable {
     }
 
     private void moveStars(String rootId, String oldPath, String newPath) {
+        userData.moveStars(rootId, oldPath, newPath);
         final var exact = starKey(rootId, oldPath);
         final var nested = exact + StoragePaths.SEPARATOR;
         for (final var key : List.copyOf(starred)) {
@@ -181,6 +203,7 @@ public class Workspace implements Serializable {
     }
 
     private void dropStars(String rootId, String path) {
+        userData.dropStars(rootId, path);
         final var exact = starKey(rootId, path);
         starred.removeIf(key -> key.equals(exact) || key.startsWith(exact + StoragePaths.SEPARATOR));
     }
@@ -271,6 +294,7 @@ public class Workspace implements Serializable {
 
     public void setLayout(Layout layout) {
         this.layout = layout;
+        savePreferences();
     }
 
     public Density density() {
@@ -279,6 +303,7 @@ public class Workspace implements Serializable {
 
     public void setDensity(Density density) {
         this.density = density;
+        savePreferences();
     }
 
     public Sort sort() {
@@ -287,5 +312,13 @@ public class Workspace implements Serializable {
 
     public void setSort(Sort sort) {
         this.sort = sort;
+        savePreferences();
+    }
+
+    private void savePreferences() {
+        if (email != null) {
+            final var preferences = new UserData.Preferences(layout, density, sort);
+            userData.savePreferences(email, preferences);
+        }
     }
 }
