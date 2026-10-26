@@ -55,14 +55,19 @@ public class RootsView extends Div {
         final var spacer = Ui.spacer();
         final var titlebar = Ui.div("fb-page-titlebar", title, spacer, add);
         main.add(titlebar);
-        final var intro = new Paragraph("Pick a root to browse. You have access to " + accessible.size() + " of "
-                + roots.size() + " connected systems.");
+        final var introText = roots.isEmpty()
+                ? "No file systems are connected yet. Add a local disk, NFS share or S3 bucket to get started."
+                : "Pick a root to browse. You have access to " + accessible.size() + " of " + roots.size()
+                        + " connected systems.";
+        final var intro = new Paragraph(introText);
         intro.setClassName("fb-page-intro");
         main.add(intro);
 
-        final var starredCount = workspace.browsableRoots().stream().mapToInt(r -> workspace.starredIn(r).size()).sum();
-        final var banner = new StarredBanner(starredCount, () -> UI.getCurrent().navigate(StarredView.class));
-        main.add(banner);
+        if (!roots.isEmpty()) {
+            final var starredCount = workspace.browsableRoots().stream().mapToInt(r -> workspace.starredIn(r).size()).sum();
+            final var banner = new StarredBanner(starredCount, () -> UI.getCurrent().navigate(StarredView.class));
+            main.add(banner);
+        }
 
         final var grid = Ui.div("fb-drive-grid");
         accessible.forEach(r -> grid.add(card(r)));

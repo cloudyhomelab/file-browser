@@ -19,8 +19,8 @@ Production build: `mvn -Pproduction package`, then `java -jar target/file-browse
 There is no backend yet. All of the following lives in the Vaadin session and is lost when it ends:
 
 - Sign-in (`CurrentUser`): no password check, no real Google OAuth.
-- File systems and their contents (`Workspace`): an in-memory copy of `data/mock-data.json`.
-  Added file systems start empty; S3 secrets are discarded.
+- File systems (`Workspace`): the app starts with none; added ones are not connected to, start
+  empty, and their contents live in memory. S3 secrets are discarded.
 - Uploads: only the names and sizes of picked or dropped files reach the server, and progress is
   simulated. Downloads only show a notification.
 

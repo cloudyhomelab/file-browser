@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -25,8 +26,8 @@ import com.vaadin.flow.spring.annotation.SpringComponent;
 import com.vaadin.flow.spring.annotation.VaadinSessionScope;
 
 /**
- * The signed-in user's view of the connected file systems: demo trees, starred items, user-added
- * roots, view preferences and simulated uploads. Lives for the Vaadin session.
+ * The signed-in user's file systems, starred items, view preferences and simulated uploads.
+ * Starts empty; file systems are added by the user. Lives for the Vaadin session.
  */
 @SpringComponent
 @VaadinSessionScope
@@ -58,8 +59,8 @@ public class Workspace implements Serializable {
 
     public Workspace(Catalog catalog) {
         this.catalog = catalog;
-        this.roots = new ArrayList<>(catalog.roots());
-        this.trees = catalog.copyTrees(ids);
+        this.roots = new ArrayList<>();
+        this.trees = new LinkedHashMap<>();
     }
 
     public Catalog catalog() {
