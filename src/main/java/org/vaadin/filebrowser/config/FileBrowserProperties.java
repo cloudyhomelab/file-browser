@@ -11,7 +11,7 @@ import org.springframework.util.unit.DataSize;
 @ConfigurationProperties("filebrowser")
 public record FileBrowserProperties(Path databasePath, Map<String, Provider> oidc, List<String> allowedDomains,
                                     List<String> allowedEmails, boolean requireVerifiedEmail,
-                                    List<String> adminEmails, DataSize maxUploadSize, String secretKey) {
+                                    List<String> adminEmails, DataSize maxUploadSize, Path secretKeyFile) {
 
     public enum ProviderIcon { GOOGLE, KEYCLOAK, POCKET_ID, GENERIC }
 

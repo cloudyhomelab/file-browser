@@ -28,13 +28,25 @@ public class S3Connections {
         return secrets.available();
     }
 
-    /** The settings with their keys encrypted, ready to store; fails before anything is saved without a secret key. */
-    public S3Settings seal(S3Settings settings) {
+    /**
+     * The settings with their keys encrypted for the file system {@code rootId}, ready to store;
+     * fails before anything is saved without a secret key.
+     */
+    public S3Settings seal(String rootId, S3Settings settings) {
         if (settings.anonymous()) {
             return settings;
         }
-        return new S3Settings(settings.endpointUrl(), secrets.encrypt(settings.accessKey()),
-                secrets.encrypt(settings.secretKey()));
+        return new S3Settings(settings.endpointUrl(), secrets.encrypt(settings.accessKey(), accessKeyContext(rootId)),
+                secrets.encrypt(settings.secretKey(), secretKeyContext(rootId)));
+    }
+
+    // each value only decrypts for its own file system and column
+    private static String accessKeyContext(String rootId) {
+        return rootId + "/access_key";
+    }
+
+    private static String secretKeyContext(String rootId) {
+        return rootId + "/secret_key";
     }
 
     public void store(String rootId, S3Settings sealed) {
@@ -55,7 +67,8 @@ public class S3Connections {
                 .optional()
                 .orElseThrow(() -> new StorageException("This file system was removed."));
         final var settings = stored.anonymous() ? stored
-                : new S3Settings(stored.endpointUrl(), secrets.decrypt(stored.accessKey()), secrets.decrypt(stored.secretKey()));
+                : new S3Settings(stored.endpointUrl(), secrets.decrypt(stored.accessKey(), accessKeyContext(root.id())),
+                secrets.decrypt(stored.secretKey(), secretKeyContext(root.id())));
         return connection(root.endpoint(), root.region(), settings);
     }
 
