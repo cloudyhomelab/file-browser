@@ -1,0 +1,24 @@
+# Development only: identity providers for signing in locally. Production brings its own OIDC provider.
+services:
+  mock-oidc:
+    image: ghcr.io/navikt/mock-oauth2-server:6.1.3
+    ports:
+      - "8090:8080"
+    environment:
+      JSON_CONFIG_PATH: /config/mock-oauth2-server.json
+    volumes:
+      - ./dev/oidc/mock-oauth2-server.json:/config/mock-oauth2-server.json:ro
+
+  pocket-id:
+    image: ghcr.io/pocket-id/pocket-id:v2.19.1
+    ports:
+      - "1411:1411"
+    environment:
+      APP_URL: http://localhost:1411
+      # Dev-only default; never reuse it for a real deployment.
+      ENCRYPTION_KEY: ${POCKET_ID_ENCRYPTION_KEY:-dev-only-insecure-encryption-key}
+    volumes:
+      - pocket-id-data:/app/data
+
+volumes:
+  pocket-id-data:
