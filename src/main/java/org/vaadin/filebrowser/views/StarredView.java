@@ -25,6 +25,8 @@ import org.vaadin.filebrowser.ui.Segmented;
 import org.vaadin.filebrowser.ui.Toasts;
 import org.vaadin.filebrowser.ui.Ui;
 
+import jakarta.annotation.security.PermitAll;
+
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
@@ -36,6 +38,7 @@ import com.vaadin.flow.router.QueryParameters;
 import com.vaadin.flow.router.Route;
 
 /** Starred items from every accessible file system, grouped by root. */
+@PermitAll
 @Route("starred")
 @PageTitle("Starred · FileBrowser")
 public class StarredView extends Div implements EntryHandler {
@@ -122,7 +125,6 @@ public class StarredView extends Div implements EntryHandler {
 
     private void logout() {
         currentUser.signOut();
-        UI.getCurrent().navigate(LoginView.class);
     }
 
     @Override

@@ -16,3 +16,4 @@
 *.zip
 
 /data/
+/config/

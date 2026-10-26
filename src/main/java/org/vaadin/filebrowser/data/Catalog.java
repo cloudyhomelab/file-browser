@@ -22,7 +22,7 @@ public class Catalog implements Serializable {
 
     private static final String GENERIC_TYPE = "generic";
 
-    record MockData(LocalDate referenceDate, Account googleAccount, List<IncomingFile> sampleFiles) implements Serializable {
+    record MockData(LocalDate referenceDate, List<IncomingFile> sampleFiles) implements Serializable {
     }
 
     private final Map<RootType, RootTypeInfo> rootTypes;
@@ -69,10 +69,6 @@ public class Catalog implements Serializable {
 
     public LocalDate referenceDate() {
         return mock.referenceDate();
-    }
-
-    public Account googleAccount() {
-        return mock.googleAccount();
     }
 
     public List<IncomingFile> sampleFiles() {

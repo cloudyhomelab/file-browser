@@ -3,50 +3,50 @@ package org.vaadin.filebrowser.service;
 import java.io.Serializable;
 import java.util.Optional;
 
-import com.vaadin.flow.spring.annotation.SpringComponent;
-import com.vaadin.flow.spring.annotation.VaadinSessionScope;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.vaadin.filebrowser.config.FileBrowserProperties;
 
-/**
- * Demo sign-in state. Any well-formed email with a non-empty password is accepted, and the Google
- * button signs in a fixed demo account; a real deployment replaces this with Spring Security.
- */
+import com.vaadin.flow.spring.annotation.SpringComponent;
+import com.vaadin.flow.spring.security.AuthenticationContext;
+
+/** The signed-in user, as described by the OIDC provider they signed in with. */
 @SpringComponent
-@VaadinSessionScope
 public class CurrentUser implements Serializable {
 
-    public record User(String email, String name, boolean viaGoogle) implements Serializable {
+    public record User(String email, String name, String providerLabel) implements Serializable {
     }
 
-    private User user;
+    private final AuthenticationContext authenticationContext;
+    private final FileBrowserProperties properties;
+
+    public CurrentUser(AuthenticationContext authenticationContext, FileBrowserProperties properties) {
+        this.authenticationContext = authenticationContext;
+        this.properties = properties;
+    }
 
     public Optional<User> get() {
-        return Optional.ofNullable(user);
-    }
-
-    public boolean signedIn() {
-        return user != null;
-    }
-
-    public void signIn(User signedIn) {
-        this.user = signedIn;
+        final var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!(authentication instanceof OAuth2AuthenticationToken token) || !(token.getPrincipal() instanceof OidcUser oidc)) {
+            return Optional.empty();
+        }
+        final var email = oidc.getEmail();
+        final var name = firstPresent(oidc.getFullName(), oidc.getPreferredUsername(), email, oidc.getSubject());
+        final var provider = properties.provider(token.getAuthorizedClientRegistrationId());
+        return Optional.of(new User(email, name, provider.label()));
     }
 
     public void signOut() {
-        this.user = null;
+        authenticationContext.logout();
     }
 
-    public static String nameFromEmail(String email) {
-        final var local = email.split("@")[0].replaceAll("[._-]+", " ").trim();
-        if (local.isEmpty()) {
-            return "User";
-        }
-        final var sb = new StringBuilder();
-        for (final var part : local.split(" ")) {
-            if (!sb.isEmpty()) {
-                sb.append(' ');
+    private static String firstPresent(String... values) {
+        for (final var value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
             }
-            sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
         }
-        return sb.toString();
+        return "";
     }
 }

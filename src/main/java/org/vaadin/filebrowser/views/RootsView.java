@@ -14,6 +14,8 @@ import org.vaadin.filebrowser.ui.Toasts;
 import org.vaadin.filebrowser.ui.Ui;
 import org.vaadin.filebrowser.ui.dialog.AddRootDialog;
 
+import jakarta.annotation.security.PermitAll;
+
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
@@ -23,6 +25,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
 /** "Your file systems" landing page. */
+@PermitAll
 @Route("")
 @PageTitle("FileBrowser")
 public class RootsView extends Div {
@@ -110,6 +113,5 @@ public class RootsView extends Div {
 
     private void logout() {
         currentUser.signOut();
-        UI.getCurrent().navigate(LoginView.class);
     }
 }

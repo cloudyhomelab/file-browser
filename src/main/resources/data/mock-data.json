@@ -1,9 +1,5 @@
 {
   "referenceDate": "2026-06-02",
-  "googleAccount": {
-    "email": "maya.lindqvist@gmail.com",
-    "name": "Maya Lindqvist"
-  },
   "sampleFiles": [
     { "name": "README.md", "type": "text", "size": 5200 },
     { "name": "inventory.csv", "type": "sheet", "size": 1900000 },

@@ -47,6 +47,8 @@ import org.vaadin.filebrowser.ui.dialog.MoveDialog;
 import org.vaadin.filebrowser.ui.dialog.NameDialog;
 import org.vaadin.filebrowser.ui.dialog.UploadDialog;
 
+import jakarta.annotation.security.PermitAll;
+
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.UI;
@@ -60,6 +62,7 @@ import com.vaadin.flow.router.RouteParameters;
 import com.vaadin.flow.shared.Registration;
 
 /** Browses one file system: sidebar tree, header with breadcrumb and toolbar, list/grid, details. */
+@PermitAll
 @Route("fs/:rootId/:path*")
 public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicTitle, EntryHandler {
 
@@ -206,7 +209,6 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private void logout() {
         currentUser.signOut();
-        UI.getCurrent().navigate(LoginView.class);
     }
 
     private void resetView() {

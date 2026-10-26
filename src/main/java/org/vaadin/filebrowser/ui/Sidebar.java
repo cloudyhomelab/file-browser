@@ -36,7 +36,7 @@ public class Sidebar extends Composite<Aside> {
         nav.setClassName("fb-sidebar-nav");
 
         final var userName = user == null ? "" : user.name();
-        final var userSub = user != null && user.viaGoogle() ? "Google account" : "Signed in";
+        final var userSub = user == null ? "" : "Signed in with " + user.providerLabel();
         final var avatar = new UserAvatar(userName, UserAvatar.Size.M);
         final var nameLabel = Ui.span("fb-sidebar-user-name", userName);
         final var subLabel = Ui.span("fb-sidebar-user-sub", userSub);
