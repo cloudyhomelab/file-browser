@@ -14,7 +14,6 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
-import org.springframework.security.access.AccessDeniedException;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsEntry;
 import org.vaadin.filebrowser.data.FsRoot;
@@ -27,8 +26,8 @@ import com.vaadin.flow.spring.annotation.SpringComponent;
 import com.vaadin.flow.spring.annotation.VaadinSessionScope;
 
 /**
- * The signed-in user's file systems, starred items, view preferences and simulated uploads.
- * Starts empty; file systems are added by the user. Lives for the Vaadin session.
+ * The signed-in user's view of the shared file systems (from {@link FileSystemRegistry}): folder
+ * contents, starred items, view preferences and simulated uploads. Lives for the Vaadin session.
  */
 @SpringComponent
 @VaadinSessionScope
@@ -48,9 +47,9 @@ public class Workspace implements Serializable {
     private static final String NEW_ITEM_OWNER = "Maya Lindqvist";
 
     private final Catalog catalog;
-    private final CurrentUser currentUser;
+    private final FileSystemRegistry registry;
     private final IdSource ids = new IdSource();
-    private final List<FsRoot> roots;
+    // folder contents are still per-session and in memory until the storage providers exist (plan 01, item 2)
     private final Map<String, List<FsEntry>> trees;
     private final Set<String> starred = new LinkedHashSet<>();
     private final List<UploadTask> uploads = new ArrayList<>();
@@ -59,10 +58,9 @@ public class Workspace implements Serializable {
     private Density density = Density.DENSE;
     private Sort sort = Sort.DEFAULT;
 
-    public Workspace(Catalog catalog, CurrentUser currentUser) {
+    public Workspace(Catalog catalog, FileSystemRegistry registry) {
         this.catalog = catalog;
-        this.currentUser = currentUser;
-        this.roots = new ArrayList<>();
+        this.registry = registry;
         this.trees = new LinkedHashMap<>();
     }
 
@@ -73,42 +71,50 @@ public class Workspace implements Serializable {
     // ---- roots ----------------------------------------------------------------------------
 
     public List<FsRoot> roots() {
-        return List.copyOf(roots);
+        return registry.all();
     }
 
     public Optional<FsRoot> root(String id) {
-        return roots.stream().filter(r -> r.id().equals(id)).findFirst();
+        return registry.find(id);
     }
 
     public List<FsRoot> browsableRoots() {
-        return roots.stream().filter(FsRoot::browsable).toList();
+        return registry.all().stream().filter(FsRoot::browsable).toList();
     }
 
     public boolean endpointTaken(String endpoint) {
-        return roots.stream().anyMatch(r -> r.endpoint().equals(endpoint));
+        return registry.endpointTaken(endpoint);
     }
 
     public void addRoot(FsRoot root) {
-        if (!currentUser.isAdmin()) {
-            throw new AccessDeniedException("Only admins can add file systems");
-        }
-        roots.add(root);
-        trees.put(root.id(), new ArrayList<>());
+        registry.add(root);
     }
 
     public String newRootId() {
-        return "c" + Long.toString(System.currentTimeMillis(), Character.MAX_RADIX);
+        return registry.newId();
     }
 
     // ---- reading --------------------------------------------------------------------------
 
     public List<FsEntry> tree(String rootId) {
-        return trees.getOrDefault(rootId, List.of());
+        final var contents = contents(rootId);
+        return contents == null ? List.of() : contents;
+    }
+
+    /** The in-memory contents of a registered file system, or null for an unknown id. */
+    private List<FsEntry> contents(String rootId) {
+        final var existing = trees.get(rootId);
+        if (existing != null || registry.find(rootId).isEmpty()) {
+            return existing;
+        }
+        final var created = new ArrayList<FsEntry>();
+        trees.put(rootId, created);
+        return created;
     }
 
     /** Children of the folder at {@code path}, or null when the folder does not exist. */
     public List<FsEntry> dir(String rootId, List<String> path) {
-        List<FsEntry> level = trees.get(rootId);
+        List<FsEntry> level = contents(rootId);
         if (level == null) {
             return null;
         }

@@ -154,7 +154,7 @@ public class AddRootDialog extends FbDialog {
         final var info = catalog.rootType(type);
         final var regionValue = region.getValue().trim().isEmpty() ? info.defaultRegion() : region.getValue().trim();
         final var root = new FsRoot(newId, name.getValue().trim(), type, endpoint.getValue().trim(), regionValue,
-                info.newCapacity(), true, access, true);
+                info.newCapacity(), true, access);
         close();
         onConfirm.accept(root);
     }
