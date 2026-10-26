@@ -50,7 +50,7 @@ class S3ConnectionsTest {
     void keysAreStoredEncryptedAndComeBackForTheClient() {
         final var connections = new S3Connections(jdbc, box());
         final var settings = new S3Settings("http://localhost:9000", "AKIDEXAMPLE", "wJalrXUtnFEMI");
-        connections.store(bucket.id(), connections.seal(settings));
+        connections.store(bucket.id(), connections.seal(bucket.id(), settings));
 
         final var stored = jdbc.sql("SELECT access_key || ' ' || secret_key FROM file_system").query(String.class).single();
         assertThat(stored).doesNotContain("AKIDEXAMPLE").doesNotContain("wJalrXUtnFEMI");
@@ -66,7 +66,7 @@ class S3ConnectionsTest {
     @Test
     void anonymousBucketsNeedNoSecretKey() {
         final var connections = new S3Connections(jdbc, new SecretBox((String) null));
-        connections.store(bucket.id(), connections.seal(new S3Settings(null, null, null)));
+        connections.store(bucket.id(), connections.seal(bucket.id(), new S3Settings(null, null, null)));
         final var connection = connections.connection(bucket);
         assertThat(connection.accessKey()).isNull();
         assertThat(connection.endpointUrl()).isNull();
@@ -77,7 +77,23 @@ class S3ConnectionsTest {
         final var connections = new S3Connections(jdbc, new SecretBox((String) null));
         assertThat(connections.canStoreKeys()).isFalse();
         final var settings = new S3Settings(null, "AKIDEXAMPLE", "wJalrXUtnFEMI");
-        assertThatThrownBy(() -> connections.seal(settings)).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> connections.seal(bucket.id(), settings)).isInstanceOf(StorageException.class);
         assertThat(settings.toString()).doesNotContain("wJalrXUtnFEMI");
+    }
+
+    @Test
+    void storedKeysOnlyWorkForTheirOwnFileSystem() {
+        final var connections = new S3Connections(jdbc, box());
+        final var other = new FsRoot("o", "Other", RootType.S3, "s3://other", "eu-central-1", null, true,
+                Access.READ_WRITE, MountInfo.UNKNOWN);
+        registry.add(other);
+        connections.store(bucket.id(), connections.seal(bucket.id(), new S3Settings(null, "AKIDEXAMPLE", "wJalrXUtnFEMI")));
+        // copy the sealed keys onto the other file system, as someone with database access could
+        jdbc.sql("UPDATE file_system SET access_key = (SELECT access_key FROM file_system WHERE id = 'b'), "
+                + "secret_key = (SELECT secret_key FROM file_system WHERE id = 'b') WHERE id = 'o'").update();
+        assertThatThrownBy(() -> connections.connection(other)).isInstanceOf(StorageException.class);
+        // nor can the two keys of one file system be swapped
+        jdbc.sql("UPDATE file_system SET access_key = secret_key, secret_key = access_key WHERE id = 'b'").update();
+        assertThatThrownBy(() -> connections.connection(bucket)).isInstanceOf(StorageException.class);
     }
 }

@@ -11,7 +11,14 @@ Sign-in is through your own OIDC provider, and admins choose which folders every
 
 `environment/prod/` has a sample `docker-compose.yml` that runs the published image with one OIDC
 provider, a volume for the database and one host folder to add as a file system. Copy
-`.env.example` to `.env` next to it, fill it in, then:
+`.env.example` to `.env` next to it and fill it in. Create the secret key file next to it too (it
+encrypts stored S3 keys; keep it, and make it readable by the container's user, uid 10001):
+
+```bash
+openssl rand -base64 32 > environment/prod/secret-key
+```
+
+Then start it:
 
 ```bash
 docker compose -f environment/prod/docker-compose.yml up -d
@@ -69,9 +76,10 @@ write to it.
 A file system can also be an S3 bucket, or a folder in one (`s3://bucket` or `s3://bucket/folder`),
 on AWS or any S3-compatible store (give its endpoint URL). Enter an access key ID and secret access
 key, or leave both blank for a public bucket; the server's own AWS credentials are never used. Keys
-are stored encrypted with `FILEBROWSER_SECRET_KEY` (32 random bytes, base64, e.g.
-`openssl rand -base64 32`), which must be set to add buckets with keys and must stay the same
-afterwards. Moving or renaming a folder in a bucket copies and then deletes every object in it.
+are stored encrypted (AES-256-GCM, each bound to its file system) with a key read from the file
+named by `FILEBROWSER_SECRET_KEY_FILE`, e.g. a Docker or Kubernetes secret holding 32 random bytes
+in base64 (`openssl rand -base64 32`). The key is never taken from an environment variable. It must
+be set to add buckets with keys and must stay the same afterwards. Moving or renaming a folder in a bucket copies and then deletes every object in it.
 
 Admins can rename a file system or change its access from the "⋯" menu on its card; its path can't
 change, so to point it elsewhere remove it and add it again. Removing a file system only takes it

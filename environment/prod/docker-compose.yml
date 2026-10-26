@@ -23,10 +23,12 @@ services:
       FILEBROWSER_ADMIN_EMAILS: ${ADMIN_EMAILS:?}
       FILEBROWSER_ALLOWED_DOMAINS: ${ALLOWED_DOMAINS:-}
       FILEBROWSER_ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
-      # encrypts stored S3 access keys; needed to add S3 buckets with keys, keep it unchanged afterwards
-      FILEBROWSER_SECRET_KEY: ${SECRET_KEY:-}
+      # encrypts stored S3 access keys; read from the secret below, never from the environment
+      FILEBROWSER_SECRET_KEY_FILE: /run/secrets/filebrowser_secret_key
       # Behind a TLS-terminating reverse proxy, so redirect URIs use the public https URL.
       SERVER_FORWARD_HEADERS_STRATEGY: framework
+    secrets:
+      - filebrowser_secret_key
     volumes:
       # SQLite database: file systems, accounts, stars and preferences.
       - file-browser-data:/app/data
@@ -35,3 +37,9 @@ services:
 
 volumes:
   file-browser-data:
+
+secrets:
+  # create once with `openssl rand -base64 32 > secret-key`, readable by the container's user
+  # (`chown 10001 secret-key && chmod 400 secret-key`), and keep it: stored S3 keys need it
+  filebrowser_secret_key:
+    file: ./secret-key

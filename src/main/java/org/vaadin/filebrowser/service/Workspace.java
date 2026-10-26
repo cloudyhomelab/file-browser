@@ -107,7 +107,7 @@ public class Workspace implements Serializable {
     /** @param s3 the endpoint and keys of an S3 file system; null for a local disk */
     public void addRoot(FsRoot root, S3Settings s3) {
         // sealing first: without a secret key nothing is saved
-        final var sealed = s3 == null ? null : s3Connections.seal(s3);
+        final var sealed = s3 == null ? null : s3Connections.seal(root.id(), s3);
         registry.add(root);
         if (sealed != null) {
             s3Connections.store(root.id(), sealed);
@@ -120,7 +120,7 @@ public class Workspace implements Serializable {
             throw new AccessDeniedException("Only admins can add file systems");
         }
         if (!settings.anonymous() && !s3Connections.canStoreKeys()) {
-            return "Set FILEBROWSER_SECRET_KEY on the server to store S3 credentials.";
+            return "Set FILEBROWSER_SECRET_KEY_FILE on the server to store S3 credentials.";
         }
         return storage.checkS3(S3Connections.connection(endpoint, region, settings));
     }
