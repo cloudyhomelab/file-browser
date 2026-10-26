@@ -1,4 +1,7 @@
 # Development only: identity providers for signing in locally. Production brings its own OIDC provider.
+# Pinned so the project (and its pocket-id-data volume) keeps the name it had when the file sat at the repository root.
+name: file-browser
+
 services:
   mock-oidc:
     image: ghcr.io/navikt/mock-oauth2-server:6.1.3
@@ -7,7 +10,7 @@ services:
     environment:
       JSON_CONFIG_PATH: /config/mock-oauth2-server.json
     volumes:
-      - ./dev/oidc/mock-oauth2-server.json:/config/mock-oauth2-server.json:ro
+      - ./oidc/mock-oauth2-server.json:/config/mock-oauth2-server.json:ro
 
   pocket-id:
     image: ghcr.io/pocket-id/pocket-id:v2.19.1
@@ -20,7 +23,7 @@ services:
     volumes:
       - pocket-id-data:/app/data
 
-  # Test shares for checking NFS/SMB detection; start with `docker compose --profile shares up -d`.
+  # Test shares for checking NFS/SMB detection; start with `docker compose -f environment/dev/docker-compose.yml --profile shares up -d`.
   # Mounting them on the host needs root, see the README.
   smb:
     image: ghcr.io/servercontainers/samba:latest
@@ -32,7 +35,7 @@ services:
       UID_test: "1000"
       SAMBA_VOLUME_CONFIG_share: "[share]; path = /shares/share; valid users = test; guest ok = no; read only = no; browseable = yes"
     volumes:
-      - ./data/shares/smb:/shares/share
+      - ../../data/shares/smb:/shares/share
 
   nfs:
     image: ghcr.io/obeone/nfs-server:latest
@@ -46,7 +49,7 @@ services:
       NFS_DISABLE_VERSION_3: "1"
       NFS_EXPORT_0: "/export *(rw,fsid=0,insecure,no_subtree_check,no_root_squash)"
     volumes:
-      - ./data/shares/nfs:/export
+      - ../../data/shares/nfs:/export
       - /lib/modules:/lib/modules:ro
 
 volumes:

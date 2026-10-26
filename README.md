@@ -8,7 +8,7 @@ Vaadin 25.3 (Flow, Aura theme) on Spring Boot 4.1 and Java 21.
 Start the development identity providers, then the app with the `dev` profile:
 
 ```bash
-docker compose up -d
+docker compose -f environment/dev/docker-compose.yml up -d
 ```
 
 ```bash
@@ -113,7 +113,7 @@ time they're looked up.
 
 ### Testing with NFS and SMB shares (development)
 
-`docker-compose.yml` has an opt-in `shares` profile with a Samba server and an NFS v4 server. Their
+`environment/dev/docker-compose.yml` has an opt-in `shares` profile with a Samba server and an NFS v4 server. Their
 contents live in the git-ignored `data/shares/`. Mounting needs root and the client tools
 (`cifs-utils`, `nfs-common`).
 
@@ -128,7 +128,7 @@ sudo modprobe nfs && sudo modprobe nfsd
 ```
 
 ```bash
-docker compose --profile shares up -d smb nfs
+docker compose -f environment/dev/docker-compose.yml --profile shares up -d smb nfs
 ```
 
 ```bash
@@ -147,7 +147,7 @@ sudo umount /tmp/fb-smb /tmp/fb-nfs
 ```
 
 ```bash
-docker compose --profile shares stop smb nfs
+docker compose -f environment/dev/docker-compose.yml --profile shares stop smb nfs
 ```
 
 ## Layout
