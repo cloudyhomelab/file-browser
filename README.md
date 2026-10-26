@@ -66,6 +66,13 @@ type), shows the real capacity, and marks a file system offline when it can't be
 absolute path the server process can read may be added; it is added read-only when the server can't
 write to it.
 
+A file system can also be an S3 bucket, or a folder in one (`s3://bucket` or `s3://bucket/folder`),
+on AWS or any S3-compatible store (give its endpoint URL). Enter an access key ID and secret access
+key, or leave both blank for a public bucket; the server's own AWS credentials are never used. Keys
+are stored encrypted with `FILEBROWSER_SECRET_KEY` (32 random bytes, base64, e.g.
+`openssl rand -base64 32`), which must be set to add buckets with keys and must stay the same
+afterwards. Moving or renaming a folder in a bucket copies and then deletes every object in it.
+
 Admins can rename a file system or change its access from the "⋯" menu on its card; its path can't
 change, so to point it elsewhere remove it and add it again. Removing a file system only takes it
 off the list: its files stay on the disk, and everyone's stars in it are removed. Changes apply at

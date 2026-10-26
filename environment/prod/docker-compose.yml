@@ -23,6 +23,8 @@ services:
       FILEBROWSER_ADMIN_EMAILS: ${ADMIN_EMAILS:?}
       FILEBROWSER_ALLOWED_DOMAINS: ${ALLOWED_DOMAINS:-}
       FILEBROWSER_ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
+      # encrypts stored S3 access keys; needed to add S3 buckets with keys, keep it unchanged afterwards
+      FILEBROWSER_SECRET_KEY: ${SECRET_KEY:-}
       # Behind a TLS-terminating reverse proxy, so redirect URIs use the public https URL.
       SERVER_FORWARD_HEADERS_STRATEGY: framework
     volumes:
