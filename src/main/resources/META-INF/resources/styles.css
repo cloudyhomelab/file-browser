@@ -389,6 +389,9 @@ vaadin-popover::part(content) { padding: 0; }
 .fb-sort-wrap { display: inline-flex; }
 .fb-sort-menu { min-width: 180px; padding: 5px; gap: 0; }
 .fb-sort-menu .fb-menu-item { gap: 9px; }
+.fb-menu-heading { padding: 6px 8px 4px; font: var(--fb-weight-semibold) 11.5px/1 var(--fb-font-sans); color: var(--fb-fg-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
+.fb-ghost-btn--on, .fb-ghost-btn--on > .fb-icon:first-child { color: var(--fb-accent-text); }
+.fb-ghost-btn--on { border-color: rgba(50, 102, 228, 0.35); background: var(--fb-accent-bg-subtle); }
 
 /* ---- toasts ---- */
 vaadin-notification-card.fb-toast {
