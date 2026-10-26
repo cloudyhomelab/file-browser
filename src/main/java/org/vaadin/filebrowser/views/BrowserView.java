@@ -256,6 +256,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     /** Reads the open folder from storage; called once per refresh. */
     private void loadFolder() {
         try {
+            root = workspace.current(root);
             currentEntries = workspace.list(root, path);
             loadError = null;
         } catch (StorageException e) {
@@ -734,7 +735,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private void enqueue(List<String> destination, List<Planned> planned) {
         try {
-            final var tasks = workspace.uploads().enqueue(root, destination, planned);
+            final var tasks = workspace.upload(root, destination, planned);
             main.upload(tasks);
         } catch (StorageException e) {
             Toasts.error(e.getMessage());

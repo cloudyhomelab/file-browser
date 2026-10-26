@@ -82,6 +82,14 @@ public class Workspace implements Serializable {
         return registry.find(id);
     }
 
+    /**
+     * The file system as it is registered now. Views hold the copy they opened with, which an admin
+     * may since have renamed, made read only or removed.
+     */
+    public FsRoot current(FsRoot root) {
+        return registry.find(root.id()).orElseThrow(() -> new StorageException("This file system was removed."));
+    }
+
     public List<FsRoot> browsableRoots() {
         return registry.all().stream().filter(FsRoot::browsable).toList();
     }
@@ -125,7 +133,7 @@ public class Workspace implements Serializable {
     }
 
     public List<StorageEntry> list(FsRoot root, List<String> folder) {
-        return provider(root).list(StoragePaths.join(folder));
+        return provider(current(root)).list(StoragePaths.join(folder));
     }
 
     /** Whether {@code folder} exists and is a folder; false when the file system can't be read. */
@@ -222,11 +230,16 @@ public class Workspace implements Serializable {
 
     // ---- changes --------------------------------------------------------------------------
 
-    private StorageProvider writable(FsRoot root) {
-        if (root.readOnly()) {
+    private FsRoot writableRoot(FsRoot root) {
+        final var now = current(root);
+        if (now.readOnly()) {
             throw new StorageException("This file system is read only.");
         }
-        return provider(root);
+        return now;
+    }
+
+    private StorageProvider writable(FsRoot root) {
+        return provider(writableRoot(root));
     }
 
     public void createFolder(FsRoot root, List<String> folder, String name) {
@@ -292,6 +305,10 @@ public class Workspace implements Serializable {
             n++;
         } while (taken.contains(candidate));
         return candidate;
+    }
+
+    public List<UploadTask> upload(FsRoot root, List<String> folder, List<UploadQueue.Planned> planned) {
+        return uploads.enqueue(writableRoot(root), folder, planned);
     }
 
     public UploadQueue uploads() {
