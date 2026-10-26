@@ -7,7 +7,7 @@
   "slide":   { "label": "PPT",  "icon": null,    "extensions": ["ppt", "pptx", "odp", "key"] },
   "video":   { "label": "MP4",  "icon": "play",  "extensions": ["mp4", "mov", "mkv", "avi", "webm"] },
   "audio":   { "label": "WAV",  "icon": null,    "extensions": ["wav", "mp3", "flac", "aac", "ogg", "m4a"] },
-  "zip":     { "label": "ZIP",  "icon": null,    "extensions": ["zip", "tar", "gz", "tgz", "7z", "rar"] },
+  "zip":     { "label": "ZIP",  "icon": null,    "extensions": ["zip", "tar", "gz", "tgz", "bz2", "tbz2", "xz", "txz", "7z", "rar"] },
   "code":    { "label": "{ }",  "icon": null,    "extensions": ["json", "js", "ts", "tsx", "jsx", "java", "py", "xml", "yml", "yaml", "html", "css", "sh"] },
   "text":    { "label": "TXT",  "icon": null,    "extensions": ["txt", "md", "log"] },
   "generic": { "label": "FILE", "icon": null,    "extensions": [] }

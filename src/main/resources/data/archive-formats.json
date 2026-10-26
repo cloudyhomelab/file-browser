@@ -1,0 +1,15 @@
+{
+  ".tar.gz": "TAR_GZ",
+  ".tgz": "TAR_GZ",
+  ".tar.bz2": "TAR_BZ2",
+  ".tbz2": "TAR_BZ2",
+  ".tbz": "TAR_BZ2",
+  ".tar.xz": "TAR_XZ",
+  ".txz": "TAR_XZ",
+  ".zip": "ZIP",
+  ".tar": "TAR",
+  ".7z": "SEVEN_Z",
+  ".gz": "GZ",
+  ".bz2": "BZ2",
+  ".xz": "XZ"
+}

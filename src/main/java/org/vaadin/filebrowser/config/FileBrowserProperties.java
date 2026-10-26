@@ -12,7 +12,12 @@ import org.springframework.util.unit.DataSize;
 public record FileBrowserProperties(Path databasePath, Map<String, Provider> oidc, List<String> allowedDomains,
                                     List<String> allowedEmails, boolean requireVerifiedEmail,
                                     List<String> adminEmails, DataSize maxUploadSize, Path secretKeyFile,
-                                    List<String> linkUploadAllowedNetworks) {
+                                    List<String> linkUploadAllowedNetworks, DataSize maxExtractSize,
+                                    Integer maxExtractEntries) {
+
+    /** Unless set, an archive may expand to this many times the upload limit. */
+    private static final int DEFAULT_EXTRACT_FACTOR = 4;
+    private static final int DEFAULT_EXTRACT_ENTRIES = 10_000;
 
     public enum ProviderIcon { GOOGLE, KEYCLOAK, POCKET_ID, GENERIC }
 
@@ -26,6 +31,15 @@ public record FileBrowserProperties(Path databasePath, Map<String, Provider> oid
         allowedEmails = allowedEmails == null ? List.of() : List.copyOf(allowedEmails);
         adminEmails = adminEmails == null ? List.of() : List.copyOf(adminEmails);
         linkUploadAllowedNetworks = linkUploadAllowedNetworks == null ? List.of() : List.copyOf(linkUploadAllowedNetworks);
+        maxExtractEntries = maxExtractEntries == null ? DEFAULT_EXTRACT_ENTRIES : maxExtractEntries;
+    }
+
+    /** The most an extracted archive may add up to: the setting, else a multiple of the upload limit. */
+    public long maxExtractBytes() {
+        if (maxExtractSize != null) {
+            return maxExtractSize.toBytes();
+        }
+        return maxUploadSize == null ? Long.MAX_VALUE : maxUploadSize.toBytes() * DEFAULT_EXTRACT_FACTOR;
     }
 
     public boolean isAdminEmail(String email) {
