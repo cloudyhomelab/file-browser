@@ -1,0 +1,31 @@
+name: auto-merge dependabot pull requests
+
+# A merge enabled with GITHUB_TOKEN does not trigger workflows, so CI and the
+# image publish skip that commit on main and catch up on the next push. Dependabot
+# only bumps pinned actions here, which leave the image unchanged.
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+
+permissions: {}
+
+jobs:
+  enable:
+    # The author or the PR
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: enable auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr merge --auto --squash "${PR}"

@@ -1,0 +1,103 @@
+name: create and publish docker container
+
+on:
+  # Only ever runs when called by the CI workflow, after `maven verify`
+  # succeeds — never directly on push.
+  workflow_call:
+    inputs:
+      sha:
+        required: false
+        type: string
+        default: ${{ github.sha }}
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+
+      - name: "display sha"
+        run: |
+          echo "found sha ${{ inputs.sha }}"
+
+      - name: set up jdk
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: extract project version
+        id: extract_version
+        run: |
+          echo "MAVEN_NAME=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)" >> $GITHUB_OUTPUT
+          echo "MAVEN_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_OUTPUT
+
+      - name: login to docker hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: set up qemu
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+
+      - name: set up docker buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          driver: docker-container
+
+      - name: build and push
+        id: bake
+        uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
+        env:
+          APP_NAME: ${{ steps.extract_version.outputs.MAVEN_NAME }}
+          APP_VERSION: ${{ steps.extract_version.outputs.MAVEN_VERSION }}
+        with:
+          targets: default
+          push: true
+          set: |
+            *.cache-from=type=gha
+            *.cache-to=type=gha,mode=max
+            *.attest=type=provenance,mode=max
+            *.attest=type=sbom
+
+      - name: install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: sign published image(s) (keyless)
+        run: |
+          set -euo pipefail
+          
+          cat > bake-metadata.json <<'JSON'
+          ${{ steps.bake.outputs.metadata }}
+          JSON
+          
+          # Extract tag@digest refs from Bake metadata and sign them.
+          jq -r '
+            to_entries[]
+            | .value as $v
+            | ($v["containerimage.digest"] // empty) as $digest
+            | ($v["image.name"] // empty) as $names
+            | if ($digest == "" or $names == "") then empty else
+                (if ($names|type) == "string" then ($names|split(",")) else $names end)
+                | map(gsub("^\\s+|\\s+$"; ""))
+                | map(select(length>0))
+                | .[]
+                | "\(.)@\($digest)"
+              end
+          ' bake-metadata.json | sort -u | while read -r ref; do
+            echo "Signing ${ref}"
+            cosign sign --yes "${ref}"
+          done
