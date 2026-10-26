@@ -191,7 +191,7 @@ public class UploadDialog extends FbDialog {
             return panel;
         }
         if (!single) {
-            final var newFolder = Segmented.Option.text(true, "New folder “" + match.baseName() + "”");
+            final var newFolder = Segmented.Option.text(true, "New folder");
             final var here = Segmented.Option.text(false, "This folder");
             final var where = new Segmented<>("fb-seg--extract", List.of(newFolder, here), options.newFolder(), v -> {
                 extract.put(f.name(), new ExtractOptions(v, options.keepArchive(), options.clash()));
