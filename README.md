@@ -14,6 +14,19 @@ with "Continue with Google", which signs in a demo account.
 
 Production build: `mvn -Pproduction package`, then `java -jar target/file-browser-1.0-SNAPSHOT.jar`.
 
+## Data
+
+Application data lives in one SQLite file, `./data/filebrowser.db` by default; set
+`FILEBROWSER_DATABASE_PATH` to move it. Flyway creates and upgrades the schema at startup.
+
+Backup: copy the file while the app is stopped, or take a consistent copy while it runs:
+
+```bash
+sqlite3 data/filebrowser.db "VACUUM INTO 'backup.db'"
+```
+
+Restore: stop the app and put the copy in place.
+
 ## What is simulated
 
 There is no backend yet. All of the following lives in the Vaadin session and is lost when it ends:
