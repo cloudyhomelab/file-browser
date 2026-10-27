@@ -35,13 +35,14 @@ the claims box:
 
 | Case | Claims |
 | --- | --- |
-| Admin | `{"email": "admin@example.com", "name": "Ada Admin"}` |
-| Regular user | `{"email": "alice@example.com", "name": "Alice Example"}` |
+| Admin | `{"email": "admin@example.com", "email_verified": true, "name": "Ada Admin"}` |
+| Regular user | `{"email": "alice@example.com", "email_verified": true, "name": "Alice Example"}` |
 | Unverified email (refused) | `{"email": "alice@example.com", "email_verified": false}` |
+| No `email_verified` claim (refused) | `{"email": "alice@example.com"}` |
 | No email (refused) | `{}` |
 
 To try the allow-list, set e.g. `FILEBROWSER_ALLOWED_DOMAINS=example.com` and sign in with
-`{"email": "x@other.org"}`.
+`{"email": "x@other.org", "email_verified": true}`.
 
 ### Pocket ID
 

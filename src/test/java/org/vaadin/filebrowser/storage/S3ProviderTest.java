@@ -117,6 +117,16 @@ class S3ProviderTest {
     }
 
     @Test
+    void refusesControlCharactersAndDotSegments() {
+        assertThatThrownBy(() -> provider.createFolder("", "a\r\nb")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.openRead("notes.txt\n")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.list("..")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.stat("Projects/../notes.txt")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.delete("Projects//x")).isInstanceOf(StorageException.class);
+        assertThat(provider.stat("notes.txt")).isPresent();
+    }
+
+    @Test
     void createsEmptyFoldersAndRefusesNameClashes() {
         provider.createFolder("Projects", "Research");
         assertThat(provider.list("Projects")).extracting(StorageEntry::name).contains("Research");

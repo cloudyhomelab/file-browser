@@ -60,6 +60,7 @@ public class LocalDiskProvider implements StorageProvider {
 
     /** The absolute path for {@code relative}, refusing anything that resolves outside the root. */
     Path resolve(String relative) {
+        StoragePaths.requireValidPath(relative);
         final var realRoot = realRoot();
         final var candidate = realRoot.resolve(relative).normalize();
         if (!candidate.startsWith(realRoot)) {

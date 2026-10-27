@@ -43,7 +43,21 @@ public record FileBrowserProperties(Path databasePath, Map<String, Provider> oid
     }
 
     public boolean isAdminEmail(String email) {
-        return email != null && adminEmails.stream().anyMatch(a -> a.trim().equalsIgnoreCase(email.trim()));
+        if (email == null) {
+            return false;
+        }
+        final var address = normalizedEmail(email);
+        return adminEmails.stream().anyMatch(a -> normalizedEmail(a).equals(address));
+    }
+
+    /**
+     * Trimmed, with only A–Z lower-cased. Unicode case folding would match look-alikes: {@code ı}
+     * equals {@code i} ignoring case, and the Kelvin sign lower-cases to {@code k}.
+     */
+    public static String normalizedEmail(String email) {
+        final var out = new StringBuilder(email.length());
+        email.trim().chars().forEach(c -> out.append((char) (c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c)));
+        return out.toString();
     }
 
     public Provider provider(String registrationId) {

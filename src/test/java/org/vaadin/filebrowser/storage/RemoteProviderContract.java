@@ -116,6 +116,19 @@ abstract class RemoteProviderContract {
     }
 
     @Test
+    void refusesControlCharactersAndDotSegmentsBeforeReachingTheServer() throws Exception {
+        assertThatThrownBy(() -> provider.createFolder("", "x\r\nDELE notes.txt"))
+                .isInstanceOf(StorageException.class).hasMessageContaining("not a valid name");
+        assertThatThrownBy(() -> provider.rename("notes.txt", "a\nb")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.openRead("notes.txt\r\nDELE notes.txt")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.list("..")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.stat("Projects/../..")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.delete("Projects//Design")).isInstanceOf(StorageException.class);
+        assertThat(serverNames(folder)).containsExactlyInAnyOrder("Projects", "notes.txt");
+        assertThat(read(provider, "notes.txt")).isEqualTo("notes");
+    }
+
+    @Test
     void renamesMovesAndCopiesFilesAndFolders() throws IOException {
         provider.rename("notes.txt", "todo.txt");
         assertThat(read(provider, "todo.txt")).isEqualTo("notes");

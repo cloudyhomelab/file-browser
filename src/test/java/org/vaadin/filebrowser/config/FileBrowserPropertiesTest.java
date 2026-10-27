@@ -21,6 +21,14 @@ class FileBrowserPropertiesTest {
     }
 
     @Test
+    void lookAlikeAdminEmailsDoNotMatch() {
+        final var properties = withAdmins(List.of("admin@example.com", "kim@example.com"));
+        // dotless ı equals i ignoring case; the Kelvin sign lower-cases to k
+        assertThat(properties.isAdminEmail("adm\u0131n@example.com")).isFalse();
+        assertThat(properties.isAdminEmail("\u212Aim@example.com")).isFalse();
+    }
+
+    @Test
     void noAdminsWhenUnset() {
         final var properties = withAdmins(null);
         assertThat(properties.isAdminEmail("admin@example.com")).isFalse();

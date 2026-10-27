@@ -100,6 +100,7 @@ public class S3Provider implements StorageProvider, AutoCloseable {
     // ---- keys -----------------------------------------------------------------------------
 
     private String key(String path) {
+        StoragePaths.requireValidPath(path);
         return location.prefix() + path;
     }
 
