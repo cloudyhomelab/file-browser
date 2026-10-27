@@ -13,6 +13,7 @@ import java.util.UUID;
 import java.util.function.Function;
 
 import org.vaadin.filebrowser.data.Capacity;
+import org.vaadin.filebrowser.storage.Health;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.storage.StoragePaths;
@@ -50,7 +51,6 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
     protected final RemoteLocation location;
     private final Function<String, String> typeForName;
     private final SessionPool<S> pool;
-    private volatile String offlineReason;
 
     protected RemoteProvider(RemoteLocation location, Function<String, String> typeForName) {
         this.location = location;
@@ -490,22 +490,20 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
 
     @Override
     public boolean healthy() {
+        return health().ok();
+    }
+
+    @Override
+    public Health health() {
         try {
             final boolean found = call("reach the server", session -> {
                 final var root = statNode(session, location.folder());
                 return root != null && root.folder();
             });
-            offlineReason = found ? null : "The folder no longer exists on the server.";
-            return found;
+            return found ? Health.OK : Health.down("The folder no longer exists on the server.");
         } catch (StorageException e) {
-            offlineReason = e.getMessage();
-            return false;
+            return Health.down(e.getMessage());
         }
-    }
-
-    @Override
-    public String offlineReason() {
-        return offlineReason;
     }
 
     /** Whether writing is allowed can't be told without writing; the admin's access choice decides. */

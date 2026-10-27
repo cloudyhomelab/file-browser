@@ -16,8 +16,7 @@
     "endpointPrefix": "s3://",
     "endpointError": "Use the form s3://bucket or s3://bucket/folder",
     "namePlaceholder": "Marketing assets",
-    "regionLabel": "Region",
-    "defaultRegion": "eu-central-1",
+    "form": { "regionLabel": "Region", "defaultRegion": "eu-central-1" },
     "checkTimeout": "The bucket didn't answer in time.",
     "checkFailed": "The bucket can't be reached with these settings."
   },

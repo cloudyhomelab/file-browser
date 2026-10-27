@@ -38,9 +38,9 @@ public interface StorageProvider {
     /** True when the root can be read right now. */
     boolean healthy();
 
-    /** Why the last {@link #healthy()} check failed, if the storage said; null when it didn't. */
-    default String offlineReason() {
-        return null;
+    /** {@link #healthy()} with the reason it isn't, for storage that can tell. */
+    default Health health() {
+        return healthy() ? Health.OK : Health.DOWN;
     }
 
     boolean writable();

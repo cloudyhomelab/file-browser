@@ -129,10 +129,10 @@ public abstract class RootForm extends Div {
         return "The server can't write to this file system, so it can only be added read-only.";
     }
 
-    /** What the type stores as is, besides the endpoint. */
+    /** What the type stores as is, besides the endpoint; asked only when adding. */
     public abstract Map<String, String> settings();
 
-    /** What the type stores encrypted; empty for nothing. */
+    /** What the type stores encrypted; empty for nothing. Asked only when adding. */
     public Map<String, String> secrets() {
         return Map.of();
     }

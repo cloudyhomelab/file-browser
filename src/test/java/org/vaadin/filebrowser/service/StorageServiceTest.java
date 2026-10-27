@@ -16,6 +16,8 @@ import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.RootStatus;
 import org.vaadin.filebrowser.storage.DiskStorageType;
 import org.vaadin.filebrowser.storage.FtpStorageType;
+import org.vaadin.filebrowser.storage.Health;
+import org.vaadin.filebrowser.storage.LocalDiskProvider;
 import org.vaadin.filebrowser.storage.StorageConfig;
 import org.vaadin.filebrowser.storage.StorageProvider;
 import org.vaadin.filebrowser.storage.UntrustedServerException;
@@ -125,5 +127,25 @@ class StorageServiceTest {
         assertThat(withFtp.status(tls)).extracting(RootStatus::kind, RootStatus::detail, RootStatus::online)
                 .containsExactly("ftps", "Anonymous", false);
         assertThat(withFtp.status(plain).kind()).isEqualTo("ftp");
+    }
+
+    @Test
+    void anOfflineFileSystemShowsTheReasonItsStorageGave() {
+        final var down = new FtpStorageType(catalog) {
+            @Override
+            public StorageProvider open(StorageConfig config) {
+                return new LocalDiskProvider(dir, name -> "generic", store -> "disk") {
+                    @Override
+                    public Health health() {
+                        return Health.down("The server's host key changed.");
+                    }
+                };
+            }
+        };
+        final var withDown = new StorageService(new StorageTypes(List.of(down), catalog));
+        final var root = new FsRoot("f3", "Shop", FtpStorageType.KEY, "ftp://example.com/x", Map.of(),
+                Access.READ_ONLY, RootStatus.UNKNOWN);
+        assertThat(withDown.status(root)).extracting(RootStatus::online, RootStatus::reason)
+                .containsExactly(false, "The server's host key changed.");
     }
 }

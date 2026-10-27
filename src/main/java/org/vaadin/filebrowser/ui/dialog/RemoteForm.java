@@ -128,12 +128,8 @@ abstract class RemoteForm extends RootForm {
     /** The type's own settings, besides a confirmed fingerprint. */
     protected abstract Map<String, String> remoteSettings();
 
-    // an existing file system keeps what it was added with, its pinned fingerprint above all
     @Override
     public final Map<String, String> settings() {
-        if (editing()) {
-            return context.editing().settings();
-        }
         final var settings = new LinkedHashMap<>(remoteSettings());
         if (offered != null && trusted) {
             settings.put(pinKey, offered);

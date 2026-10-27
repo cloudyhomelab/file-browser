@@ -119,7 +119,7 @@ public class AddRootDialog extends FbDialog {
         typePicker.removeAll();
         for (final var t : types) {
             final var kind = catalog.kind(t);
-            final var chip = new RootChip(t, kind.icon(), RootChip.Size.S);
+            final var chip = new RootChip(kind, RootChip.Size.S);
             final var typeName = Ui.span("", catalog.rootType(t).displayName());
             final var card = Ui.button("fb-addroot-type" + (t.equals(type) ? " fb-addroot-type--on" : ""),
                     () -> pick(t), chip, typeName);
@@ -154,7 +154,9 @@ public class AddRootDialog extends FbDialog {
         if (!connect.isEnabled()) {
             return;
         }
-        final var root = new FsRoot(id, name.getValue().trim(), type, form.endpoint(), form.settings(),
+        // only the name and access of an existing file system change; its settings stay as stored
+        final var settings = editing == null ? form.settings() : editing.settings();
+        final var root = new FsRoot(id, name.getValue().trim(), type, form.endpoint(), settings,
                 effectiveAccess(), RootStatus.UNKNOWN);
         final var secrets = editing == null ? form.secrets() : Map.<String, String>of();
         if (editing == null) {

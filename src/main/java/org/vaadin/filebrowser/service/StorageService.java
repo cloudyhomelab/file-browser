@@ -140,8 +140,9 @@ public class StorageService {
         } catch (StorageException e) {
             return offline(root);
         }
-        if (!provider.healthy()) {
-            return offline(root, provider.offlineReason());
+        final var health = provider.health();
+        if (!health.ok()) {
+            return offline(root, health.reason());
         }
         final var mount = provider.mount();
         final var type = types.get(root.type());

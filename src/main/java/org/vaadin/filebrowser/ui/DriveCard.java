@@ -17,7 +17,7 @@ public class DriveCard extends Composite<Div> {
     public DriveCard(FsRoot root, KindInfo kind, SerializableRunnable onOpen, SerializableRunnable onRequestAccess,
                      SerializableConsumer<MenuPosition> onMenu) {
         final var card = getContent();
-        card.addClassNames("fb-drive", "fb-root-" + root.kindKey());
+        card.addClassNames("fb-drive", kind.tintClass());
         final var disabled = !root.browsable();
         if (disabled) {
             card.addClassName("fb-drive--disabled");
@@ -32,7 +32,7 @@ public class DriveCard extends Composite<Div> {
 
         final var status = Ui.span("fb-drive-status" + (root.online() ? "" : " fb-drive-status--off"), "");
         status.getElement().setAttribute("title", root.online() ? "Online" : "Offline");
-        final var chip = new RootChip(root.kindKey(), kind.icon(), RootChip.Size.L);
+        final var chip = new RootChip(kind, RootChip.Size.L);
         final var title = new H3(root.name());
         final var endpointText = Ui.span("", root.endpoint());
         final var endpoint = Ui.div("fb-drive-endpoint", endpointText);

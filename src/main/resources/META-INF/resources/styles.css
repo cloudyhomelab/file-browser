@@ -137,15 +137,11 @@ h1, h2, h3, p { margin: 0; }
 .fb-type-generic { --t-fill: var(--fb-ink-500);  --t-soft: rgba(148, 154, 162, 0.16); }
 
 /* file-system type colours */
-.fb-root-disk { --r-color: var(--fb-accent); --r-soft: var(--fb-accent-bg-subtle); }
-.fb-root-nfs  { --r-color: var(--fb-teal);   --r-soft: rgba(0, 210, 205, 0.14); }
-.fb-root-s3   { --r-color: var(--fb-purple); --r-soft: rgba(126, 85, 240, 0.12); }
-.fb-root-smb   { --r-color: var(--fb-teal);   --r-soft: rgba(0, 210, 205, 0.14); }
-.fb-root-other { --r-color: var(--fb-accent); --r-soft: var(--fb-accent-bg-subtle); }
-.fb-root-sftp,
-.fb-root-ftp,
-.fb-root-ftps  { --r-color: var(--fb-orange); --r-soft: rgba(220, 86, 0, 0.12); }
-.fb-root-unsupported { --r-color: var(--fb-fg-tertiary); --r-soft: var(--fb-surface-2); }
+.fb-tint-accent { --r-color: var(--fb-accent); --r-soft: var(--fb-accent-bg-subtle); }
+.fb-tint-teal   { --r-color: var(--fb-teal);   --r-soft: rgba(0, 210, 205, 0.14); }
+.fb-tint-purple { --r-color: var(--fb-purple); --r-soft: rgba(126, 85, 240, 0.12); }
+.fb-tint-orange { --r-color: var(--fb-orange); --r-soft: rgba(220, 86, 0, 0.12); }
+.fb-tint-muted  { --r-color: var(--fb-fg-tertiary); --r-soft: var(--fb-surface-2); }
 
 /* ---- plain buttons ---- */
 .fb-icon-btn {

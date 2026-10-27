@@ -84,9 +84,6 @@ public class SftpForm extends RemoteForm {
 
     @Override
     public Map<String, String> secrets() {
-        if (editing()) {
-            return Map.of();
-        }
         final var secrets = new LinkedHashMap<String, String>();
         secrets.put(SftpStorageType.USER, user.getValue().trim());
         if (method == Method.PASSWORD) {

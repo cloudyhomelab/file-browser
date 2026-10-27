@@ -21,6 +21,10 @@ import com.vaadin.flow.component.textfield.TextFieldBase;
  */
 public class S3Form extends RootForm {
 
+    /** Keys of the S3 entry's {@code form} in {@code data/root-types.json}. */
+    private static final String REGION_LABEL = "regionLabel";
+    private static final String DEFAULT_REGION = "defaultRegion";
+
     private final TextField endpointUrl = new TextField("Endpoint URL (optional)");
     private final Div credentials = Ui.div("fb-addroot-creds");
     private final TextField keyId = new TextField("Access key ID");
@@ -38,8 +42,8 @@ public class S3Form extends RootForm {
         secret.addClassName("fb-field--mono");
         secret.setPlaceholder("Paste secret key");
         final var info = context.info();
-        region.setLabel(info.regionLabel() + " (optional)");
-        region.setPlaceholder(info.defaultRegion());
+        region.setLabel(info.form(REGION_LABEL) + " (optional)");
+        region.setPlaceholder(info.form(DEFAULT_REGION));
         if (editing()) {
             region.setValue(context.editing().settings().getOrDefault(S3StorageType.REGION, ""));
             region.setReadOnly(true);
@@ -82,7 +86,7 @@ public class S3Form extends RootForm {
     public Map<String, String> settings() {
         final var value = region.getValue().trim();
         final var settings = new LinkedHashMap<String, String>();
-        settings.put(S3StorageType.REGION, value.isEmpty() ? context.info().defaultRegion() : value);
+        settings.put(S3StorageType.REGION, value.isEmpty() ? context.info().form(DEFAULT_REGION) : value);
         final var url = endpointUrl.getValue().trim();
         if (!url.isEmpty()) {
             settings.put(S3StorageType.ENDPOINT_URL, url);

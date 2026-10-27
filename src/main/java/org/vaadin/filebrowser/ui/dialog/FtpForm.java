@@ -104,7 +104,7 @@ public class FtpForm extends RemoteForm {
 
     @Override
     public Map<String, String> secrets() {
-        if (editing() || anonymous.isOn()) {
+        if (anonymous.isOn()) {
             return Map.of();
         }
         return Map.of(FtpStorageType.USER, user.getValue().trim(), FtpStorageType.PASSWORD, password.getValue());
