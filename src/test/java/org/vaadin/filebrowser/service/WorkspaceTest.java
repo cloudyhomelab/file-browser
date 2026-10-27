@@ -103,6 +103,11 @@ class WorkspaceTest {
     }
 
     @Test
+    void someoneWhoHasNotChosenALayoutSeesTheGrid() {
+        assertThat(workspace.layout()).isEqualTo(Workspace.Layout.GRID);
+    }
+
+    @Test
     void writesAreRefusedOnceTheFileSystemIsMadeReadOnly() {
         registry.update("a", "Projects", Access.READ_ONLY);
 
