@@ -274,9 +274,17 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
 
     // ---- primitives -----------------------------------------------------------------------
 
-    /** What the server said when it refused the last command. */
-    private static Refusal refusal(FTPClient ftp) {
-        return new Refusal(ftp.getReplyString() == null ? "refused" : ftp.getReplyString().trim());
+    /**
+     * What the server said when it refused the last command. Any other reply means the control
+     * connection is out of step, so the session is not put back in the pool.
+     */
+    private static IOException refusal(FTPClient ftp) {
+        final var reply = ftp.getReplyString() == null ? "refused" : ftp.getReplyString().trim();
+        final var code = ftp.getReplyCode();
+        if (FTPReply.isNegativeTransient(code) || FTPReply.isNegativePermanent(code)) {
+            return new Refusal(reply);
+        }
+        return new IOException("Unexpected reply: " + reply);
     }
 
     @Override

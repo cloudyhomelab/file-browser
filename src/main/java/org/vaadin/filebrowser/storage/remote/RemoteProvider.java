@@ -126,6 +126,7 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
     // ---- paths ----------------------------------------------------------------------------
 
     private String remote(String path) {
+        StoragePaths.requireValidPath(path);
         return location.resolve(path);
     }
 

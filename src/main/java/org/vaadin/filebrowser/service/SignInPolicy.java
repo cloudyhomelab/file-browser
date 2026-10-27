@@ -1,7 +1,6 @@
 package org.vaadin.filebrowser.service;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,10 +47,11 @@ public class SignInPolicy {
         if (email == null || email.isBlank()) {
             return Optional.of(Refusal.MISSING_EMAIL);
         }
-        if (requireVerifiedEmail && Boolean.FALSE.equals(emailVerified)) {
+        // a provider that doesn't send the claim hasn't verified the email
+        if (requireVerifiedEmail && !Boolean.TRUE.equals(emailVerified)) {
             return Optional.of(Refusal.UNVERIFIED_EMAIL);
         }
-        final var address = email.trim().toLowerCase(Locale.ROOT);
+        final var address = FileBrowserProperties.normalizedEmail(email);
         final var domain = address.substring(address.lastIndexOf('@') + 1);
         if (!allowedDomains.isEmpty() && !allowedDomains.contains(domain)) {
             return Optional.of(Refusal.EMAIL_NOT_ALLOWED);
@@ -64,7 +64,7 @@ public class SignInPolicy {
 
     private static List<String> normalized(List<String> values) {
         return values.stream()
-                .map(v -> v.trim().toLowerCase(Locale.ROOT))
+                .map(FileBrowserProperties::normalizedEmail)
                 .filter(v -> !v.isEmpty())
                 .toList();
     }

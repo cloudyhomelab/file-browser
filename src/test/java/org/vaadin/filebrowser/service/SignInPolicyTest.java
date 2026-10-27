@@ -17,7 +17,7 @@ class SignInPolicyTest {
     @Test
     void trustsProviderWhenNoListsAreSet() {
         final var open = policy(List.of(), List.of(), true);
-        assertThat(open.check("anyone@anywhere.org", null)).isEmpty();
+        assertThat(open.check("anyone@anywhere.org", true)).isEmpty();
     }
 
     @Test
@@ -28,10 +28,11 @@ class SignInPolicyTest {
     }
 
     @Test
-    void refusesExplicitlyUnverifiedEmailOnlyWhenRequired() {
+    void refusesUnverifiedOrUnstatedEmailOnlyWhenRequired() {
         assertThat(policy(List.of(), List.of(), true).check("a@b.org", false)).contains(Refusal.UNVERIFIED_EMAIL);
-        assertThat(policy(List.of(), List.of(), true).check("a@b.org", null)).isEmpty();
+        assertThat(policy(List.of(), List.of(), true).check("a@b.org", null)).contains(Refusal.UNVERIFIED_EMAIL);
         assertThat(policy(List.of(), List.of(), false).check("a@b.org", false)).isEmpty();
+        assertThat(policy(List.of(), List.of(), false).check("a@b.org", null)).isEmpty();
     }
 
     @Test
@@ -54,6 +55,14 @@ class SignInPolicyTest {
         assertThat(both.check("alice@example.com", true)).isEmpty();
         assertThat(both.check("bob@example.com", true)).contains(Refusal.EMAIL_NOT_ALLOWED);
         assertThat(both.check("carol@other.org", true)).contains(Refusal.EMAIL_NOT_ALLOWED);
+    }
+
+    @Test
+    void allowListsDoNotMatchLookAlikes() {
+        final var emails = policy(List.of(), List.of("kim@example.com"), true);
+        assertThat(emails.check("\u212Aim@example.com", true)).contains(Refusal.EMAIL_NOT_ALLOWED);
+        final var domains = policy(List.of("kexample.com"), List.of(), true);
+        assertThat(domains.check("a@\u212Aexample.com", true)).contains(Refusal.EMAIL_NOT_ALLOWED);
     }
 
     @Test

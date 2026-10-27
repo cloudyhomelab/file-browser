@@ -64,6 +64,16 @@ class LocalDiskProviderTest {
     }
 
     @Test
+    void refusesControlCharactersAndDotSegments() {
+        assertThatThrownBy(() -> provider.createFolder("", "a\r\nb")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.rename("notes.txt", "a\u007fb")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.openRead("notes.txt\n")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.list("Projects/./Design")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.stat("Projects/..")).isInstanceOf(StorageException.class);
+        assertThat(root.resolve("notes.txt")).exists();
+    }
+
+    @Test
     void hidesAndRefusesSymlinksThatLeaveTheRoot() throws IOException {
         Files.writeString(base.resolve("secret.txt"), "secret");
         Files.createSymbolicLink(root.resolve("outside.txt"), base.resolve("secret.txt"));

@@ -40,10 +40,10 @@ Providers use Spring's standard client registration properties; `<ID>` is any na
 | `SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_<ID>_ISSUER_URI` | Issuer URL (its `/.well-known/openid-configuration` must be reachable at startup) |
 | `FILEBROWSER_OIDC_<ID>_LABEL` | Button text: "Continue with <label>" |
 | `FILEBROWSER_OIDC_<ID>_ICON` | `google`, `keycloak`, `pocket-id` or `generic` |
-| `FILEBROWSER_ADMIN_EMAILS` | Comma-separated emails that are admins (may add, edit and remove file systems) |
+| `FILEBROWSER_ADMIN_EMAILS` | Comma-separated emails that are admins (may add, edit and remove file systems). Matched exactly, ignoring only A–Z case |
 | `FILEBROWSER_ALLOWED_DOMAINS` | Optional; if set, the email's domain must be one of these |
 | `FILEBROWSER_ALLOWED_EMAILS` | Optional; if set, the email must be one of these (checked after domains) |
-| `FILEBROWSER_REQUIRE_VERIFIED_EMAIL` | Default `true`: refuse sign-ins whose `email_verified` claim is `false` |
+| `FILEBROWSER_REQUIRE_VERIFIED_EMAIL` | Default `true`: refuse sign-ins unless the provider sends `email_verified: true`. Turn it off for providers that never send the claim |
 
 Register the app at each provider with the redirect URI `<app-url>/login/oauth2/code/<ID>` and the
 post-logout redirect URI `<app-url>`. Signing out also ends the provider session when the provider
