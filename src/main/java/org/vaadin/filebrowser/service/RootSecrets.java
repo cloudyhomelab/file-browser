@@ -2,6 +2,7 @@ package org.vaadin.filebrowser.service;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -43,13 +44,22 @@ public class RootSecrets {
 
     /** The decrypted secrets of a registered file system; empty when it has none. */
     public Map<String, String> open(String rootId) {
-        final var stored = jdbc.sql("SELECT secrets FROM file_system WHERE id = :id")
+        final var stored = stored(rootId);
+        final var plain = new LinkedHashMap<String, String>();
+        JsonMaps.read(stored).forEach((key, value) -> plain.put(key, box.decrypt(value, context(rootId, key))));
+        return plain;
+    }
+
+    /** Which secrets a registered file system has, e.g. to show that a password is set; never their values. */
+    public Set<String> names(String rootId) {
+        return Set.copyOf(JsonMaps.read(stored(rootId)).keySet());
+    }
+
+    private String stored(String rootId) {
+        return jdbc.sql("SELECT secrets FROM file_system WHERE id = :id")
                 .param("id", rootId)
                 .query(String.class)
                 .optional()
                 .orElseThrow(() -> new StorageException("This file system was removed."));
-        final var plain = new LinkedHashMap<String, String>();
-        JsonMaps.read(stored).forEach((key, value) -> plain.put(key, box.decrypt(value, context(rootId, key))));
-        return plain;
     }
 }

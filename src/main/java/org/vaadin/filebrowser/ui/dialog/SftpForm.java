@@ -37,6 +37,13 @@ public class SftpForm extends RemoteForm {
         field(passphrase);
         credentials.add(user, methodPicker, password, privateKey, passphrase);
         addCredentials();
+        if (editing()) {
+            method = hasSecret(SftpStorageType.PRIVATE_KEY) ? Method.KEY : Method.PASSWORD;
+            lockSecret(user, SftpStorageType.USER);
+            lockSecret(password, SftpStorageType.PASSWORD);
+            lockSecret(privateKey, SftpStorageType.PRIVATE_KEY);
+            lockSecret(passphrase, SftpStorageType.PASSPHRASE);
+        }
     }
 
     @Override
@@ -52,7 +59,7 @@ public class SftpForm extends RemoteForm {
             method = picked;
             context.onChange().run();
         });
-        methodPicker.add(choice);
+        methodPicker.add(editing() ? choice.locked() : choice);
         password.setVisible(method == Method.PASSWORD);
         privateKey.setVisible(method == Method.KEY);
         passphrase.setVisible(method == Method.KEY);

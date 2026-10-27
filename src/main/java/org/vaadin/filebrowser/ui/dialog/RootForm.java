@@ -116,7 +116,8 @@ public abstract class RootForm extends Div {
 
     /** True when everything needed to connect is entered and valid. */
     public boolean complete() {
-        return !endpoint().isEmpty() && problem == null && fieldsValid();
+        // an existing file system keeps its settings and secrets, so the type's own fields don't apply
+        return !endpoint().isEmpty() && problem == null && (editing() || fieldsValid());
     }
 
     /** Whether the file system can be written to, which decides if read & write can be chosen. */

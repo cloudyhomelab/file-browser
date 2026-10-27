@@ -30,14 +30,20 @@ public class FtpForm extends RemoteForm {
 
     public FtpForm(Context context) {
         super(context, FtpStorageType.CERTIFICATE, "certificate");
-        anonymous = new Switch("Anonymous sign-in", false, on -> context.onChange().run());
+        final var settings = editing() ? context.editing().settings() : Map.<String, String>of();
+        anonymous = new Switch("Anonymous sign-in", FtpStorageType.anonymous(settings), on -> context.onChange().run());
         final var securityText = Ui.span("", "Security");
         final var securityLabel = Ui.div("fb-form-label", securityText);
         final var securityGroup = Ui.div("", securityLabel, securityPicker, securityHint);
-        securityGroup.setVisible(!editing());
         add(securityGroup);
         credentials.add(anonymous, user, password);
         addCredentials();
+        if (editing()) {
+            security = FtpStorageType.security(settings);
+            anonymous.locked();
+            lockSecret(user, FtpStorageType.USER);
+            lockSecret(password, FtpStorageType.PASSWORD);
+        }
     }
 
     @Override
@@ -55,7 +61,7 @@ public class FtpForm extends RemoteForm {
             forgetFingerprint();
             context.onChange().run();
         });
-        securityPicker.add(choice);
+        securityPicker.add(editing() ? choice.locked() : choice);
         securityHint.removeAll();
         if (security == Security.NONE) {
             final var warnIcon = new Icon("warn");

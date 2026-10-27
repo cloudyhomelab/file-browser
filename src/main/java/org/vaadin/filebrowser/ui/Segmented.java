@@ -45,4 +45,11 @@ public class Segmented<T> extends Composite<Div> {
             getContent().add(button);
         }
     }
+
+    /** Shows the choice without letting it change. */
+    public Segmented<T> locked() {
+        getContent().addClassName("fb-seg--locked");
+        getContent().getChildren().forEach(button -> button.getElement().setAttribute("disabled", true));
+        return this;
+    }
 }

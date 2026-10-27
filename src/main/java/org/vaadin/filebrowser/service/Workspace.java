@@ -126,6 +126,14 @@ public class Workspace implements Serializable {
         return storage.check(type, config);
     }
 
+    /** The names of the secrets stored for {@code root}, for showing what is set; admins only. */
+    public Set<String> secretNames(FsRoot root) {
+        if (!currentUser.isAdmin()) {
+            throw new AccessDeniedException("Only admins can edit file systems");
+        }
+        return secrets.names(root.id());
+    }
+
     public void updateRoot(FsRoot root, String name, Access access) {
         registry.update(root.id(), name, access);
     }

@@ -2,6 +2,7 @@ package org.vaadin.filebrowser.ui.dialog;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.vaadin.filebrowser.ui.Icon;
 import org.vaadin.filebrowser.ui.Ui;
@@ -12,6 +13,7 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.textfield.Autocomplete;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.textfield.TextFieldBase;
 
 /**
  * A folder on a remote server. Sign-in details go straight to the server and are never shown
@@ -32,6 +34,8 @@ abstract class RemoteForm extends RootForm {
     private String offered;
     private String offeredFor;
     private boolean trusted;
+    /** The secrets the file system being edited has; empty when adding. */
+    private final Set<String> stored;
 
     /**
      * @param pinKey   the setting the confirmed fingerprint is stored under
@@ -51,8 +55,39 @@ abstract class RemoteForm extends RootForm {
         final var credsLabel = new Span("Sign-in");
         final var credsTitle = Ui.div("fb-addroot-creds-title", lockIcon, credsLabel);
         credentials.add(credsTitle);
-        credentials.setVisible(!editing());
         trust.setVisible(false);
+        stored = editing() ? context.workspace().secretNames(context.editing()) : Set.of();
+        if (editing()) {
+            final var pinned = context.editing().settings().get(pinKey);
+            if (pinned != null) {
+                showPinned(pinned);
+            }
+        }
+    }
+
+    /**
+     * When editing, shows {@code field} as stored but never its value: secrets can't be shown again.
+     *
+     * @param key the secret it holds
+     */
+    protected void lockSecret(TextFieldBase<?, String> field, String key) {
+        field.setReadOnly(true);
+        field.setPlaceholder(stored.contains(key) ? "Stored encrypted" : "Not set");
+    }
+
+    /** True when the file system being edited has the secret {@code key}. */
+    protected boolean hasSecret(String key) {
+        return stored.contains(key);
+    }
+
+    private void showPinned(String fingerprint) {
+        final var title = Ui.div("fb-addroot-creds-title", new Icon("lock"), new Span("Trusted " + identity));
+        final var shown = Ui.div("fb-addroot-fingerprint", new Span(fingerprint));
+        final var hint = Ui.div("fb-addroot-creds-hint", new Span("The file system stops connecting if the "
+                + "server shows a different one."));
+        trust.add(title, shown, hint);
+        trust.addClassName("fb-addroot-trust--pinned");
+        trust.setVisible(true);
     }
 
     /** Adds the sign-in box and the fingerprint box after whatever the subclass added. */
@@ -97,10 +132,12 @@ abstract class RemoteForm extends RootForm {
         }
         updateRemoteFields();
         // nothing typed yet is not an error; Connect just stays disabled
-        final var problem = credentialsStarted() ? credentialsProblem() : null;
+        final var problem = credentialsStarted() && !editing() ? credentialsProblem() : null;
         credentialsHint.removeAll();
         credentialsHint.getElement().getClassList().set("fb-field-error-text", problem != null);
-        credentialsHint.add(problem != null ? problem : credentialsNote());
+        credentialsHint.add(problem != null ? problem
+                : editing() ? "Never shown again. To change it, remove the file system and add it again."
+                : credentialsNote());
     }
 
     /** Updates the type's own fields. */

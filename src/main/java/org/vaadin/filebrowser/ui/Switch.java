@@ -23,6 +23,12 @@ public class Switch extends Composite<NativeButton> {
         setOn(on, false);
     }
 
+    /** Shows the state without letting it change. */
+    public Switch locked() {
+        getContent().setEnabled(false);
+        return this;
+    }
+
     public boolean isOn() {
         return on;
     }
