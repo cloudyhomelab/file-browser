@@ -18,7 +18,7 @@ public class UserData {
     public record Preferences(Workspace.Layout layout, Workspace.Density density, Sort sort) {
 
         public static final Preferences DEFAULT =
-                new Preferences(Workspace.Layout.LIST, Workspace.Density.DENSE, Sort.DEFAULT);
+                new Preferences(Workspace.Layout.GRID, Workspace.Density.DENSE, Sort.DEFAULT);
     }
 
     private final JdbcClient jdbc;
