@@ -19,10 +19,10 @@ import org.vaadin.filebrowser.config.FileBrowserProperties;
 import org.vaadin.filebrowser.storage.StorageException;
 
 /**
- * Encrypts secrets kept in the database (S3 keys) with AES-256-GCM under a key read from the file
+ * Encrypts secrets kept in the database (e.g. S3 keys) with AES-256-GCM under a key read from the file
  * named by {@code FILEBROWSER_SECRET_KEY_FILE} (e.g. a Docker or Kubernetes secret); the key itself
  * is never taken from the environment. Each value is bound to a context (which file system and
- * which column), so a stored value can't be moved to another one. Without a key nothing can be
+ * which setting), so a stored value can't be moved to another one. Without a key nothing can be
  * stored or read back.
  */
 @Service
@@ -118,7 +118,7 @@ public class SecretBox {
 
     private void requireKey() {
         if (key == null) {
-            throw new StorageException("Set FILEBROWSER_SECRET_KEY_FILE on the server to store S3 credentials.");
+            throw new StorageException("Set FILEBROWSER_SECRET_KEY_FILE on the server to store credentials.");
         }
     }
 }

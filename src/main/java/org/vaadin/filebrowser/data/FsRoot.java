@@ -1,17 +1,34 @@
 package org.vaadin.filebrowser.data;
 
 import java.io.Serializable;
-
-import org.vaadin.filebrowser.storage.MountInfo;
+import java.util.Map;
 
 /**
  * A configured file system with its current status.
  *
- * @param capacity null when unknown or unavailable
- * @param mount    what the OS reports behind the path; {@link MountInfo#UNKNOWN} when not yet known
+ * @param type     the key of its {@link org.vaadin.filebrowser.storage.StorageType}
+ * @param settings what its type needs besides the endpoint, without secrets
  */
-public record FsRoot(String id, String name, RootType type, String endpoint, String region,
-                     Capacity capacity, boolean online, Access access, MountInfo mount) implements Serializable {
+public record FsRoot(String id, String name, String type, String endpoint, Map<String, String> settings,
+                     Access access, RootStatus status) implements Serializable {
+
+    public FsRoot {
+        settings = Map.copyOf(settings);
+    }
+
+    /** null when unknown or unavailable */
+    public Capacity capacity() {
+        return status.capacity();
+    }
+
+    public boolean online() {
+        return status.online();
+    }
+
+    /** Key for the kind shown to users ({@code disk}, {@code other}, {@code nfs}, {@code smb}, {@code s3}, …). */
+    public String kindKey() {
+        return status.kind();
+    }
 
     public boolean locked() {
         return access == Access.LOCKED;
@@ -22,19 +39,6 @@ public record FsRoot(String id, String name, RootType type, String endpoint, Str
     }
 
     public boolean browsable() {
-        return !locked() && online;
-    }
-
-    /** Key for the kind shown to users ({@code disk}, {@code other}, {@code nfs}, {@code smb}, {@code s3}). */
-    public String kindKey() {
-        if (type == RootType.S3) {
-            return "s3";
-        }
-        return switch (mount.kind()) {
-            case NFS -> "nfs";
-            case SMB -> "smb";
-            case OTHER -> "other";
-            case LOCAL, S3 -> "disk";
-        };
+        return !locked() && online();
     }
 }

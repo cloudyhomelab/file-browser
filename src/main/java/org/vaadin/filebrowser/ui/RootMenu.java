@@ -22,23 +22,27 @@ public class RootMenu extends Div {
         add(backdrop, menu);
     }
 
+    /** @param onEdit null leaves out "Edit…", e.g. for a type the app can no longer edit */
     public void open(FsRoot root, MenuPosition pos, SerializableConsumer<FsRoot> onEdit,
                      SerializableConsumer<FsRoot> onRemove) {
         menu.removeAll();
-        final var editIcon = new Icon("edit");
-        final var editLabel = Ui.span("", "Edit…");
-        final var edit = Ui.button("fb-menu-item", () -> {
-            close();
-            onEdit.accept(root);
-        }, editIcon, editLabel);
-        final var separator = Ui.divider("fb-menu-sep");
+        if (onEdit != null) {
+            final var editIcon = new Icon("edit");
+            final var editLabel = Ui.span("", "Edit…");
+            final var edit = Ui.button("fb-menu-item", () -> {
+                close();
+                onEdit.accept(root);
+            }, editIcon, editLabel);
+            final var separator = Ui.divider("fb-menu-sep");
+            menu.add(edit, separator);
+        }
         final var removeIcon = new Icon("trash");
         final var removeLabel = Ui.span("", "Remove…");
         final var remove = Ui.button("fb-menu-item fb-menu-item--danger", () -> {
             close();
             onRemove.accept(root);
         }, removeIcon, removeLabel);
-        menu.add(edit, separator, remove);
+        menu.add(remove);
 
         final var top = Math.max(0, Math.min(pos.y(), pos.viewportHeight() - ASSUMED_MENU_HEIGHT));
         final var left = Math.max(0, Math.min(pos.x(), pos.viewportWidth() - ASSUMED_MENU_WIDTH));

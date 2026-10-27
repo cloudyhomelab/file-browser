@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -22,14 +23,14 @@ import java.util.function.Supplier;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.vaadin.filebrowser.data.Capacity;
-import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
-import org.vaadin.filebrowser.storage.LocalDiskProvider;
+import org.vaadin.filebrowser.data.RootStatus;
+import org.vaadin.filebrowser.data.RootTypeInfo;
 import org.vaadin.filebrowser.storage.MountInfo;
-import org.vaadin.filebrowser.storage.S3Provider;
+import org.vaadin.filebrowser.storage.StorageConfig;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.storage.StorageProvider;
+import org.vaadin.filebrowser.storage.StorageType;
 
 /** Hands out the storage provider for each configured file system and reports its status. */
 @Service
@@ -39,13 +40,8 @@ public class StorageService {
     private static final Duration STATUS_TTL = Duration.ofSeconds(30);
     /** A storage that takes longer to answer (e.g. a hung network mount) counts as offline. */
     private static final Duration STATUS_TIMEOUT = Duration.ofSeconds(2);
-    /** Checking a bucket before adding it may reach a remote region, so it gets longer than a status read. */
+    /** Checking a file system before adding it may reach a remote region, so it gets longer than a status read. */
     private static final Duration CHECK_TIMEOUT = Duration.ofSeconds(10);
-
-    public record RootStatus(Capacity capacity, boolean online, MountInfo mount) implements Serializable {
-
-        public static final RootStatus OFFLINE = new RootStatus(null, false, MountInfo.UNKNOWN);
-    }
 
     /** What the server sees at a path that is about to be registered. */
     public record PathProbe(boolean exists, boolean directory, boolean readable, boolean writable)
@@ -57,28 +53,30 @@ public class StorageService {
     private record CachedStatus(RootStatus status, Instant at) {
     }
 
-    private final Catalog catalog;
-    private final Function<FsRoot, S3Provider.Connection> s3Connections;
+    /** The kind shown for a file system whose type the app no longer knows. */
+    private static final String UNSUPPORTED_KIND = "unsupported";
+
+    private final StorageTypes types;
+    private final Function<String, Map<String, String>> secrets;
     private final Clock clock = Clock.systemUTC();
     private final Map<String, StorageProvider> providers = new ConcurrentHashMap<>();
     private final Map<String, CachedStatus> statuses = new ConcurrentHashMap<>();
     private final ExecutorService probes = Executors.newVirtualThreadPerTaskExecutor();
 
     @Autowired
-    public StorageService(Catalog catalog, S3Connections s3Connections) {
-        this(catalog, s3Connections::connection);
+    public StorageService(StorageTypes types, RootSecrets secrets) {
+        this(types, secrets::open);
     }
 
-    /** For local disks only, e.g. in tests. */
-    StorageService(Catalog catalog) {
-        this(catalog, root -> {
-            throw new StorageException("S3 is not configured.");
-        });
+    /** For file systems without secrets, e.g. in tests. */
+    StorageService(StorageTypes types) {
+        this(types, rootId -> Map.of());
     }
 
-    StorageService(Catalog catalog, Function<FsRoot, S3Provider.Connection> s3Connections) {
-        this.catalog = catalog;
-        this.s3Connections = s3Connections;
+    /** @param secrets the decrypted secrets of a registered file system, by its id */
+    StorageService(StorageTypes types, Function<String, Map<String, String>> secrets) {
+        this.types = types;
+        this.secrets = secrets;
     }
 
     public StorageProvider provider(FsRoot root) {
@@ -103,10 +101,8 @@ public class StorageService {
     }
 
     private StorageProvider create(FsRoot root) {
-        return switch (root.type()) {
-            case DISK -> new LocalDiskProvider(Path.of(root.endpoint()), catalog::typeForFileName, catalog::mountKind);
-            case S3 -> new S3Provider(s3Connections.apply(root), catalog::typeForFileName);
-        };
+        final var config = new StorageConfig(root.endpoint(), root.settings(), secrets.apply(root.id()));
+        return types.get(root.type()).open(config);
     }
 
     public RootStatus status(FsRoot root) {
@@ -116,7 +112,7 @@ public class StorageService {
         if (cached != null && cached.at().plus(STATUS_TTL).isAfter(now)) {
             return cached.status();
         }
-        final var fresh = withTimeout(() -> readStatus(root), RootStatus.OFFLINE);
+        final var fresh = withTimeout(() -> readStatus(root), offline(root));
         statuses.put(key, new CachedStatus(fresh, now));
         return fresh;
     }
@@ -126,12 +122,21 @@ public class StorageService {
         try {
             provider = provider(root);
         } catch (StorageException e) {
-            return RootStatus.OFFLINE;
+            return offline(root);
         }
         if (!provider.healthy()) {
-            return RootStatus.OFFLINE;
+            return offline(root);
         }
-        return new RootStatus(provider.capacity(), true, provider.mount());
+        final var mount = provider.mount();
+        final var type = types.get(root.type());
+        return new RootStatus(provider.capacity(), true, type.kindKey(mount), type.detail(root.settings(), mount));
+    }
+
+    private RootStatus offline(FsRoot root) {
+        final Optional<MountInfo> mount = Optional.empty();
+        return types.find(root.type())
+                .map(type -> new RootStatus(null, false, type.kindKey(mount), type.detail(root.settings(), mount)))
+                .orElse(new RootStatus(null, false, UNSUPPORTED_KIND, ""));
     }
 
     public PathProbe probe(String path) {
@@ -171,19 +176,35 @@ public class StorageService {
         }
     }
 
-    /** Why a bucket can't be used with these settings, or null when it answers. */
-    public String checkS3(S3Provider.Connection connection) {
-        return withTimeout(() -> readS3Problem(connection), "The bucket didn't answer in time.", CHECK_TIMEOUT);
+    /** Why a file system of {@code type} can't be used with {@code config}, or null when it can. */
+    public String check(String typeKey, StorageConfig config) {
+        final StorageType type;
+        try {
+            type = types.get(typeKey);
+        } catch (StorageException e) {
+            return e.getMessage();
+        }
+        final var info = types.info(typeKey);
+        return withTimeout(() -> readProblem(type, info, config), info.checkTimeout(), CHECK_TIMEOUT);
     }
 
-    private String readS3Problem(S3Provider.Connection connection) {
-        try (final var provider = new S3Provider(connection, catalog::typeForFileName)) {
-            provider.list("");
-            return null;
+    private String readProblem(StorageType type, RootTypeInfo info, StorageConfig config) {
+        StorageProvider provider = null;
+        try {
+            provider = type.open(config);
+            return type.problem(provider);
         } catch (StorageException e) {
             return e.getMessage();
         } catch (RuntimeException e) {
-            return "The bucket can't be reached with these settings.";
+            return info.checkFailed();
+        } finally {
+            if (provider instanceof AutoCloseable closeable) {
+                try {
+                    closeable.close();
+                } catch (Exception e) {
+                    // it was only opened for the check
+                }
+            }
         }
     }
 

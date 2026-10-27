@@ -46,7 +46,7 @@ public class Sidebar extends Composite<Aside> {
         final var brandName = Brand.withName(Brand.Size.S);
         final var brand = Ui.div("fb-sidebar-brand", brandName);
         final var switcher = new RootSwitcher(root, browsable, catalog, callbacks.onPickRoot(), callbacks.onAllRoots());
-        final var capacity = new CapacityMeter(root, CapacityMeter.Style.SIDEBAR);
+        final var capacity = new CapacityMeter(root, catalog.kind(root), CapacityMeter.Style.SIDEBAR);
         final var separator = Ui.divider("fb-sidebar-sep");
         final var foldersText = Ui.span("", "Folders");
         final var foldersLabel = Ui.div("fb-sidebar-label", foldersText);

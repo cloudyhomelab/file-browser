@@ -142,6 +142,7 @@ h1, h2, h3, p { margin: 0; }
 .fb-root-s3   { --r-color: var(--fb-purple); --r-soft: rgba(126, 85, 240, 0.12); }
 .fb-root-smb   { --r-color: var(--fb-teal);   --r-soft: rgba(0, 210, 205, 0.14); }
 .fb-root-other { --r-color: var(--fb-accent); --r-soft: var(--fb-accent-bg-subtle); }
+.fb-root-unsupported { --r-color: var(--fb-fg-tertiary); --r-soft: var(--fb-surface-2); }
 
 /* ---- plain buttons ---- */
 .fb-icon-btn {
@@ -919,6 +920,8 @@ vaadin-dialog.fb-dialog--wide::part(overlay) { width: 560px; }
 
 /* add file system */
 .fb-form { display: flex; flex-direction: column; gap: 18px; }
+/* a group of fields that lays out as if its fields were the form's own */
+.fb-form-section { display: contents; }
 .fb-form-label { font: var(--fb-weight-medium) 13px/1 var(--fb-font-sans); color: var(--fb-fg-secondary); margin-bottom: 8px; }
 /* a secondary button sized to sit inside a text field as its suffix */
 vaadin-button.fb-btn.fb-field-browse {

@@ -32,8 +32,8 @@ class UserDataTest {
         flyway.migrate();
         jdbc = JdbcClient.create(dataSource);
         jdbc.sql("""
-                INSERT INTO file_system (id, name, type, endpoint, region, access, created_by, created_at)
-                VALUES ('r', 'Root', 'DISK', '/srv', '', 'READ_WRITE', 'a@x.org', '2026-10-26T00:00:00Z')
+                INSERT INTO file_system (id, name, type, endpoint, access, created_by, created_at)
+                VALUES ('r', 'Root', 'disk', '/srv', 'READ_WRITE', 'a@x.org', '2026-10-26T00:00:00Z')
                 """).update();
         data = new UserData(jdbc);
     }

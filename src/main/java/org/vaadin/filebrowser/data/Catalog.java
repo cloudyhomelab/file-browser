@@ -5,13 +5,13 @@ import java.io.Serializable;
 import java.io.UncheckedIOException;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
-import org.vaadin.filebrowser.storage.MountInfo;
 
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;
@@ -23,11 +23,12 @@ public class Catalog implements Serializable {
 
     private static final String GENERIC_TYPE = "generic";
     private static final String DEFAULT_SIGN_IN_ERROR = "default";
+    private static final String LOCAL_KIND = "disk";
 
-    record MountKinds(Map<String, MountInfo.Kind> storeTypes, Map<String, KindInfo> kinds) implements Serializable {
+    record MountKinds(Map<String, String> storeTypes, Map<String, KindInfo> kinds) implements Serializable {
     }
 
-    private final Map<RootType, RootTypeInfo> rootTypes;
+    private final Map<String, RootTypeInfo> rootTypes;
     private final Map<String, FileTypeInfo> fileTypes;
     private final Map<String, String> signInErrors;
     private final MountKinds mountKinds;
@@ -37,10 +38,16 @@ public class Catalog implements Serializable {
         final var mapper = JsonMapper.builder()
                 .disable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
                 .build();
-        this.rootTypes = read(mapper, "data/root-types.json", new TypeReference<Map<RootType, RootTypeInfo>>() { });
+        this.rootTypes = read(mapper, "data/root-types.json", new TypeReference<LinkedHashMap<String, RootTypeInfo>>() { });
         this.fileTypes = read(mapper, "data/file-types.json", new TypeReference<LinkedHashMap<String, FileTypeInfo>>() { });
         this.signInErrors = read(mapper, "data/sign-in-errors.json", new TypeReference<Map<String, String>>() { });
         this.mountKinds = read(mapper, "data/mount-kinds.json", new TypeReference<MountKinds>() { });
+        mountKinds.storeTypes().values().stream()
+                .filter(kind -> !mountKinds.kinds().containsKey(kind))
+                .findFirst()
+                .ifPresent(kind -> {
+                    throw new IllegalStateException("data/mount-kinds.json maps a store type to unknown kind " + kind);
+                });
         this.archiveFormats = read(mapper, "data/archive-formats.json", new TypeReference<Map<String, ArchiveFormat>>() { });
     }
 
@@ -52,8 +59,14 @@ public class Catalog implements Serializable {
         }
     }
 
-    public RootTypeInfo rootType(RootType type) {
+    /** @return null for a type that isn't described */
+    public RootTypeInfo rootType(String type) {
         return rootTypes.get(type);
+    }
+
+    /** The described file-system types, in the order they are offered. */
+    public List<String> rootTypeKeys() {
+        return List.copyOf(rootTypes.keySet());
     }
 
     public FileTypeInfo fileType(String type) {
@@ -82,9 +95,9 @@ public class Catalog implements Serializable {
                 .orElse(GENERIC_TYPE);
     }
 
-    /** Network and special file-store types are listed; anything else is a local disk. */
-    public MountInfo.Kind mountKind(String fileStoreType) {
-        return mountKinds.storeTypes().getOrDefault(fileStoreType, MountInfo.Kind.LOCAL);
+    /** The kind a file-store type is shown as; network and special ones are listed, anything else is a local disk. */
+    public String mountKind(String fileStoreType) {
+        return mountKinds.storeTypes().getOrDefault(fileStoreType, LOCAL_KIND);
     }
 
     public KindInfo kind(FsRoot root) {

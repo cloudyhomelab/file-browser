@@ -5,7 +5,9 @@
     "endpointPlaceholder": "/mnt/data/projects",
     "endpointPrefix": "/",
     "endpointError": "Path must be absolute, starting with /",
-    "namePlaceholder": "Project disk"
+    "namePlaceholder": "Project disk",
+    "checkTimeout": "The folder didn't answer in time.",
+    "checkFailed": "The folder can't be read with these settings."
   },
   "s3": {
     "displayName": "S3 bucket",
@@ -15,6 +17,8 @@
     "endpointError": "Use the form s3://bucket or s3://bucket/folder",
     "namePlaceholder": "Marketing assets",
     "regionLabel": "Region",
-    "defaultRegion": "eu-central-1"
+    "defaultRegion": "eu-central-1",
+    "checkTimeout": "The bucket didn't answer in time.",
+    "checkFailed": "The bucket can't be reached with these settings."
   }
 }

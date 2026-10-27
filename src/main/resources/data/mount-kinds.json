@@ -1,20 +1,21 @@
 {
   "storeTypes": {
-    "nfs": "NFS",
-    "nfs4": "NFS",
-    "cifs": "SMB",
-    "smb3": "SMB",
-    "smbfs": "SMB",
-    "9p": "OTHER",
-    "fuse.sshfs": "OTHER",
-    "fuse.rclone": "OTHER",
-    "virtiofs": "OTHER"
+    "nfs": "nfs",
+    "nfs4": "nfs",
+    "cifs": "smb",
+    "smb3": "smb",
+    "smbfs": "smb",
+    "9p": "other",
+    "fuse.sshfs": "other",
+    "fuse.rclone": "other",
+    "virtiofs": "other"
   },
   "kinds": {
-    "disk":  { "label": "Local disk",     "icon": "t-disk" },
-    "other": { "label": "Mounted folder", "icon": "t-disk" },
-    "nfs":   { "label": "NFS mount",      "icon": "t-nfs" },
-    "smb":   { "label": "SMB mount",      "icon": "t-nfs" },
-    "s3":    { "label": "S3 bucket",      "icon": "t-s3" }
+    "disk":        { "label": "Local disk",       "icon": "t-disk" },
+    "other":       { "label": "Mounted folder",   "icon": "t-disk" },
+    "nfs":         { "label": "NFS mount",        "icon": "t-nfs", "showSource": true },
+    "smb":         { "label": "SMB mount",        "icon": "t-nfs", "showSource": true },
+    "s3":          { "label": "S3 bucket",        "icon": "t-s3", "usageNote": "Object storage · usage metered" },
+    "unsupported": { "label": "Unsupported type", "icon": "warn" }
   }
 }

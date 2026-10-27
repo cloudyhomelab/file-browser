@@ -28,8 +28,8 @@ import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.ExtractOptions;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.IncomingFile;
-import org.vaadin.filebrowser.data.RootType;
-import org.vaadin.filebrowser.storage.MountInfo;
+import org.vaadin.filebrowser.data.RootStatus;
+import org.vaadin.filebrowser.storage.DiskStorageType;
 import org.vaadin.filebrowser.storage.StorageException;
 
 import com.sun.net.httpserver.HttpServer;
@@ -47,10 +47,11 @@ class UploadQueueTest {
 
     @BeforeEach
     void setUp() {
-        storage = new StorageService(new Catalog());
+        final var catalog = new Catalog();
+        storage = new StorageService(new StorageTypes(List.of(new DiskStorageType(catalog)), catalog));
         queue = new UploadQueue(storage);
-        root = new FsRoot("r", "Test", RootType.DISK, dir.toString(), "", null, true, Access.READ_WRITE,
-                MountInfo.UNKNOWN);
+        root = new FsRoot("r", "Test", DiskStorageType.KEY, dir.toString(), Map.of(), Access.READ_WRITE,
+                RootStatus.UNKNOWN);
     }
 
     private UploadTask plan(String name, long size, boolean replace) {
@@ -105,8 +106,8 @@ class UploadQueueTest {
 
     @Test
     void readOnlyFileSystemsRefuseUploads() {
-        final var readOnly = new FsRoot("ro", "RO", RootType.DISK, dir.toString(), "", null, true, Access.READ_ONLY,
-                MountInfo.UNKNOWN);
+        final var readOnly = new FsRoot("ro", "RO", DiskStorageType.KEY, dir.toString(), Map.of(), Access.READ_ONLY,
+                RootStatus.UNKNOWN);
         final var file = new IncomingFile("f", "x.txt", "text", 1);
         final var planned = List.of(new UploadQueue.Planned(file, "x.txt", false));
         assertThatThrownBy(() -> queue.enqueue(readOnly, List.of(), planned)).isInstanceOf(StorageException.class);

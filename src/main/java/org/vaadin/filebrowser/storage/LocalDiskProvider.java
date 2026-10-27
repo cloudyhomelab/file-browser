@@ -35,14 +35,14 @@ public class LocalDiskProvider implements StorageProvider {
 
     private final Path root;
     private final Function<String, String> typeForName;
-    private final Function<String, MountInfo.Kind> kindForStoreType;
+    private final Function<String, String> kindForStoreType;
 
     /**
      * @param typeForName      maps a file name to the app's file type ({@code pdf}, {@code image}, …)
      * @param kindForStoreType maps a {@code FileStore} type ({@code nfs4}, {@code cifs}, …) to a mount kind
      */
     public LocalDiskProvider(Path root, Function<String, String> typeForName,
-                             Function<String, MountInfo.Kind> kindForStoreType) {
+                             Function<String, String> kindForStoreType) {
         this.root = root.toAbsolutePath().normalize();
         this.typeForName = typeForName;
         this.kindForStoreType = kindForStoreType;
@@ -431,13 +431,13 @@ public class LocalDiskProvider implements StorageProvider {
     }
 
     @Override
-    public MountInfo mount() {
+    public Optional<MountInfo> mount() {
         try {
             final var store = Files.getFileStore(realRoot());
             final var type = store.type();
-            return new MountInfo(kindForStoreType.apply(type), type, store.name());
+            return Optional.of(new MountInfo(kindForStoreType.apply(type), type, store.name()));
         } catch (IOException | StorageException e) {
-            return MountInfo.UNKNOWN;
+            return Optional.empty();
         }
     }
 }
