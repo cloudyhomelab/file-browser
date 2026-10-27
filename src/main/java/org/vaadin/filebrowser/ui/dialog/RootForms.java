@@ -4,14 +4,18 @@ import java.util.Map;
 import java.util.function.Function;
 
 import org.vaadin.filebrowser.storage.DiskStorageType;
+import org.vaadin.filebrowser.storage.FtpStorageType;
 import org.vaadin.filebrowser.storage.S3StorageType;
+import org.vaadin.filebrowser.storage.SftpStorageType;
 
 /** The form for each storage type the add dialog offers, by the type's key. */
 final class RootForms {
 
     private static final Map<String, Function<RootForm.Context, RootForm>> FORMS = Map.of(
             DiskStorageType.KEY, DiskForm::new,
-            S3StorageType.KEY, S3Form::new);
+            S3StorageType.KEY, S3Form::new,
+            SftpStorageType.KEY, SftpForm::new,
+            FtpStorageType.KEY, FtpForm::new);
 
     private RootForms() {
     }

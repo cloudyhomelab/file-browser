@@ -1,4 +1,5 @@
-# Development only: identity providers for signing in locally. Production brings its own OIDC provider.
+# Development only: identity providers for signing in locally, plus test shares, S3, SFTP and FTP servers;
+# `up -d` starts all of them. Production brings its own OIDC provider.
 # Pinned so the project (and its pocket-id-data volume) keeps the name it had when the file sat at the repository root.
 name: file-browser
 
@@ -32,11 +33,10 @@ services:
     volumes:
       - pocket-id-data:/app/data
 
-  # Test shares for checking NFS/SMB detection; start with `docker compose -f environment/dev/docker-compose.yml --profile shares up -d`.
+  # Test shares for checking NFS/SMB detection.
   # Mounting them on the host needs root, see the README.
   smb:
     image: ghcr.io/servercontainers/samba:latest
-    profiles: [shares]
     ports:
       - "127.0.0.1:445:445"
     environment:
@@ -48,7 +48,6 @@ services:
 
   nfs:
     image: ghcr.io/obeone/nfs-server:latest
-    profiles: [shares]
     # uses the host kernel's NFS server and loads the nfsd module, which needs full privileges
     privileged: true
     ports:
@@ -61,11 +60,9 @@ services:
       - ../../data/shares/nfs:/export
       - /lib/modules:/lib/modules:ro
 
-  # S3-compatible storage for trying out S3 file systems; start with
-  # `docker compose -f environment/dev/docker-compose.yml --profile s3 up -d`. Console on http://localhost:9001.
+  # S3-compatible storage for trying out S3 file systems. Console on http://localhost:9001.
   rustfs:
     image: rustfs/rustfs:1.0.1
-    profiles: [s3]
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
@@ -80,7 +77,6 @@ services:
   # and public-bucket, readable without keys
   rustfs-seed:
     image: amazon/aws-cli:2.37.9
-    profiles: [s3]
     depends_on: [rustfs]
     environment:
       AWS_ACCESS_KEY_ID: dev-access-key
@@ -106,6 +102,149 @@ services:
           aws s3api put-bucket-policy --bucket public-bucket --policy '{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": "*", "Action": ["s3:GetBucketLocation", "s3:ListBucket", "s3:GetObject"], "Resource": ["arn:aws:s3:::public-bucket", "arn:aws:s3:::public-bucket/*"]}]}'
         fi
 
+  # one-shot: makes the dev-only FTPS certificate and SFTP key pair on first start, in the git-ignored
+  # data/dev-keys/ so the private key can be pasted into the app; nothing secret is committed
+  dev-keys:
+    image: alpine:3.22
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mkdir -p /data/dev-keys && cd /data/dev-keys
+        if [ ! -e dev-cert.pem ] || [ ! -e dev_ed25519 ]; then
+          apk add --no-cache openssl openssh-keygen >/dev/null
+        fi
+        if [ ! -e dev-cert.pem ]; then
+          openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=localhost" \
+            -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" -keyout dev-key.pem -out dev-cert.pem
+        fi
+        if [ ! -e dev_ed25519 ]; then
+          ssh-keygen -q -t ed25519 -N "" -C "file-browser dev" -f dev_ed25519
+        fi
+        # dev-only files: owned like data/ so they can be deleted without root, readable by the servers
+        chown -R "$$(stat -c %u:%g /data)" . && chmod 755 . && chmod 644 ./*
+    volumes:
+      - ../../data:/data
+
+  # SFTP and FTP servers for trying out remote file systems. Users, keys and endpoints are in CONTRIBUTING.
+  sftp:
+    image: linuxserver/openssh-server:10.3_p1-r1-ls238
+    depends_on:
+      dev-keys:
+        condition: service_completed_successfully
+      ftp-seed:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:2222:2222"
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      USER_NAME: dev
+      USER_PASSWORD: dev
+      PASSWORD_ACCESS: "true"
+      PUBLIC_KEY_FILE: /keys/dev_ed25519.pub
+    volumes:
+      - ../../data/dev-keys:/keys:ro
+      - sftp-data:/data
+      # keeps the host keys, so a pinned fingerprint survives recreating the container
+      - sftp-config:/config
+
+  # plain FTP and explicit TLS (AUTH TLS) on port 21: user dev / dev, and anonymous read-only
+  ftp:
+    image: delfer/alpine-ftp-server@sha256:60bb774d8408d9d4d5c74d05d1c086a34ce192c6c1a142ffac268cac0dbc6fac
+    depends_on:
+      dev-keys:
+        condition: service_completed_successfully
+      ftp-seed:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:21:21"
+      - "127.0.0.1:21000-21010:21000-21010"
+    environment:
+      USERS: "dev|dev|/ftp/dev|1000"
+    # passing a command skips the image's TLS options, which would force TLS on every login
+    command:
+      - vsftpd
+      # options after the file override it
+      - /etc/vsftpd/vsftpd.conf
+      - -obackground=NO
+      - -opasv_address=127.0.0.1
+      - -opasv_min_port=21000
+      - -opasv_max_port=21010
+      - -ochroot_local_user=YES
+      - -oallow_writeable_chroot=YES
+      - -oanonymous_enable=YES
+      - -ono_anon_password=YES
+      - -oanon_root=/ftp/public
+      - -ossl_enable=YES
+      - -oallow_anon_ssl=YES
+      - -oforce_local_logins_ssl=NO
+      - -oforce_local_data_ssl=NO
+      # commons-net opens data connections without reusing the TLS session
+      - -orequire_ssl_reuse=NO
+      - -orsa_cert_file=/certs/dev-cert.pem
+      - -orsa_private_key_file=/certs/dev-key.pem
+    volumes:
+      - ../../data/dev-keys:/certs:ro
+      - ftp-data:/ftp
+
+  # implicit TLS on port 990, same user and files
+  ftps-implicit:
+    image: delfer/alpine-ftp-server@sha256:60bb774d8408d9d4d5c74d05d1c086a34ce192c6c1a142ffac268cac0dbc6fac
+    depends_on:
+      dev-keys:
+        condition: service_completed_successfully
+      ftp-seed:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:990:990"
+      - "127.0.0.1:21011-21020:21011-21020"
+    environment:
+      USERS: "dev|dev|/ftp/dev|1000"
+    command:
+      - vsftpd
+      # options after the file override it
+      - /etc/vsftpd/vsftpd.conf
+      - -obackground=NO
+      - -olisten_port=990
+      - -opasv_address=127.0.0.1
+      - -opasv_min_port=21011
+      - -opasv_max_port=21020
+      - -ochroot_local_user=YES
+      - -oallow_writeable_chroot=YES
+      - -ossl_enable=YES
+      - -oimplicit_ssl=YES
+      - -orequire_ssl_reuse=NO
+      - -orsa_cert_file=/certs/dev-cert.pem
+      - -orsa_private_key_file=/certs/dev-key.pem
+    volumes:
+      - ../../data/dev-keys:/certs:ro
+      - ftp-data:/ftp
+
+  # one-shot: sample folders team-a/ and team-b/ for the SFTP and FTP users, and a README for anonymous FTP
+  ftp-seed:
+    image: delfer/alpine-ftp-server@sha256:60bb774d8408d9d4d5c74d05d1c086a34ce192c6c1a142ffac268cac0dbc6fac
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        for home in /sftp /ftp/dev; do
+          if [ ! -e "$$home/README.md" ]; then
+            mkdir -p "$$home/team-a/Reports" "$$home/team-b"
+            echo "Welcome to the dev server." > "$$home/README.md"
+            echo "Quarterly numbers" > "$$home/team-a/Reports/q3.txt"
+            echo "Team A notes" > "$$home/team-a/notes.md"
+            echo "Team B plan" > "$$home/team-b/plan.md"
+          fi
+          chown -R 1000:1000 "$$home"
+        done
+        mkdir -p /ftp/public
+        echo "Anonymous FTP is read only." > /ftp/public/README.md
+    volumes:
+      - sftp-data:/sftp
+      - ftp-data:/ftp
+
 volumes:
   pocket-id-data:
   rustfs-data:
+  sftp-data:
+  sftp-config:
+  ftp-data:

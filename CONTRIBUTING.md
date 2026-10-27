@@ -5,7 +5,8 @@ SQLite (through Flyway and Spring's `JdbcClient`) for its own data.
 
 ## Run
 
-Start the development identity providers, then the app with the `dev` profile:
+Start the development environment (identity providers, test shares, S3, SFTP and FTP servers),
+then the app with the `dev` profile:
 
 ```bash
 docker compose -f environment/dev/docker-compose.yml up -d
@@ -65,7 +66,7 @@ Pocket ID runs on http://localhost:1411 and signs in with passkeys, so it is set
 
 ## Testing with NFS and SMB shares
 
-`environment/dev/docker-compose.yml` has an opt-in `shares` profile with a Samba server and an NFS v4 server. Their
+The development environment includes a Samba server and an NFS v4 server. Their
 contents live in the git-ignored `data/shares/`. Mounting needs root and the client tools
 (`cifs-utils`, `nfs-common`).
 
@@ -73,14 +74,11 @@ contents live in the git-ignored `data/shares/`. Mounting needs root and the cli
 mkdir -p data/shares/smb data/shares/nfs /tmp/fb-smb /tmp/fb-nfs
 ```
 
-The NFS server uses the host kernel's NFS server; load its modules on the host first:
+The NFS server uses the host kernel's NFS server; load its modules on the host before starting the
+environment (without them only the NFS container stops):
 
 ```bash
 sudo modprobe nfs && sudo modprobe nfsd
-```
-
-```bash
-docker compose -f environment/dev/docker-compose.yml --profile shares up -d smb nfs
 ```
 
 ```bash
@@ -99,24 +97,39 @@ sudo umount /tmp/fb-smb /tmp/fb-nfs
 ```
 
 ```bash
-docker compose -f environment/dev/docker-compose.yml --profile shares stop smb nfs
+docker compose -f environment/dev/docker-compose.yml stop smb nfs
 ```
 
 ## Trying S3 buckets
 
-The opt-in `s3` profile runs [RustFS](https://rustfs.com), an S3-compatible server, on port 9000
+The development environment runs [RustFS](https://rustfs.com), an S3-compatible server, on port 9000
 (console on http://localhost:9001), and seeds `dev-bucket` (with `team-a/` and `team-b/` folders) and
-`public-bucket` (readable without keys):
-
-```bash
-docker compose -f environment/dev/docker-compose.yml --profile s3 up -d
-```
+`public-bucket` (readable without keys).
 
 Add a file system of type S3 bucket with `s3://dev-bucket` (or `s3://dev-bucket/team-a`), endpoint
 URL `http://localhost:9000`, region `us-east-1`, access key `dev-access-key` and secret
 `dev-secret-key`; or `s3://public-bucket` with both keys blank. The `dev` profile reads a dev-only
 secret key from `environment/dev/secret-key`. The S3 tests start RustFS through Testcontainers and are skipped where
 Docker isn't available.
+
+## Trying SFTP and FTP servers
+
+The development environment runs an SFTP server on port 2222, an FTP server on port 21 (plain FTP and
+explicit TLS, passive ports 21000–21010) and an implicit-TLS FTP server on port 990 (passive ports
+21011–21020). Each is seeded with `team-a/` and `team-b/` folders. On first start the one-shot
+`dev-keys` service makes a dev-only FTPS certificate and SFTP key pair in the git-ignored
+`data/dev-keys/`; delete that folder and recreate the servers to get new ones.
+
+- SFTP: `sftp://localhost:2222/data`, user `dev`, password `dev`. Or paste the private key from
+  `data/dev-keys/dev_ed25519`.
+- FTP: `ftp://localhost/` (or `ftp://localhost/team-a`), user `dev`, password `dev`, with Security
+  set to Explicit TLS or None. For implicit TLS use `ftp://localhost:990/`.
+- Anonymous FTP: `ftp://localhost/` with the Anonymous switch on. It is read only.
+- Fingerprints: on first Connect the dialog shows the server's host key or certificate fingerprint
+  to confirm.
+
+The SFTP and FTP tests start the same images through Testcontainers with keys and a certificate
+made for the run, and are skipped where Docker isn't available.
 
 ## Build and test
 

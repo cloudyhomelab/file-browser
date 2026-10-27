@@ -20,5 +20,25 @@
     "defaultRegion": "eu-central-1",
     "checkTimeout": "The bucket didn't answer in time.",
     "checkFailed": "The bucket can't be reached with these settings."
+  },
+  "sftp": {
+    "displayName": "SFTP server",
+    "endpointLabel": "Server folder",
+    "endpointPlaceholder": "sftp://files.example.com/srv/projects",
+    "endpointPrefix": "sftp://",
+    "endpointError": "Use the form sftp://host/folder or sftp://host:port/folder",
+    "namePlaceholder": "Studio server",
+    "checkTimeout": "The server didn't answer in time.",
+    "checkFailed": "The server can't be reached with these settings."
+  },
+  "ftp": {
+    "displayName": "FTP server",
+    "endpointLabel": "Server folder",
+    "endpointPlaceholder": "ftp://ftp.example.com/pub",
+    "endpointPrefix": "ftp://",
+    "endpointError": "Use the form ftp://host/folder or ftp://host:port/folder",
+    "namePlaceholder": "Print shop FTP",
+    "checkTimeout": "The server didn't answer in time.",
+    "checkFailed": "The server can't be reached with these settings."
   }
 }

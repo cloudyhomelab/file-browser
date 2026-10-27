@@ -38,6 +38,11 @@ public interface StorageProvider {
     /** True when the root can be read right now. */
     boolean healthy();
 
+    /** Why the last {@link #healthy()} check failed, if the storage said; null when it didn't. */
+    default String offlineReason() {
+        return null;
+    }
+
     boolean writable();
 
     /** What the OS reports behind the root; empty for storage that isn't an OS mount, or when it can't be read. */

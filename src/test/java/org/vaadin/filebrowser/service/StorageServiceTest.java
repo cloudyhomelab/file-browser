@@ -15,7 +15,10 @@ import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.RootStatus;
 import org.vaadin.filebrowser.storage.DiskStorageType;
+import org.vaadin.filebrowser.storage.FtpStorageType;
 import org.vaadin.filebrowser.storage.StorageConfig;
+import org.vaadin.filebrowser.storage.StorageProvider;
+import org.vaadin.filebrowser.storage.UntrustedServerException;
 
 class StorageServiceTest {
 
@@ -84,10 +87,10 @@ class StorageServiceTest {
     @Test
     void checksANewFileSystemBeforeItIsAdded() {
         final var config = new StorageConfig(dir.toString(), Map.of(), Map.of());
-        assertThat(storage.check(DiskStorageType.KEY, config)).isNull();
+        assertThat(storage.check(DiskStorageType.KEY, config)).isEqualTo(StorageService.Check.OK);
         final var missing = new StorageConfig(dir.resolve("missing").toString(), Map.of(), Map.of());
-        assertThat(storage.check(DiskStorageType.KEY, missing)).isNotNull();
-        assertThat(storage.check("ftp", config)).isNotNull();
+        assertThat(storage.check(DiskStorageType.KEY, missing).problem()).isNotNull();
+        assertThat(storage.check("tape", config).problem()).isNotNull();
     }
 
     @Test
@@ -96,5 +99,31 @@ class StorageServiceTest {
         assertThat(catalog.mountKind("cifs")).isEqualTo("smb");
         assertThat(catalog.mountKind("ext4")).isEqualTo("disk");
         assertThat(catalog.mountKind("fuse.sshfs")).isEqualTo("other");
+    }
+
+    @Test
+    void anUntrustedServerIsReportedWithItsFingerprint() {
+        final var ftp = new FtpStorageType(catalog) {
+            @Override
+            public StorageProvider open(StorageConfig config) {
+                throw new UntrustedServerException("SHA256:abc");
+            }
+        };
+        final var withFtp = new StorageService(new StorageTypes(List.of(ftp), catalog));
+        final var check = withFtp.check(FtpStorageType.KEY, new StorageConfig("ftp://example.com", Map.of(), Map.of()));
+        assertThat(check.fingerprint()).isEqualTo("SHA256:abc");
+        assertThat(check.problem()).isNotNull();
+    }
+
+    @Test
+    void showsAnFtpServerAsFtpsUnlessItIsPlain() {
+        final var withFtp = new StorageService(new StorageTypes(List.of(new FtpStorageType(catalog)), catalog));
+        final var tls = new FsRoot("f1", "Shop", FtpStorageType.KEY, "ftp://127.0.0.1:1/x",
+                Map.of(FtpStorageType.ANONYMOUS, "true"), Access.READ_ONLY, RootStatus.UNKNOWN);
+        final var plain = new FsRoot("f2", "Shop", FtpStorageType.KEY, "ftp://127.0.0.1:1/x",
+                Map.of(FtpStorageType.SECURITY, "none"), Access.READ_ONLY, RootStatus.UNKNOWN);
+        assertThat(withFtp.status(tls)).extracting(RootStatus::kind, RootStatus::detail, RootStatus::online)
+                .containsExactly("ftps", "Anonymous", false);
+        assertThat(withFtp.status(plain).kind()).isEqualTo("ftp");
     }
 }

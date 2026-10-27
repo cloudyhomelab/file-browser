@@ -31,6 +31,7 @@ import org.vaadin.filebrowser.storage.StorageConfig;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.storage.StorageProvider;
 import org.vaadin.filebrowser.storage.StorageType;
+import org.vaadin.filebrowser.storage.UntrustedServerException;
 
 /** Hands out the storage provider for each configured file system and reports its status. */
 @Service
@@ -51,6 +52,21 @@ public class StorageService {
     }
 
     private record CachedStatus(RootStatus status, Instant at) {
+    }
+
+    /**
+     * What checking a new file system found.
+     *
+     * @param problem     why it can't be added as it is; null when it can
+     * @param fingerprint the server's key or certificate to confirm before adding, or null
+     */
+    public record Check(String problem, String fingerprint) implements Serializable {
+
+        public static final Check OK = new Check(null, null);
+
+        public static Check problem(String problem) {
+            return problem == null ? OK : new Check(problem, null);
+        }
     }
 
     /** The kind shown for a file system whose type the app no longer knows. */
@@ -125,17 +141,23 @@ public class StorageService {
             return offline(root);
         }
         if (!provider.healthy()) {
-            return offline(root);
+            return offline(root, provider.offlineReason());
         }
         final var mount = provider.mount();
         final var type = types.get(root.type());
-        return new RootStatus(provider.capacity(), true, type.kindKey(mount), type.detail(root.settings(), mount));
+        return new RootStatus(provider.capacity(), true, type.kindKey(root.settings(), mount),
+                type.detail(root.settings(), mount));
     }
 
     private RootStatus offline(FsRoot root) {
+        return offline(root, null);
+    }
+
+    private RootStatus offline(FsRoot root, String reason) {
         final Optional<MountInfo> mount = Optional.empty();
         return types.find(root.type())
-                .map(type -> new RootStatus(null, false, type.kindKey(mount), type.detail(root.settings(), mount)))
+                .map(type -> new RootStatus(null, false, type.kindKey(root.settings(), mount),
+                        type.detail(root.settings(), mount), reason))
                 .orElse(new RootStatus(null, false, UNSUPPORTED_KIND, ""));
     }
 
@@ -176,27 +198,29 @@ public class StorageService {
         }
     }
 
-    /** Why a file system of {@code type} can't be used with {@code config}, or null when it can. */
-    public String check(String typeKey, StorageConfig config) {
+    /** Whether a file system of {@code type} can be used with {@code config}. */
+    public Check check(String typeKey, StorageConfig config) {
         final StorageType type;
         try {
             type = types.get(typeKey);
         } catch (StorageException e) {
-            return e.getMessage();
+            return Check.problem(e.getMessage());
         }
         final var info = types.info(typeKey);
-        return withTimeout(() -> readProblem(type, info, config), info.checkTimeout(), CHECK_TIMEOUT);
+        return withTimeout(() -> readCheck(type, info, config), Check.problem(info.checkTimeout()), CHECK_TIMEOUT);
     }
 
-    private String readProblem(StorageType type, RootTypeInfo info, StorageConfig config) {
+    private Check readCheck(StorageType type, RootTypeInfo info, StorageConfig config) {
         StorageProvider provider = null;
         try {
             provider = type.open(config);
-            return type.problem(provider);
+            return Check.problem(type.problem(provider));
+        } catch (UntrustedServerException e) {
+            return new Check(e.getMessage(), e.fingerprint());
         } catch (StorageException e) {
-            return e.getMessage();
+            return Check.problem(e.getMessage());
         } catch (RuntimeException e) {
-            return info.checkFailed();
+            return Check.problem(info.checkFailed());
         } finally {
             if (provider instanceof AutoCloseable closeable) {
                 try {

@@ -158,9 +158,13 @@ public class AddRootDialog extends FbDialog {
                 effectiveAccess(), RootStatus.UNKNOWN);
         final var secrets = editing == null ? form.secrets() : Map.<String, String>of();
         if (editing == null) {
-            final var problem = workspace.checkRoot(type, new StorageConfig(root.endpoint(), root.settings(), secrets));
-            if (problem != null) {
-                form.showConnectProblem(problem);
+            final var check = workspace.checkRoot(type, new StorageConfig(root.endpoint(), root.settings(), secrets));
+            if (check.fingerprint() != null) {
+                form.offerFingerprint(check.fingerprint());
+                return;
+            }
+            if (check.problem() != null) {
+                form.showConnectProblem(check.problem());
                 return;
             }
         }

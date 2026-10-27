@@ -115,13 +115,13 @@ public class Workspace implements Serializable {
         registry.add(root, sealed);
     }
 
-    /** Why a file system can't be added with these settings, or null when it can be; admins only. */
-    public String checkRoot(String type, StorageConfig config) {
+    /** Whether a file system can be added with these settings, or which server key to confirm first; admins only. */
+    public StorageService.Check checkRoot(String type, StorageConfig config) {
         if (!currentUser.isAdmin()) {
             throw new AccessDeniedException("Only admins can add file systems");
         }
         if (!config.secrets().isEmpty() && !secrets.canStore()) {
-            return "Set FILEBROWSER_SECRET_KEY_FILE on the server to store credentials.";
+            return StorageService.Check.problem("Set FILEBROWSER_SECRET_KEY_FILE on the server to store credentials.");
         }
         return storage.check(type, config);
     }

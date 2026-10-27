@@ -101,6 +101,14 @@ public abstract class RootForm extends Div {
         this.connectProblem = null;
     }
 
+    /**
+     * The server showed a key or certificate nobody has confirmed. Types that pin one let the admin
+     * confirm it; for the rest it is just a reason connecting failed.
+     */
+    public void offerFingerprint(String fingerprint) {
+        showConnectProblem("The server's identity can't be checked.");
+    }
+
     /** What is wrong with the endpoint, as last shown; null when nothing is. */
     protected String problem() {
         return problem;

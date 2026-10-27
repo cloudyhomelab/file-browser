@@ -18,11 +18,11 @@ class DiskStorageTypeTest {
 
     @Test
     void showsTheKindTheMountWasDetectedAs() {
-        assertThat(type.kindKey(mount("nfs"))).isEqualTo("nfs");
-        assertThat(type.kindKey(mount("smb"))).isEqualTo("smb");
-        assertThat(type.kindKey(mount("other"))).isEqualTo("other");
-        assertThat(type.kindKey(mount("disk"))).isEqualTo("disk");
-        assertThat(type.kindKey(Optional.empty())).isEqualTo("disk");
+        assertThat(type.kindKey(Map.of(), mount("nfs"))).isEqualTo("nfs");
+        assertThat(type.kindKey(Map.of(), mount("smb"))).isEqualTo("smb");
+        assertThat(type.kindKey(Map.of(), mount("other"))).isEqualTo("other");
+        assertThat(type.kindKey(Map.of(), mount("disk"))).isEqualTo("disk");
+        assertThat(type.kindKey(Map.of(), Optional.empty())).isEqualTo("disk");
     }
 
     @Test

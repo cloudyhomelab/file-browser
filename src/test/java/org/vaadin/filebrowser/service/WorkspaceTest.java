@@ -159,7 +159,7 @@ class WorkspaceTest {
         final var admin = workspace(signedInAdmin());
         final var keys = Map.of(S3StorageType.ACCESS_KEY, "AKIDEXAMPLE", S3StorageType.SECRET_KEY, "wJalrXUtnFEMI");
         final var config = new StorageConfig("s3://assets", Map.of(S3StorageType.REGION, "eu-central-1"), keys);
-        assertThat(admin.checkRoot(S3StorageType.KEY, config)).contains("FILEBROWSER_SECRET_KEY_FILE");
+        assertThat(admin.checkRoot(S3StorageType.KEY, config).problem()).contains("FILEBROWSER_SECRET_KEY_FILE");
     }
 
     @Test

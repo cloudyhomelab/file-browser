@@ -142,6 +142,9 @@ h1, h2, h3, p { margin: 0; }
 .fb-root-s3   { --r-color: var(--fb-purple); --r-soft: rgba(126, 85, 240, 0.12); }
 .fb-root-smb   { --r-color: var(--fb-teal);   --r-soft: rgba(0, 210, 205, 0.14); }
 .fb-root-other { --r-color: var(--fb-accent); --r-soft: var(--fb-accent-bg-subtle); }
+.fb-root-sftp,
+.fb-root-ftp,
+.fb-root-ftps  { --r-color: var(--fb-orange); --r-soft: rgba(220, 86, 0, 0.12); }
 .fb-root-unsupported { --r-color: var(--fb-fg-tertiary); --r-soft: var(--fb-surface-2); }
 
 /* ---- plain buttons ---- */
@@ -229,6 +232,17 @@ vaadin-text-field.fb-field[invalid]::part(input-field), vaadin-password-field.fb
 vaadin-text-field.fb-field--invalid::part(input-field) {
   border-color: var(--fb-red); box-shadow: 0 0 0 3px rgba(219, 55, 58, 0.18);
 }
+/* shown, not editable: e.g. the endpoint of a file system being edited */
+vaadin-text-field.fb-field:is([readonly], [disabled])::part(input-field),
+vaadin-password-field.fb-field:is([readonly], [disabled])::part(input-field) {
+  background: var(--fb-surface-2); border-color: var(--fb-border); box-shadow: none; cursor: default;
+}
+vaadin-text-field.fb-field:is([readonly], [disabled]),
+vaadin-password-field.fb-field:is([readonly], [disabled]) {
+  --vaadin-input-field-value-color: var(--fb-fg-secondary);
+}
+vaadin-text-field.fb-field:is([readonly], [disabled]) > input,
+vaadin-password-field.fb-field:is([readonly], [disabled]) > input { color: var(--fb-fg-secondary); cursor: default; }
 vaadin-text-field.fb-field::part(label), vaadin-password-field.fb-field::part(label) {
   font: var(--fb-weight-semibold) 13px/1.2 var(--fb-font-sans); color: var(--fb-fg); padding-bottom: 6px;
 }
@@ -531,6 +545,8 @@ vaadin-button.fb-login-submit { font-weight: var(--fb-weight-semibold); margin-t
 .fb-capacity { display: flex; flex-direction: column; gap: 6px; }
 .fb-capacity--none { flex-direction: row; align-items: center; gap: 8px; color: var(--fb-fg-secondary); font: 400 13px/1.4 var(--fb-font-sans); --icon-size: 14px; }
 .fb-capacity--none .fb-icon { color: var(--fb-fg-tertiary); }
+.fb-capacity--reason { align-items: flex-start; color: var(--fb-red); font-size: 12px; }
+.fb-capacity--reason .fb-icon { color: var(--fb-red); margin-top: 2px; }
 .fb-capacity-line { display: flex; justify-content: space-between; font: 400 12px/1 var(--fb-font-sans); color: var(--fb-fg-secondary); }
 .fb-capacity-used { color: var(--fb-fg); font-weight: 600; }
 .fb-capacity-bar { height: 6px; border-radius: 999px; background: var(--fb-bg-subtle); overflow: hidden; }
@@ -947,3 +963,18 @@ vaadin-button.fb-btn.fb-field-browse {
 .fb-addroot-access-hint[hidden] { display: none; }
 .fb-addroot-creds-hint { font: 400 12px/1.4 var(--fb-font-sans); color: var(--fb-fg-secondary); }
 .fb-addroot-creds-hint.fb-field-error-text { color: var(--fb-red); }
+.fb-addroot-access-hint.fb-field-error-text { color: var(--fb-red); }
+.fb-addroot-access-hint > .fb-icon { --icon-size: 13px; vertical-align: -2px; margin-right: 4px; }
+.fb-addroot-key textarea { min-height: 96px; font-size: 12px; white-space: pre; }
+.fb-addroot-trust { border-color: var(--fb-orange); }
+.fb-addroot-trust .fb-addroot-creds-title > .fb-icon { color: var(--fb-orange); }
+.fb-addroot-fingerprint { font: 400 12.5px/1.4 var(--fb-font-mono); color: var(--fb-fg); word-break: break-all; padding: 8px 10px; border-radius: var(--fb-radius-s); background: var(--fb-white); border: 1px solid var(--fb-border); }
+
+/* on/off switch */
+.fb-switch { display: inline-flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; cursor: pointer; font: 400 13px/1.2 var(--fb-font-sans); color: var(--fb-fg); align-self: flex-start; }
+.fb-switch-track { position: relative; width: 32px; height: 18px; border-radius: var(--fb-radius-full); background: var(--fb-fg-tertiary); transition: background var(--fb-fast) var(--fb-ease); flex-shrink: 0; }
+.fb-switch-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--fb-white); box-shadow: var(--fb-shadow-xs); transition: transform var(--fb-fast) var(--fb-ease); }
+.fb-switch--on .fb-switch-track { background: var(--fb-accent); }
+.fb-switch--on .fb-switch-thumb { transform: translateX(14px); }
+.fb-switch:focus-visible { outline: none; }
+.fb-switch:focus-visible .fb-switch-track { box-shadow: var(--fb-shadow-focus); }

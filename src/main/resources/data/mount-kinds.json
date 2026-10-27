@@ -16,6 +16,9 @@
     "nfs":         { "label": "NFS mount",        "icon": "t-nfs", "showSource": true },
     "smb":         { "label": "SMB mount",        "icon": "t-nfs", "showSource": true },
     "s3":          { "label": "S3 bucket",        "icon": "t-s3", "usageNote": "Object storage · usage metered" },
+    "sftp":        { "label": "SFTP server",      "icon": "t-server" },
+    "ftp":         { "label": "FTP server",       "icon": "t-server", "usageNote": "Usage not reported" },
+    "ftps":        { "label": "FTPS server",      "icon": "t-server", "usageNote": "Usage not reported" },
     "unsupported": { "label": "Unsupported type", "icon": "warn" }
   }
 }

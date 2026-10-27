@@ -20,12 +20,15 @@ public class CapacityMeter extends Composite<Div> {
 
         if (cap == null) {
             div.addClassName("fb-capacity--none");
-            final var linkIcon = new Icon("link");
-            final var note = !root.online() ? "Unavailable"
+            final var reason = root.online() ? null : root.status().reason();
+            final var icon = new Icon(reason != null ? "warn" : "link");
+            final var note = reason != null ? reason
+                    : !root.online() ? "Unavailable"
                     : kind.usageNote() != null ? kind.usageNote()
                     : "Usage unavailable";
             final var text = new Span(note);
-            div.add(linkIcon, text);
+            div.getElement().getClassList().set("fb-capacity--reason", reason != null);
+            div.add(icon, text);
             return;
         }
 

@@ -14,7 +14,7 @@ import org.vaadin.filebrowser.storage.StorageType;
 
 /**
  * Every {@link StorageType} the app knows. Each must be described in {@code data/root-types.json},
- * and its key and the kind it shows while offline in {@code data/mount-kinds.json}; a missing
+ * and every kind it shows in {@code data/mount-kinds.json}; a missing
  * entry stops the app at startup rather than breaking a page later.
  */
 @Component
@@ -34,7 +34,7 @@ public class StorageTypes {
             if (info.checkTimeout() == null || info.checkFailed() == null) {
                 throw missing(type, "data/root-types.json", "checkTimeout and checkFailed of " + type.key());
             }
-            for (final var kind : List.of(type.key(), type.kindKey(Optional.empty()))) {
+            for (final var kind : type.kinds()) {
                 if (catalog.kind(kind) == null) {
                     throw missing(type, "data/mount-kinds.json", kind);
                 }
