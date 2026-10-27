@@ -13,7 +13,6 @@ import org.vaadin.filebrowser.ui.Icon;
 import org.vaadin.filebrowser.ui.MenuPosition;
 import org.vaadin.filebrowser.ui.RootMenu;
 import org.vaadin.filebrowser.ui.StarredBanner;
-import org.vaadin.filebrowser.ui.SubfolderLoader;
 import org.vaadin.filebrowser.ui.Toasts;
 import org.vaadin.filebrowser.ui.Ui;
 import org.vaadin.filebrowser.ui.dialog.AddRootDialog;
@@ -114,8 +113,11 @@ public class RootsView extends Div {
     private DriveCard card(FsRoot root) {
         final var kind = workspace.catalog().kind(root);
         final var rootParams = BrowserView.params(root.id(), List.of());
+        // a file system of a type the app no longer has a form for can only be removed
+        final SerializableConsumer<FsRoot> onEdit = AddRootDialog.canEdit(workspace, root.type())
+                ? this::openEditDialog : null;
         final SerializableConsumer<MenuPosition> onMenu = currentUser.isAdmin()
-                ? pos -> rootMenu.open(root, pos, this::openEditDialog, this::openRemoveDialog)
+                ? pos -> rootMenu.open(root, pos, onEdit, this::openRemoveDialog)
                 : null;
         return new DriveCard(root, kind,
                 () -> UI.getCurrent().navigate(BrowserView.class, rootParams),
@@ -124,7 +126,7 @@ public class RootsView extends Div {
     }
 
     private void openEditDialog(FsRoot root) {
-        final var dialog = AddRootDialog.edit(workspace.catalog(), workspace::probe, root, edited -> {
+        final var dialog = AddRootDialog.edit(workspace, root, edited -> {
             workspace.updateRoot(root, edited.name(), edited.access());
             Toasts.show("Saved “" + edited.name() + "”", "check");
             render();
@@ -143,11 +145,9 @@ public class RootsView extends Div {
 
     private void openAddDialog() {
         final var newId = workspace.newRootId();
-        final SubfolderLoader serverFolders = folder -> workspace.serverFolders("/" + String.join("/", folder));
-        final var dialog = new AddRootDialog(workspace.catalog(), workspace::endpointTaken, workspace::probe,
-                serverFolders, workspace::checkS3, newId, (root, s3) -> {
+        final var dialog = new AddRootDialog(workspace, newId, (root, secrets) -> {
             try {
-                workspace.addRoot(root, s3);
+                workspace.addRoot(root, secrets);
             } catch (StorageException e) {
                 Toasts.error(e.getMessage());
                 return;

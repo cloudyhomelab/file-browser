@@ -2,7 +2,7 @@ package org.vaadin.filebrowser.ui;
 
 import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.FsRoot;
-import org.vaadin.filebrowser.data.RootType;
+import org.vaadin.filebrowser.data.KindInfo;
 
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Div;
@@ -13,7 +13,7 @@ public class CapacityMeter extends Composite<Div> {
 
     public enum Style { CARD, SIDEBAR }
 
-    public CapacityMeter(FsRoot root, Style style) {
+    public CapacityMeter(FsRoot root, KindInfo kind, Style style) {
         final var div = getContent();
         div.addClassNames("fb-capacity", "fb-capacity--" + style.name().toLowerCase(), "fb-root-" + root.kindKey());
         final var cap = root.capacity();
@@ -22,7 +22,7 @@ public class CapacityMeter extends Composite<Div> {
             div.addClassName("fb-capacity--none");
             final var linkIcon = new Icon("link");
             final var note = !root.online() ? "Unavailable"
-                    : root.type() == RootType.S3 ? "Object storage · usage metered"
+                    : kind.usageNote() != null ? kind.usageNote()
                     : "Usage unavailable";
             final var text = new Span(note);
             div.add(linkIcon, text);

@@ -27,7 +27,7 @@ class LocalDiskProviderTest {
         Files.writeString(root.resolve("Projects/brief.txt"), "brief");
         Files.writeString(root.resolve("notes.txt"), "notes");
         provider = new LocalDiskProvider(root, name -> name.endsWith(".txt") ? "text" : "generic",
-                type -> MountInfo.Kind.LOCAL);
+                type -> "disk");
     }
 
     private static String read(LocalDiskProvider p, String path) throws IOException {
@@ -145,8 +145,8 @@ class LocalDiskProviderTest {
         assertThat(provider.healthy()).isTrue();
         assertThat(provider.writable()).isTrue();
         assertThat(provider.capacity()).isNotNull();
-        assertThat(provider.mount().kind()).isEqualTo(MountInfo.Kind.LOCAL);
-        final var missing = new LocalDiskProvider(base.resolve("missing"), n -> "generic", t -> MountInfo.Kind.LOCAL);
+        assertThat(provider.mount().orElseThrow().kind()).isEqualTo("disk");
+        final var missing = new LocalDiskProvider(base.resolve("missing"), n -> "generic", t -> "disk");
         assertThat(missing.healthy()).isFalse();
         assertThatThrownBy(() -> missing.list("")).isInstanceOf(StorageException.class);
     }

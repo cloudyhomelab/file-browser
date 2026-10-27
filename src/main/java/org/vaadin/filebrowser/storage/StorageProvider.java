@@ -40,5 +40,8 @@ public interface StorageProvider {
 
     boolean writable();
 
-    MountInfo mount();
+    /** What the OS reports behind the root; empty for storage that isn't an OS mount, or when it can't be read. */
+    default Optional<MountInfo> mount() {
+        return Optional.empty();
+    }
 }

@@ -73,7 +73,6 @@ public class S3Provider implements StorageProvider, AutoCloseable {
     }
 
     private final Location location;
-    private final String endpoint;
     private final S3Client client;
     private final Function<String, String> typeForName;
 
@@ -82,7 +81,6 @@ public class S3Provider implements StorageProvider, AutoCloseable {
         if (location == null) {
             throw new StorageException("Use the form s3://bucket or s3://bucket/folder.");
         }
-        this.endpoint = connection.endpoint();
         this.typeForName = typeForName;
         final AwsCredentialsProvider credentials = connection.accessKey() == null
                 ? AnonymousCredentialsProvider.create()
@@ -487,11 +485,6 @@ public class S3Provider implements StorageProvider, AutoCloseable {
     @Override
     public boolean writable() {
         return true;
-    }
-
-    @Override
-    public MountInfo mount() {
-        return new MountInfo(MountInfo.Kind.S3, "s3", endpoint);
     }
 
     @Override

@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
+import java.util.Map;
 
 import org.flywaydb.core.Flyway;
 import org.apache.hc.client5.http.SystemDefaultDnsResolver;
@@ -22,8 +23,10 @@ import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.IncomingFile;
-import org.vaadin.filebrowser.data.RootType;
-import org.vaadin.filebrowser.storage.MountInfo;
+import org.vaadin.filebrowser.data.RootStatus;
+import org.vaadin.filebrowser.storage.DiskStorageType;
+import org.vaadin.filebrowser.storage.S3StorageType;
+import org.vaadin.filebrowser.storage.StorageConfig;
 import org.vaadin.filebrowser.storage.StorageException;
 
 /** A view keeps the {@link FsRoot} it opened with; changes an admin makes later must still apply. */
@@ -47,20 +50,20 @@ class WorkspaceTest {
         final var jdbc = JdbcClient.create(dataSource);
 
         final var catalog = new Catalog();
-        final var storage = new StorageService(catalog);
+        final var storage = new StorageService(new StorageTypes(List.of(new DiskStorageType(catalog)), catalog));
         registry = new FileSystemRegistry(jdbc, () -> true, () -> "admin@example.com", Clock.systemUTC(),
                 storage::status);
         // no one is signed in during the test, so nothing is saved per user
         final var currentUser = new CurrentUser(null, null);
-        final var s3Connections = new S3Connections(jdbc, new SecretBox((String) null));
+        final var secrets = new RootSecrets(jdbc, new SecretBox((String) null));
         final var links = new LinkFetcher(address -> false, SystemDefaultDnsResolver.INSTANCE);
-        workspace = new Workspace(catalog, registry, storage, s3Connections, links, new UserData(jdbc), currentUser);
+        workspace = new Workspace(catalog, registry, storage, secrets, links, new UserData(jdbc), currentUser);
 
         folder = Files.createDirectory(dir.resolve("projects"));
         Files.writeString(folder.resolve("notes.txt"), "notes");
-        final var definition = new FsRoot("a", "Projects", RootType.DISK, folder.toString(), "", null, true,
-                Access.READ_WRITE, MountInfo.UNKNOWN);
-        registry.add(definition);
+        final var definition = new FsRoot("a", "Projects", DiskStorageType.KEY, folder.toString(), Map.of(),
+                Access.READ_WRITE, RootStatus.UNKNOWN);
+        registry.add(definition, Map.of());
         held = registry.find("a").orElseThrow();
     }
 
@@ -100,5 +103,21 @@ class WorkspaceTest {
     void onlyAdminsMayBrowseTheServersFolders() {
         // no one is signed in here, so the current user is not an admin
         assertThatThrownBy(() -> workspace.serverFolders(dir.toString())).isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void aFileSystemWithSecretsIsNotAddedWithoutASecretKey() {
+        final var bucket = new FsRoot("b", "Assets", S3StorageType.KEY, "s3://assets", Map.of(), Access.READ_WRITE,
+                RootStatus.UNKNOWN);
+        final var keys = Map.of(S3StorageType.ACCESS_KEY, "AKIDEXAMPLE", S3StorageType.SECRET_KEY, "wJalrXUtnFEMI");
+        assertThatThrownBy(() -> workspace.addRoot(bucket, keys)).isInstanceOf(StorageException.class);
+        assertThat(registry.all()).extracting(FsRoot::id).containsExactly("a");
+    }
+
+    @Test
+    void onlyAdminsCanCheckAFileSystemBeforeAddingIt() {
+        final var config = new StorageConfig(folder.toString(), Map.of(), Map.of());
+        assertThatThrownBy(() -> workspace.checkRoot(DiskStorageType.KEY, config))
+                .isInstanceOf(AccessDeniedException.class);
     }
 }

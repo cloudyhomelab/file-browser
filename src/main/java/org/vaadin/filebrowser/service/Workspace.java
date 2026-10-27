@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -14,8 +15,8 @@ import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.Located;
-import org.vaadin.filebrowser.data.S3Settings;
 import org.vaadin.filebrowser.data.Sort;
+import org.vaadin.filebrowser.storage.StorageConfig;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.storage.StoragePaths;
@@ -43,7 +44,7 @@ public class Workspace implements Serializable {
     private final Catalog catalog;
     private final FileSystemRegistry registry;
     private final StorageService storage;
-    private final S3Connections s3Connections;
+    private final RootSecrets secrets;
     private final LinkFetcher links;
     private final Set<String> starred = new LinkedHashSet<>();
     private final UploadQueue uploads;
@@ -55,12 +56,12 @@ public class Workspace implements Serializable {
     private Density density = UserData.Preferences.DEFAULT.density();
     private Sort sort = UserData.Preferences.DEFAULT.sort();
 
-    public Workspace(Catalog catalog, FileSystemRegistry registry, StorageService storage, S3Connections s3Connections,
+    public Workspace(Catalog catalog, FileSystemRegistry registry, StorageService storage, RootSecrets secrets,
                      LinkFetcher links, UserData userData, CurrentUser currentUser) {
         this.catalog = catalog;
         this.registry = registry;
         this.storage = storage;
-        this.s3Connections = s3Connections;
+        this.secrets = secrets;
         this.links = links;
         this.uploads = new UploadQueue(storage);
         this.userData = userData;
@@ -106,25 +107,23 @@ public class Workspace implements Serializable {
         return registry.endpointTaken(endpoint);
     }
 
-    /** @param s3 the endpoint and keys of an S3 file system; null for a local disk */
-    public void addRoot(FsRoot root, S3Settings s3) {
-        // sealing first: without a secret key nothing is saved
-        final var sealed = s3 == null ? null : s3Connections.seal(root.id(), s3);
-        registry.add(root);
-        if (sealed != null) {
-            s3Connections.store(root.id(), sealed);
-        }
+    /** @param rootSecrets what its type stores encrypted, e.g. access keys; empty for none */
+    public void addRoot(FsRoot root, Map<String, String> rootSecrets) {
+        // sealing first: without a secret key nothing is saved; then one insert, so the file system is
+        // never seen without its secrets
+        final var sealed = secrets.seal(root.id(), rootSecrets);
+        registry.add(root, sealed);
     }
 
-    /** Why a bucket can't be added with these settings, or null when it answers; admins only. */
-    public String checkS3(String endpoint, String region, S3Settings settings) {
+    /** Why a file system can't be added with these settings, or null when it can be; admins only. */
+    public String checkRoot(String type, StorageConfig config) {
         if (!currentUser.isAdmin()) {
             throw new AccessDeniedException("Only admins can add file systems");
         }
-        if (!settings.anonymous() && !s3Connections.canStoreKeys()) {
-            return "Set FILEBROWSER_SECRET_KEY_FILE on the server to store S3 credentials.";
+        if (!config.secrets().isEmpty() && !secrets.canStore()) {
+            return "Set FILEBROWSER_SECRET_KEY_FILE on the server to store credentials.";
         }
-        return storage.checkS3(S3Connections.connection(endpoint, region, settings));
+        return storage.check(type, config);
     }
 
     public void updateRoot(FsRoot root, String name, Access access) {

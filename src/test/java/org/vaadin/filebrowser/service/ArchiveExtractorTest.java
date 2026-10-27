@@ -29,7 +29,6 @@ import org.vaadin.filebrowser.data.ArchiveFormat;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.ExtractOptions;
 import org.vaadin.filebrowser.storage.LocalDiskProvider;
-import org.vaadin.filebrowser.storage.MountInfo;
 import org.vaadin.filebrowser.storage.StorageException;
 
 class ArchiveExtractorTest {
@@ -46,7 +45,7 @@ class ArchiveExtractorTest {
     void setUp() throws IOException {
         root = Files.createDirectory(dir.resolve("root"));
         Files.createDirectory(root.resolve("target"));
-        provider = new LocalDiskProvider(root, name -> "generic", type -> MountInfo.Kind.LOCAL);
+        provider = new LocalDiskProvider(root, name -> "generic", type -> "disk");
     }
 
     /** Folder names end with "/"; everything else is a file with that content. */

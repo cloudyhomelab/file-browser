@@ -194,7 +194,7 @@ class S3ProviderTest {
     void reportsStatusAndRefusesWrongKeys() {
         assertThat(provider.healthy()).isTrue();
         assertThat(provider.capacity()).isNull();
-        assertThat(provider.mount().kind()).isEqualTo(MountInfo.Kind.S3);
+        assertThat(provider.mount()).isEmpty();
         final var wrong = provider("s3://" + bucket, ACCESS_KEY, "not-the-secret");
         assertThat(wrong.healthy()).isFalse();
         assertThatThrownBy(() -> wrong.list("")).isInstanceOf(StorageException.class);
