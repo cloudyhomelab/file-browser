@@ -38,6 +38,11 @@ public interface StorageProvider {
     /** True when the root can be read right now. */
     boolean healthy();
 
+    /** {@link #healthy()} with the reason it isn't, for storage that can tell. */
+    default Health health() {
+        return healthy() ? Health.OK : Health.DOWN;
+    }
+
     boolean writable();
 
     /** What the OS reports behind the root; empty for storage that isn't an OS mount, or when it can't be read. */

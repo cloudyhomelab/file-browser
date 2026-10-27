@@ -10,7 +10,7 @@ Sign-in is through your own OIDC provider, and admins choose which folders every
 `environment/prod/` has a sample `docker-compose.yml` that runs the published image with one OIDC
 provider, a volume for the database and one host folder to add as a file system. Copy
 `.env.example` to `.env` next to it and fill it in. Create the secret key file next to it too (it
-encrypts stored S3 keys; keep it, and make it readable by the container's user, uid 10001):
+encrypts stored credentials for S3, SFTP and FTP; keep it, and make it readable by the container's user, uid 10001):
 
 ```bash
 openssl rand -base64 32 > environment/prod/secret-key
@@ -79,9 +79,28 @@ named by `FILEBROWSER_SECRET_KEY_FILE`, e.g. a Docker or Kubernetes secret holdi
 in base64 (`openssl rand -base64 32`). The key is never taken from an environment variable. It must
 be set to add buckets with keys and must stay the same afterwards. Moving or renaming a folder in a bucket copies and then deletes every object in it.
 
+A file system can also be a folder on an SSH server over SFTP (`sftp://host[:port]/folder`) or on an
+FTP server (`ftp://host[:port]/folder`). The folder is an absolute path on the server, `/` when
+none is given.
+- **SFTP** signs in with a user name and either a password or a pasted private key (OpenSSH or PEM,
+  optionally with a passphrase). The server's own SSH keys and `~/.ssh` config are never used.
+  Usage is shown when the server supports `statvfs` (OpenSSH does).
+- **FTP** uses TLS by default: explicit (`AUTH TLS`, port 21) or implicit (port 990). It can also
+  run with no encryption, in which case the dialog warns that the password and files cross the
+  network in clear text. Anonymous sign-in stores no credentials. Usage isn't reported.
+- **Server trust:** the first Connect shows the SFTP host-key fingerprint, or the FTPS certificate's
+  fingerprint when the JVM doesn't trust that certificate. The admin confirms it before the file
+  system is added. It is stored, and if the server later presents a different one, the file system
+  stops connecting until it is removed and added again.
+- **Credentials:** the user name, password, private key and passphrase are stored encrypted like
+  S3 keys.
+- **Copies:** neither protocol copies on the server, so copies are downloaded and uploaded again.
+- **FTPS limitation:** servers that require TLS session reuse on data connections (vsftpd's default,
+  `require_ssl_reuse=YES`) are not supported yet.
+
 Admins can rename a file system or change its access from the "⋯" menu on its card; its path can't
 change, so to point it elsewhere remove it and add it again. Removing a file system only takes it
-off the list: its files stay on the disk, and everyone's stars in it are removed. Changes apply at
+off the list: its files stay where they are, and everyone's stars in it are removed. Changes apply at
 once, including for people who have it open.
 
 Deleting files and folders in the app is permanent. Uploads are streamed straight into the folder

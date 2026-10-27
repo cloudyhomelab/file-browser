@@ -4,13 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.storage.DiskStorageType;
-import org.vaadin.filebrowser.storage.MountInfo;
+import org.vaadin.filebrowser.storage.FtpStorageType;
 import org.vaadin.filebrowser.storage.S3StorageType;
+import org.vaadin.filebrowser.storage.SftpStorageType;
 import org.vaadin.filebrowser.storage.StorageConfig;
 import org.vaadin.filebrowser.storage.StorageProvider;
 import org.vaadin.filebrowser.storage.StorageType;
@@ -32,23 +32,26 @@ class StorageTypesTest {
             }
 
             @Override
-            public String kindKey(Optional<MountInfo> mount) {
-                return kind;
+            public List<String> kinds() {
+                return List.of(key, kind);
             }
         };
     }
 
     @Test
     void theBuiltInTypesAreFullyDescribed() {
-        final var types = new StorageTypes(List.of(new DiskStorageType(catalog), new S3StorageType(catalog)), catalog);
+        final var types = new StorageTypes(List.of(new DiskStorageType(catalog), new S3StorageType(catalog),
+                new SftpStorageType(catalog), new FtpStorageType(catalog)), catalog);
         assertThat(types.find(DiskStorageType.KEY)).isPresent();
         assertThat(types.find(S3StorageType.KEY)).isPresent();
-        assertThat(types.find("ftp")).isEmpty();
+        assertThat(types.find(SftpStorageType.KEY)).isPresent();
+        assertThat(types.find(FtpStorageType.KEY)).isPresent();
+        assertThat(types.find("tape")).isEmpty();
     }
 
     @Test
     void aTypeMissingFromTheDataFilesStopsStartup() {
-        assertThatThrownBy(() -> new StorageTypes(List.of(type("ftp", "ftp")), catalog))
+        assertThatThrownBy(() -> new StorageTypes(List.of(type("tape", "tape")), catalog))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("root-types.json");
         // described as a root type, but shown as a kind that has no label or icon

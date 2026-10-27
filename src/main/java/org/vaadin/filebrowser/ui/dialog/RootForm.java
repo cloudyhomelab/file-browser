@@ -101,6 +101,14 @@ public abstract class RootForm extends Div {
         this.connectProblem = null;
     }
 
+    /**
+     * The server showed a key or certificate nobody has confirmed. Types that pin one let the admin
+     * confirm it; for the rest it is just a reason connecting failed.
+     */
+    public void offerFingerprint(String fingerprint) {
+        showConnectProblem("The server's identity can't be checked.");
+    }
+
     /** What is wrong with the endpoint, as last shown; null when nothing is. */
     protected String problem() {
         return problem;
@@ -108,7 +116,8 @@ public abstract class RootForm extends Div {
 
     /** True when everything needed to connect is entered and valid. */
     public boolean complete() {
-        return !endpoint().isEmpty() && problem == null && fieldsValid();
+        // an existing file system keeps its settings and secrets, so the type's own fields don't apply
+        return !endpoint().isEmpty() && problem == null && (editing() || fieldsValid());
     }
 
     /** Whether the file system can be written to, which decides if read & write can be chosen. */
@@ -121,10 +130,10 @@ public abstract class RootForm extends Div {
         return "The server can't write to this file system, so it can only be added read-only.";
     }
 
-    /** What the type stores as is, besides the endpoint. */
+    /** What the type stores as is, besides the endpoint; asked only when adding. */
     public abstract Map<String, String> settings();
 
-    /** What the type stores encrypted; empty for nothing. */
+    /** What the type stores encrypted; empty for nothing. Asked only when adding. */
     public Map<String, String> secrets() {
         return Map.of();
     }

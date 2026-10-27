@@ -37,7 +37,7 @@ public class DiskStorageType implements StorageType {
 
     // nothing detected is shown as a plain local disk
     @Override
-    public String kindKey(Optional<MountInfo> mount) {
+    public String kindKey(Map<String, String> settings, Optional<MountInfo> mount) {
         return mount.map(MountInfo::kind).orElse(KEY);
     }
 

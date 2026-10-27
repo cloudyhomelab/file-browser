@@ -39,7 +39,7 @@ class S3StorageTypeTest {
     @Test
     void isShownAsABucketWithItsRegion() {
         final var type = new S3StorageType(new Catalog());
-        assertThat(type.kindKey(Optional.empty())).isEqualTo("s3");
+        assertThat(type.kindKey(Map.of(), Optional.empty())).isEqualTo("s3");
         assertThat(type.detail(Map.of(S3StorageType.REGION, "eu-central-1"), Optional.empty())).isEqualTo("eu-central-1");
     }
 }

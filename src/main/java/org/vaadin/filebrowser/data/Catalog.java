@@ -25,7 +25,9 @@ public class Catalog implements Serializable {
     private static final String DEFAULT_SIGN_IN_ERROR = "default";
     private static final String LOCAL_KIND = "disk";
 
-    record MountKinds(Map<String, String> storeTypes, Map<String, KindInfo> kinds) implements Serializable {
+    /** @param tints the colours kinds may use; each has a {@code fb-tint-*} class in styles.css */
+    record MountKinds(List<String> tints, Map<String, String> storeTypes, Map<String, KindInfo> kinds)
+            implements Serializable {
     }
 
     private final Map<String, RootTypeInfo> rootTypes;
@@ -48,6 +50,12 @@ public class Catalog implements Serializable {
                 .ifPresent(kind -> {
                     throw new IllegalStateException("data/mount-kinds.json maps a store type to unknown kind " + kind);
                 });
+        mountKinds.kinds().forEach((key, kind) -> {
+            if (kind.label() == null || kind.icon() == null || !mountKinds.tints().contains(kind.tint())) {
+                throw new IllegalStateException("data/mount-kinds.json needs a label, an icon and one of the tints "
+                        + mountKinds.tints() + " for kind " + key);
+            }
+        });
         this.archiveFormats = read(mapper, "data/archive-formats.json", new TypeReference<Map<String, ArchiveFormat>>() { });
     }
 

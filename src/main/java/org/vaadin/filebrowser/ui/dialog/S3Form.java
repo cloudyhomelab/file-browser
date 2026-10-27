@@ -21,6 +21,10 @@ import com.vaadin.flow.component.textfield.TextFieldBase;
  */
 public class S3Form extends RootForm {
 
+    /** Keys of the S3 entry's {@code form} in {@code data/root-types.json}. */
+    private static final String REGION_LABEL = "regionLabel";
+    private static final String DEFAULT_REGION = "defaultRegion";
+
     private final TextField endpointUrl = new TextField("Endpoint URL (optional)");
     private final Div credentials = Ui.div("fb-addroot-creds");
     private final TextField keyId = new TextField("Access key ID");
@@ -38,11 +42,14 @@ public class S3Form extends RootForm {
         secret.addClassName("fb-field--mono");
         secret.setPlaceholder("Paste secret key");
         final var info = context.info();
-        region.setLabel(info.regionLabel() + " (optional)");
-        region.setPlaceholder(info.defaultRegion());
+        region.setLabel(info.form(REGION_LABEL) + " (optional)");
+        region.setPlaceholder(info.form(DEFAULT_REGION));
         if (editing()) {
             region.setValue(context.editing().settings().getOrDefault(S3StorageType.REGION, ""));
             region.setReadOnly(true);
+            endpointUrl.setValue(context.editing().settings().getOrDefault(S3StorageType.ENDPOINT_URL, ""));
+            endpointUrl.setReadOnly(true);
+            endpointUrl.setPlaceholder("AWS");
         }
         for (final TextFieldBase<?, String> field : new TextFieldBase[]{endpointUrl, keyId, secret, region}) {
             field(field);
@@ -53,9 +60,15 @@ public class S3Form extends RootForm {
         final var credsOptional = Ui.span("fb-muted-regular", "(optional)");
         final var credsTitle = Ui.div("fb-addroot-creds-title", lockIcon, credsLabel, credsOptional);
         credentials.add(credsTitle, keyId, secret, credentialsHint);
-        endpointUrl.setVisible(!editing());
-        credentials.setVisible(!editing());
         add(endpointUrl, credentials, region);
+        if (editing()) {
+            // shown as stored; keys never are
+            final var stored = context.workspace().secretNames(context.editing());
+            for (final var key : new TextFieldBase[]{keyId, secret}) {
+                key.setReadOnly(true);
+                key.setPlaceholder(stored.contains(S3StorageType.ACCESS_KEY) ? "Stored encrypted" : "None, a public bucket");
+            }
+        }
     }
 
     @Override
@@ -70,6 +83,7 @@ public class S3Form extends RootForm {
         credentialsHint.removeAll();
         credentialsHint.getElement().getClassList().set("fb-field-error-text", credsBad);
         credentialsHint.add(credsBad ? "Enter both the access key ID and the secret access key."
+                : editing() ? "Never shown again. To change them, remove the file system and add it again."
                 : "Leave both blank for a public bucket. Keys are stored encrypted and never shown again.");
     }
 
@@ -82,7 +96,7 @@ public class S3Form extends RootForm {
     public Map<String, String> settings() {
         final var value = region.getValue().trim();
         final var settings = new LinkedHashMap<String, String>();
-        settings.put(S3StorageType.REGION, value.isEmpty() ? context.info().defaultRegion() : value);
+        settings.put(S3StorageType.REGION, value.isEmpty() ? context.info().form(DEFAULT_REGION) : value);
         final var url = endpointUrl.getValue().trim();
         if (!url.isEmpty()) {
             settings.put(S3StorageType.ENDPOINT_URL, url);

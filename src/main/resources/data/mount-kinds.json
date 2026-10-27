@@ -1,4 +1,5 @@
 {
+  "tints": ["accent", "teal", "purple", "orange", "muted"],
   "storeTypes": {
     "nfs": "nfs",
     "nfs4": "nfs",
@@ -11,11 +12,14 @@
     "virtiofs": "other"
   },
   "kinds": {
-    "disk":        { "label": "Local disk",       "icon": "t-disk" },
-    "other":       { "label": "Mounted folder",   "icon": "t-disk" },
-    "nfs":         { "label": "NFS mount",        "icon": "t-nfs", "showSource": true },
-    "smb":         { "label": "SMB mount",        "icon": "t-nfs", "showSource": true },
-    "s3":          { "label": "S3 bucket",        "icon": "t-s3", "usageNote": "Object storage · usage metered" },
-    "unsupported": { "label": "Unsupported type", "icon": "warn" }
+    "disk":        { "label": "Local disk",       "icon": "t-disk", "tint": "accent" },
+    "other":       { "label": "Mounted folder",   "icon": "t-disk", "tint": "accent" },
+    "nfs":         { "label": "NFS mount",        "icon": "t-nfs", "tint": "teal", "showSource": true },
+    "smb":         { "label": "SMB mount",        "icon": "t-nfs", "tint": "teal", "showSource": true },
+    "s3":          { "label": "S3 bucket",        "icon": "t-s3", "tint": "purple", "usageNote": "Object storage · usage metered" },
+    "sftp":        { "label": "SFTP server",      "icon": "t-server", "tint": "orange" },
+    "ftp":         { "label": "FTP server",       "icon": "t-server", "tint": "orange", "usageNote": "Usage not reported" },
+    "ftps":        { "label": "FTPS server",      "icon": "t-server", "tint": "orange", "usageNote": "Usage not reported" },
+    "unsupported": { "label": "Unsupported type", "icon": "warn", "tint": "muted" }
   }
 }

@@ -15,17 +15,20 @@ public class CapacityMeter extends Composite<Div> {
 
     public CapacityMeter(FsRoot root, KindInfo kind, Style style) {
         final var div = getContent();
-        div.addClassNames("fb-capacity", "fb-capacity--" + style.name().toLowerCase(), "fb-root-" + root.kindKey());
+        div.addClassNames("fb-capacity", "fb-capacity--" + style.name().toLowerCase(), kind.tintClass());
         final var cap = root.capacity();
 
         if (cap == null) {
             div.addClassName("fb-capacity--none");
-            final var linkIcon = new Icon("link");
-            final var note = !root.online() ? "Unavailable"
+            final var reason = root.online() ? null : root.status().reason();
+            final var icon = new Icon(reason != null ? "warn" : "link");
+            final var note = reason != null ? reason
+                    : !root.online() ? "Unavailable"
                     : kind.usageNote() != null ? kind.usageNote()
                     : "Usage unavailable";
             final var text = new Span(note);
-            div.add(linkIcon, text);
+            div.getElement().getClassList().set("fb-capacity--reason", reason != null);
+            div.add(icon, text);
             return;
         }
 
