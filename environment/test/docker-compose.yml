@@ -1,0 +1,87 @@
+# Test environment: the published app image, signing in through Pocket ID that sets itself up with test
+# users and the app's client. Ports differ from dev, so both can run at once.
+#   docker compose up -d
+#   docker compose logs pocket-id-seed    # one-time sign-in links for admin@example.com and alice@example.com
+# Then open a link, and add /srv/files as a file system. Re-running the seed prints new links:
+#   docker compose up pocket-id-seed
+name: file-browser-test
+
+services:
+  file-browser:
+    image: docker.io/binarycodes/file-browser:latest
+    ports:
+      - "127.0.0.1:8180:8080"
+    environment:
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_SSO_CLIENT_ID: file-browser-test
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_SSO_SCOPE: openid,email,profile
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_SSO_ISSUER_URI: http://pocket-id.localhost:1511
+      # the client secret, written by pocket-id-seed: each file there is a setting named after the file
+      SPRING_CONFIG_IMPORT: configtree:/run/oidc/
+      FILEBROWSER_OIDC_SSO_LABEL: Pocket ID
+      FILEBROWSER_OIDC_SSO_ICON: pocket-id
+      FILEBROWSER_ADMIN_EMAILS: admin@example.com
+      FILEBROWSER_SECRET_KEY_FILE: /run/secrets/filebrowser_secret_key
+    secrets:
+      - filebrowser_secret_key
+    volumes:
+      - file-browser-data:/app/data
+      - files:/srv/files
+      - oidc:/run/oidc:ro
+    depends_on:
+      pocket-id-seed:
+        condition: service_completed_successfully
+      files-init:
+        condition: service_completed_successfully
+
+  # Browsers send *.localhost to this machine, and inside Docker the alias reaches the container, so the
+  # browser and the app use the same issuer URL; that needs the same port inside and out.
+  pocket-id:
+    image: ghcr.io/pocket-id/pocket-id:v2.19.1
+    ports:
+      - "127.0.0.1:1511:1511"
+    environment:
+      APP_URL: http://pocket-id.localhost:1511
+      PORT: "1511"
+      # Test-only keys, the first for the seed's use of the admin API; never reuse them for a real deployment.
+      STATIC_API_KEY: test-only-insecure-static-api-key
+      ENCRYPTION_KEY: test-only-insecure-encryption-key
+    networks:
+      default:
+        aliases: [pocket-id.localhost]
+    volumes:
+      - pocket-id-data:/app/data
+
+  # one-shot: test users, the app's client and its secret, then prints one-time sign-in links
+  pocket-id-seed:
+    image: curlimages/curl:8.17.0
+    # writes the secret into a new volume, which belongs to root
+    user: root
+    depends_on: [pocket-id]
+    environment:
+      # curl answers *.localhost itself, so the seed uses the service name and only prints the public address
+      POCKET_ID_URL: http://pocket-id:1511
+      POCKET_ID_PUBLIC_URL: http://pocket-id.localhost:1511
+      POCKET_ID_API_KEY: test-only-insecure-static-api-key
+      CLIENT_ID: file-browser-test
+      CALLBACK_URL: http://localhost:8180/login/oauth2/code/sso
+    entrypoint: ["/bin/sh", "/pocket-id-seed.sh"]
+    volumes:
+      - ./pocket-id-seed.sh:/pocket-id-seed.sh:ro
+      - oidc:/run/oidc
+
+  # one-shot: a new volume is owned by root, the app runs as uid 10001
+  files-init:
+    image: busybox:1.37.0
+    command: ["chown", "10001:10001", "/srv/files"]
+    volumes:
+      - files:/srv/files
+
+volumes:
+  file-browser-data:
+  files:
+  oidc:
+  pocket-id-data:
+
+secrets:
+  filebrowser_secret_key:
+    file: ../dev/secret-key
