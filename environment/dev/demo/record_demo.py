@@ -1,4 +1,5 @@
-"""Records the demo video in media/demo.mp4 and its poster frame in media/demo.png.
+"""Records the demo video in media/demo.mp4, its poster frame in media/demo.png and the README's GIF in
+media/demo.gif.
 
 Builds the production jar and runs it on port 8081 with the local `demo` profile
 (config/application-demo.properties: Pocket ID as the only provider, the demo user as admin) and its
@@ -31,6 +32,10 @@ OUTPUT = ROOT / "media" / "demo.mp4"
 POSTER = ROOT / "media" / "demo.png"
 # seconds into the video: the file list with the details panel open and the star toast showing
 POSTER_AT = 43.5
+GIF = ROOT / "media" / "demo.gif"
+# smaller and slower than the video, keeping the GIF under GitHub's 10 MB image limit
+GIF_WIDTH = 960
+GIF_FPS = 8
 PORT = 8081
 BASE = f"http://localhost:{PORT}"
 POCKET_ID = "http://localhost:1411"
@@ -137,6 +142,10 @@ def convert(webm):
                     "-movflags", "+faststart", "-an", str(OUTPUT)], check=True)
     subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-ss", str(POSTER_AT), "-i", str(OUTPUT),
                     "-frames:v", "1", str(POSTER)], check=True)
+    subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-i", str(OUTPUT),
+                    "-vf", f"fps={GIF_FPS},scale={GIF_WIDTH}:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];"
+                           "[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
+                    str(GIF)], check=True)
 
 
 def main():

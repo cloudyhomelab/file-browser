@@ -3,9 +3,7 @@
 A web file browser for folders on the server: local disks and NFS/SMB shares the OS has mounted.
 Sign-in is through your own OIDC provider, and admins choose which folders everyone can browse.
 
-[![A walkthrough of FileBrowser: signing in, adding a folder, browsing, auto refresh, starring, uploading and moving several files at once](media/demo.png)](media/demo.mp4)
-
-*Click the image to watch the demo video.*
+![A walkthrough of FileBrowser: signing in, adding a folder, browsing, auto refresh, starring, uploading and moving several files at once](media/demo.gif)
 
 ## Deploy
 

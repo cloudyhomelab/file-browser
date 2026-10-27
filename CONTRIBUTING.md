@@ -137,11 +137,11 @@ Docker Hub and signs it.
 
 ## Demo video
 
-`media/demo.mp4` and its poster `media/demo.png` are recorded by `environment/dev/demo/record_demo.py`.
-It builds the production jar from the committed code (in a copy, so a running dev server is left
-alone), runs it on port 8081 with its own database against a seeded folder in
-`/var/tmp/filebrowser-demo/Studio`, signs in through Pocket ID with a virtual passkey and walks
-through the app in Google Chrome.
+`media/demo.mp4`, its poster `media/demo.png` and the README's `media/demo.gif` are recorded by
+`environment/dev/demo/record_demo.py`. It builds the production jar from the committed code (in a
+copy, so a running dev server is left alone), runs it on port 8081 with its own database against a
+seeded folder in `/var/tmp/filebrowser-demo/Studio`, signs in through Pocket ID with a virtual
+passkey and walks through the app in Google Chrome.
 
 One-time setup, with the development providers running:
 
