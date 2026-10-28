@@ -60,7 +60,9 @@ public class Catalog implements Serializable {
             }
         });
         this.archiveFormats = read(mapper, "data/archive-formats.json", new TypeReference<Map<String, ArchiveFormat>>() { });
-        this.viewTypes = byExtension(read(mapper, "data/view-types.json", new TypeReference<Map<String, List<String>>>() { }));
+        final var extensionsByViewType = read(mapper, "data/view-types.json",
+                new TypeReference<Map<String, List<String>>>() { });
+        this.viewTypes = byExtension(extensionsByViewType);
     }
 
     private static Map<String, String> byExtension(Map<String, List<String>> extensionsByType) {
