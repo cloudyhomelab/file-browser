@@ -266,14 +266,15 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
     }
 
     @Override
-    public void move(String path, String destinationFolder) {
+    public void move(String path, String destinationFolder, String targetName) {
+        StoragePaths.requireValidName(targetName);
         if (destinationFolder.equals(path) || destinationFolder.startsWith(path + "/")) {
             throw new StorageException("A folder can't be moved into itself.");
         }
         call("move “" + nameOf(path) + "”", session -> {
             requireFolder(session, destinationFolder);
-            final var target = StoragePaths.child(destinationFolder, nameOf(path));
-            requireFree(session, target, "“" + nameOf(path) + "” already exists in the destination.");
+            final var target = StoragePaths.child(destinationFolder, targetName);
+            requireFree(session, target, "“" + targetName + "” already exists in the destination.");
             renameNode(session, remote(path), remote(target));
             return null;
         });

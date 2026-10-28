@@ -3,6 +3,7 @@ package org.vaadin.filebrowser.views;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -605,7 +606,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                 final var moveRoot = root;
                 final var from = folderOf(first);
                 final var dialog = new MoveDialog(entries, root, folder -> workspace.subfolders(moveRoot, folder), from,
-                        dest -> move(targets, dest));
+                        dest -> checkClashes(targets, dest));
                 dialog.open();
             }
             case DELETE -> {
@@ -651,8 +652,54 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         return done;
     }
 
-    private void move(List<Located> targets, List<String> dest) {
-        final var done = forEachTarget(targets, e -> workspace.move(root, e, dest));
+    /** Asks what to do with names that already exist in {@code dest}, then moves. */
+    private void checkClashes(List<Located> targets, List<String> dest) {
+        final List<StorageEntry> existing;
+        try {
+            existing = workspace.list(root, dest);
+        } catch (StorageException e) {
+            Toasts.error(e.getMessage());
+            return;
+        }
+        final var existingFolders = new HashMap<String, Boolean>();
+        existing.forEach(e -> existingFolders.put(e.name(), e.folder()));
+        final var clashes = targets.stream()
+                .map(Located::entry)
+                .filter(e -> existingFolders.containsKey(e.name()))
+                .map(e -> new ConflictDialog.Clash(e.name(), e.type(), e.folder() || existingFolders.get(e.name())))
+                .toList();
+        final var names = Set.copyOf(existingFolders.keySet());
+        if (clashes.isEmpty()) {
+            move(targets, dest, names, Map.of());
+            return;
+        }
+        final var dialog = new ConflictDialog(ConflictDialog.Purpose.MOVE, workspace.catalog(), clashes, targets.size(),
+                names, choices -> move(targets, dest, names, choices));
+        dialog.open();
+    }
+
+    private record PlannedMove(String name, boolean replace) {
+    }
+
+    private void move(List<Located> targets, List<String> dest, Set<String> existing, Map<String, ConflictChoice> choices) {
+        final var taken = new HashSet<>(existing);
+        final var plans = new HashMap<String, PlannedMove>();
+        final var moving = new ArrayList<Located>();
+        for (final var t : targets) {
+            final var name = t.entry().name();
+            final var choice = choices.get(name);
+            if (choice == ConflictChoice.SKIP) {
+                continue;
+            }
+            final var finalName = choice == ConflictChoice.KEEP_BOTH ? Workspace.keepBothName(name, taken) : name;
+            taken.add(finalName);
+            plans.put(t.entry().path(), new PlannedMove(finalName, choice == ConflictChoice.REPLACE));
+            moving.add(t);
+        }
+        final var done = forEachTarget(moving, e -> {
+            final var plan = plans.get(e.path());
+            workspace.move(root, e, dest, plan.name(), plan.replace());
+        });
         selected.clear();
         if (done > 0) {
             final var destName = dest.isEmpty() ? root.name() : dest.getLast();
@@ -754,24 +801,22 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return;
         }
         // a stored file clashes with a file of the same name; a new folder for an archive with anything
-        final var conflicts = new ArrayList<IncomingFile>();
-        final var folderConflicts = new HashSet<String>();
+        final var conflicts = new ArrayList<ConflictDialog.Clash>();
         for (final var f : files) {
             if (stored(f) && existingFiles.contains(f.name())) {
-                conflicts.add(f);
+                conflicts.add(new ConflictDialog.Clash(f.name(), f.type(), false));
             }
             final var folderName = newFolderName(f);
             if (folderName != null && existing.contains(folderName)) {
-                conflicts.add(new IncomingFile(null, folderName, StorageEntry.FOLDER_TYPE, 0));
-                folderConflicts.add(folderName);
+                conflicts.add(new ConflictDialog.Clash(folderName, StorageEntry.FOLDER_TYPE, true));
             }
         }
         if (conflicts.isEmpty()) {
             resolveConflicts(files, destination, existing, Map.of());
             return;
         }
-        final var dialog = new ConflictDialog(workspace.catalog(), conflicts, files.size(), existing, folderConflicts,
-                choices -> resolveConflicts(files, destination, existing, choices));
+        final var dialog = new ConflictDialog(ConflictDialog.Purpose.UPLOAD, workspace.catalog(), conflicts, files.size(),
+                existing, choices -> resolveConflicts(files, destination, existing, choices));
         dialog.open();
     }
 

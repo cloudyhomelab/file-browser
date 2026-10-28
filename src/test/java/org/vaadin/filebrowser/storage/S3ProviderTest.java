@@ -145,9 +145,14 @@ class S3ProviderTest {
         assertThat(read(provider, "Work/Design/logo.txt")).isEqualTo("logo");
         assertThat(provider.stat("Projects")).isEmpty();
 
-        provider.move("todo.txt", "Work/Design");
+        provider.move("todo.txt", "Work/Design", "todo.txt");
         assertThat(read(provider, "Work/Design/todo.txt")).isEqualTo("notes");
-        assertThatThrownBy(() -> provider.move("Work", "Work/Design")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.move("Work", "Work/Design", "Work")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.move("Work/brief.txt", "Work/Design", "todo.txt"))
+                .hasMessageContaining("already exists");
+        provider.move("Work/brief.txt", "Work/Design", "brief (1).txt");
+        assertThat(read(provider, "Work/Design/brief (1).txt")).isEqualTo("brief");
+        provider.move("Work/Design/brief (1).txt", "Work", "brief.txt");
 
         provider.copy("Work", "Work copy");
         assertThat(read(provider, "Work copy/brief.txt")).isEqualTo("brief");

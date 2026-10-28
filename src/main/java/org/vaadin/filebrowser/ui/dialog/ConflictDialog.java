@@ -6,9 +6,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.vaadin.filebrowser.data.Catalog;
-import org.vaadin.filebrowser.data.IncomingFile;
 import org.vaadin.filebrowser.service.Workspace;
 import org.vaadin.filebrowser.service.Workspace.ConflictChoice;
 import org.vaadin.filebrowser.ui.Buttons;
@@ -22,11 +22,22 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.function.SerializableConsumer;
 
 /**
- * Per-file decision for uploads whose names already exist in the destination folder. Rows for the
- * new folder an archive would be extracted into offer only Keep both or Skip: an upload never
- * replaces a folder.
+ * Per-item decision for uploads or moves whose names already exist in the destination folder. Clashes
+ * that involve a folder offer only Keep both or Skip: a folder is never replaced, nor replaces anything.
  */
 public class ConflictDialog extends FbDialog {
+
+    public enum Purpose { UPLOAD, MOVE }
+
+    /**
+     * A name that already exists in the destination.
+     *
+     * @param type   the incoming item's file type, for its glyph
+     * @param folder whether a folder is involved on either side; for an upload, the new folder an
+     *               archive would be extracted into
+     */
+    public record Clash(String name, String type, boolean folder) {
+    }
 
     private static final List<Segmented.Option<ConflictChoice>> OPTIONS = List.of(
             Segmented.Option.text(ConflictChoice.REPLACE, "Replace"),
@@ -36,8 +47,9 @@ public class ConflictDialog extends FbDialog {
             Segmented.Option.text(ConflictChoice.KEEP_BOTH, "Keep both"),
             Segmented.Option.text(ConflictChoice.SKIP, "Skip"));
 
+    private final Purpose purpose;
     private final Catalog catalog;
-    private final List<IncomingFile> conflicts;
+    private final List<Clash> clashes;
     private final Set<String> existingNames;
     private final Set<String> folderNames;
     private final Map<String, ConflictChoice> choices = new LinkedHashMap<>();
@@ -45,26 +57,32 @@ public class ConflictDialog extends FbDialog {
     private final Div rows = Ui.div("fb-conflict-list");
     private final Span summary = Ui.span("fb-dialog-summary", "");
 
-    /** @param folderNames which of the conflicts are new folders for extracted archives */
-    public ConflictDialog(Catalog catalog, List<IncomingFile> conflicts, int totalCount, Set<String> existingNames,
-                          Set<String> folderNames, SerializableConsumer<Map<String, ConflictChoice>> onResolve) {
-        super(title(conflicts.size()), "warn", Tone.DANGER, Width.WIDE);
+    public ConflictDialog(Purpose purpose, Catalog catalog, List<Clash> clashes, int totalCount, Set<String> existingNames,
+                          SerializableConsumer<Map<String, ConflictChoice>> onResolve) {
+        super(title(purpose, clashes.size()), "warn", Tone.DANGER, Width.WIDE);
+        this.purpose = purpose;
         this.catalog = catalog;
-        this.conflicts = conflicts;
+        this.clashes = clashes;
         this.existingNames = existingNames;
-        this.folderNames = folderNames;
-        conflicts.forEach(c -> choices.put(c.name(), ConflictChoice.KEEP_BOTH));
+        this.folderNames = clashes.stream().filter(Clash::folder).map(Clash::name).collect(Collectors.toSet());
+        clashes.forEach(c -> choices.put(c.name(), ConflictChoice.KEEP_BOTH));
 
-        final var intro = new Paragraph(conflicts.size() + " of " + totalCount + " uploaded file" + (totalCount > 1 ? "s" : "")
-                + " match names already in this folder. Choose what to do with each.");
+        final var introText = switch (purpose) {
+            case UPLOAD -> clashes.size() + " of " + totalCount + " uploaded file" + (totalCount > 1 ? "s" : "")
+                    + " match names already in this folder. Choose what to do with each.";
+            case MOVE -> clashes.size() + " of " + totalCount + " item" + (totalCount > 1 ? "s" : "")
+                    + " being moved match names already in the destination. Choose what to do with each.";
+        };
+        final var intro = new Paragraph(introText);
         intro.setClassName("fb-dialog-text fb-dialog-text--s");
         add(intro);
-        if (conflicts.size() > 1) {
+        if (clashes.size() > 1) {
             add(applyAll);
         }
         add(rows);
 
-        final var proceed = Buttons.create(Buttons.Kind.PRIMARY, "Continue upload", null, () -> {
+        final var proceedLabel = purpose == Purpose.UPLOAD ? "Continue upload" : "Move";
+        final var proceed = Buttons.create(Buttons.Kind.PRIMARY, proceedLabel, null, () -> {
             close();
             final var resolved = Map.copyOf(choices);
             onResolve.accept(resolved);
@@ -74,8 +92,10 @@ public class ConflictDialog extends FbDialog {
         render();
     }
 
-    private static String title(int n) {
-        return n + " file" + (n > 1 ? "s" : "") + " already exist" + (n > 1 ? "" : "s") + " here";
+    private static String title(Purpose purpose, int n) {
+        final var noun = purpose == Purpose.UPLOAD ? "file" : "item";
+        final var where = purpose == Purpose.UPLOAD ? "here" : "in the destination";
+        return n + " " + noun + (n > 1 ? "s" : "") + " already exist" + (n > 1 ? "" : "s") + " " + where;
     }
 
     private void render() {
@@ -91,33 +111,16 @@ public class ConflictDialog extends FbDialog {
         applyAll.add(applyAllLabel, applyAllChoice);
 
         rows.removeAll();
-        for (final var c : conflicts) {
+        for (final var c : clashes) {
             final var choice = choices.get(c.name());
             final var detail = Ui.div("fb-conflict-detail fb-conflict-detail--" + choice.name().toLowerCase().replace('_', '-'));
-            final var folder = folderNames.contains(c.name());
-            if (folder) {
-                if (choice == ConflictChoice.SKIP) {
-                    detail.add("Won't be extracted");
-                } else {
-                    final var lead = new Span("Extracts into ");
-                    final var newFolder = Ui.span("fb-mono", Workspace.keepBothName(c.name(), existingNames));
-                    detail.add(lead, newFolder);
-                }
-            } else switch (choice) {
-                case REPLACE -> detail.add("Overwrites the existing file");
-                case KEEP_BOTH -> {
-                    final var lead = new Span("Uploads as ");
-                    final var newName = Workspace.keepBothName(c.name(), existingNames);
-                    final var newNameText = Ui.span("fb-mono", newName);
-                    detail.add(lead, newNameText);
-                }
-                case SKIP -> detail.add("Won't be uploaded");
-            }
+            detail(detail, c, choice);
             final var glyph = new FileGlyph(c.type(), catalog);
             final var nameText = Ui.span("", c.name());
             final var name = Ui.div("fb-conflict-name", nameText);
             final var names = Ui.div("fb-conflict-names", name, detail);
-            final var picker = new Segmented<>(folder ? "fb-seg--folder" : "fb-seg--danger-first", folder ? FOLDER_OPTIONS : OPTIONS, choice, v -> {
+            final var picker = new Segmented<>(c.folder() ? "fb-seg--folder" : "fb-seg--danger-first",
+                    c.folder() ? FOLDER_OPTIONS : OPTIONS, choice, v -> {
                 choices.put(c.name(), v);
                 render();
             });
@@ -140,5 +143,19 @@ public class ConflictDialog extends FbDialog {
         }
         final var summaryText = String.join(" · ", parts);
         summary.setText(summaryText);
+    }
+
+    private void detail(Div detail, Clash c, ConflictChoice choice) {
+        final var extraction = purpose == Purpose.UPLOAD && c.folder();
+        switch (choice) {
+            case REPLACE -> detail.add("Overwrites the existing file");
+            case KEEP_BOTH -> {
+                final var lead = new Span(extraction ? "Extracts into " : purpose == Purpose.UPLOAD ? "Uploads as " : "Moves as ");
+                final var newName = Workspace.keepBothName(c.name(), existingNames);
+                final var newNameText = Ui.span("fb-mono", newName);
+                detail.add(lead, newNameText);
+            }
+            case SKIP -> detail.add(extraction ? "Won't be extracted" : purpose == Purpose.UPLOAD ? "Won't be uploaded" : "Won't be moved");
+        }
     }
 }

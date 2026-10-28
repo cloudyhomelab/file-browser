@@ -20,7 +20,8 @@ public interface StorageProvider {
 
     void rename(String path, String newName);
 
-    void move(String path, String destinationFolder);
+    /** Moves into {@code destinationFolder} under {@code targetName}; never replaces what is already there. */
+    void move(String path, String destinationFolder, String targetName);
 
     /** Copies a file or folder (recursively) next to the original under {@code targetName}. */
     void copy(String path, String targetName);

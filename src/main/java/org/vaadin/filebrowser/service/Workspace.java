@@ -299,10 +299,25 @@ public class Workspace implements Serializable {
         dropStars(root.id(), entry.path());
     }
 
-    public void move(FsRoot root, StorageEntry entry, List<String> destination) {
+    /**
+     * Moves into {@code destination} as {@code targetName}. With {@code replace}, an existing file of that name is
+     * deleted first; a folder is never replaced, nor replaced by one.
+     */
+    public void move(FsRoot root, StorageEntry entry, List<String> destination, String targetName, boolean replace) {
+        final var provider = writable(root);
         final var destinationPath = StoragePaths.join(destination);
-        writable(root).move(entry.path(), destinationPath);
-        final var moved = StoragePaths.child(destinationPath, entry.name());
+        final var moved = StoragePaths.child(destinationPath, targetName);
+        if (replace) {
+            final var existing = provider.stat(moved);
+            if (existing.isPresent()) {
+                if (entry.folder() || existing.get().folder()) {
+                    throw new StorageException("“" + targetName + "” can't be replaced: only a file replaces a file.");
+                }
+                provider.delete(moved);
+                dropStars(root.id(), moved);
+            }
+        }
+        provider.move(entry.path(), destinationPath, targetName);
         moveStars(root.id(), entry.path(), moved);
     }
 

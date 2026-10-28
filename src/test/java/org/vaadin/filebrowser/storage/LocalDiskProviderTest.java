@@ -96,10 +96,23 @@ class LocalDiskProviderTest {
 
     @Test
     void movesAndRefusesMovingAFolderIntoItself() {
-        provider.move("notes.txt", "Projects/Design");
+        provider.move("notes.txt", "Projects/Design", "notes.txt");
         assertThat(root.resolve("Projects/Design/notes.txt")).exists();
-        assertThatThrownBy(() -> provider.move("Projects", "Projects/Design")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.move("Projects", "Projects/Design", "Projects")).isInstanceOf(StorageException.class);
         assertThat(root.resolve("Projects")).isDirectory();
+    }
+
+    @Test
+    void movesUnderANewNameButNeverOverAnExistingItem() throws IOException {
+        Files.writeString(root.resolve("Projects/Design/notes.txt"), "older");
+
+        assertThatThrownBy(() -> provider.move("notes.txt", "Projects/Design", "notes.txt"))
+                .hasMessageContaining("already exists");
+        provider.move("notes.txt", "Projects/Design", "notes (1).txt");
+
+        assertThat(root.resolve("Projects/Design/notes (1).txt")).hasContent("notes");
+        assertThat(root.resolve("Projects/Design/notes.txt")).hasContent("older");
+        assertThat(root.resolve("notes.txt")).doesNotExist();
     }
 
     @Test
