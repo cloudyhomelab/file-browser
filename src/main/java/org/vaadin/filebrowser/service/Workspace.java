@@ -55,6 +55,7 @@ public class Workspace implements Serializable {
     private Layout layout = UserData.Preferences.DEFAULT.layout();
     private Density density = UserData.Preferences.DEFAULT.density();
     private Sort sort = UserData.Preferences.DEFAULT.sort();
+    private boolean groupByType = UserData.Preferences.DEFAULT.groupByType();
 
     public Workspace(Catalog catalog, FileSystemRegistry registry, StorageService storage, RootSecrets secrets,
                      LinkFetcher links, UserData userData, CurrentUser currentUser) {
@@ -74,6 +75,7 @@ public class Workspace implements Serializable {
             layout = preferences.layout();
             density = preferences.density();
             sort = preferences.sort();
+            groupByType = preferences.groupByType();
         }
     }
 
@@ -401,9 +403,19 @@ public class Workspace implements Serializable {
         savePreferences();
     }
 
+    /** Whether the file systems page shows one section per storage type. */
+    public boolean groupByType() {
+        return groupByType;
+    }
+
+    public void setGroupByType(boolean groupByType) {
+        this.groupByType = groupByType;
+        savePreferences();
+    }
+
     private void savePreferences() {
         if (email != null) {
-            final var preferences = new UserData.Preferences(layout, density, sort);
+            final var preferences = new UserData.Preferences(layout, density, sort, groupByType);
             userData.savePreferences(email, preferences);
         }
     }

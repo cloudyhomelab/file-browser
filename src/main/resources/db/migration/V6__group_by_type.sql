@@ -1,0 +1,1 @@
+ALTER TABLE user_preference ADD COLUMN group_by_type INTEGER NOT NULL DEFAULT 0;

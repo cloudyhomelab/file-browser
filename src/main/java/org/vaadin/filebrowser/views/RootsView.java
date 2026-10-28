@@ -1,6 +1,10 @@
 package org.vaadin.filebrowser.views;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.service.CurrentUser;
@@ -13,6 +17,7 @@ import org.vaadin.filebrowser.ui.Icon;
 import org.vaadin.filebrowser.ui.MenuPosition;
 import org.vaadin.filebrowser.ui.RootMenu;
 import org.vaadin.filebrowser.ui.StarredBanner;
+import org.vaadin.filebrowser.ui.Switch;
 import org.vaadin.filebrowser.ui.Toasts;
 import org.vaadin.filebrowser.ui.Ui;
 import org.vaadin.filebrowser.ui.dialog.AddRootDialog;
@@ -55,7 +60,9 @@ public class RootsView extends Div {
 
     private void render() {
         main.removeAll();
-        final var roots = workspace.roots();
+        final var roots = workspace.roots().stream()
+                .sorted(Comparator.comparing(FsRoot::name, String.CASE_INSENSITIVE_ORDER))
+                .toList();
         final var accessible = roots.stream().filter(r -> !r.locked()).toList();
         final var restricted = roots.stream().filter(FsRoot::locked).toList();
 
@@ -63,6 +70,13 @@ public class RootsView extends Div {
         final var title = new H1("Your file systems");
         final var spacer = Ui.spacer();
         final var titlebar = Ui.div("fb-page-titlebar", title, spacer);
+        if (!roots.isEmpty()) {
+            final var groupSwitch = new Switch("Group by type", workspace.groupByType(), on -> {
+                workspace.setGroupByType(on);
+                render();
+            });
+            titlebar.add(groupSwitch);
+        }
         if (admin) {
             final var add = Buttons.create(Buttons.Kind.PRIMARY, "Add file system", "plus", this::openAddDialog);
             titlebar.add(add);
@@ -86,8 +100,18 @@ public class RootsView extends Div {
         }
 
         final var grid = Ui.div("fb-drive-grid");
-        accessible.forEach(r -> grid.add(card(r)));
-        if (admin) {
+        if (workspace.groupByType()) {
+            byType(accessible).forEach((type, group) -> {
+                final var info = workspace.catalog().rootType(type);
+                main.add(rule(info == null ? type : info.displayName()));
+                final var typeGrid = Ui.div("fb-drive-grid");
+                group.forEach(r -> typeGrid.add(card(r)));
+                main.add(typeGrid);
+            });
+        } else {
+            accessible.forEach(r -> grid.add(card(r)));
+        }
+        if (admin && !workspace.groupByType()) {
             final var plusIcon = new Icon("plus");
             final var addCardIcon = Ui.span("fb-addroot-card-icon", plusIcon);
             final var addCardTitle = Ui.span("fb-addroot-card-title", "Add file system");
@@ -100,14 +124,27 @@ public class RootsView extends Div {
         }
 
         if (!restricted.isEmpty()) {
-            final var ruleLabel = Ui.span("fb-section-rule-label", "Restricted");
-            final var ruleLine = Ui.divider("fb-section-rule-line");
-            final var rule = Ui.div("fb-section-rule", ruleLabel, ruleLine);
-            main.add(rule);
+            main.add(rule("Restricted"));
             final var lockedGrid = Ui.div("fb-drive-grid");
             restricted.forEach(r -> lockedGrid.add(card(r)));
             main.add(lockedGrid);
         }
+    }
+
+    /** In the order the types are offered when adding a file system; types it no longer offers last. */
+    private Map<String, List<FsRoot>> byType(List<FsRoot> roots) {
+        final var order = workspace.catalog().rootTypeKeys();
+        final var groups = new TreeMap<String, List<FsRoot>>(Comparator
+                .comparingInt((String type) -> order.contains(type) ? order.indexOf(type) : order.size())
+                .thenComparing(Comparator.naturalOrder()));
+        roots.forEach(r -> groups.computeIfAbsent(r.type(), t -> new ArrayList<>()).add(r));
+        return groups;
+    }
+
+    private static Div rule(String label) {
+        final var ruleLabel = Ui.span("fb-section-rule-label", label);
+        final var ruleLine = Ui.divider("fb-section-rule-line");
+        return Ui.div("fb-section-rule", ruleLabel, ruleLine);
     }
 
     private DriveCard card(FsRoot root) {
