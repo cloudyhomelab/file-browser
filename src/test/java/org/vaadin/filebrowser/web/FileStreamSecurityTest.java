@@ -125,7 +125,7 @@ class FileStreamSecurityTest {
         verifyNoInteractions(registry, storage);
     }
 
-    /** Paths that try to reach the controller through a public path or a form the security rules might not match. */
+    /** Paths that try to reach the controller through a public path; the firewall refuses them before any rule. */
     @ParameterizedTest
     @ValueSource(strings = {
             "/oidc/../files/r1/notes.txt",
@@ -134,13 +134,27 @@ class FileStreamSecurityTest {
             "/styles.css/../files/r1/notes.txt",
             "/files/r1/notes.txt;jsessionid=x",
             "/files;x=y/r1/notes.txt",
-            "//files/r1/notes.txt",
+            "/files//r1/notes.txt",
             "/files/r1/%2e%2e/r1/notes.txt",
             "/files%2Fr1%2Fnotes.txt",
     })
-    void refusesPathTricksWithoutSignIn(String path) throws Exception {
-        final var status = mvc.perform(get(URI.create(path))).andReturn().getResponse().getStatus();
-        assertThat(status).as(path).isBetween(300, 499);
+    void refusesPathTricksBeforeAnyRule(String path) throws Exception {
+        mvc.perform(get(URI.create(path))).andExpect(status().isBadRequest());
+        verifyNoInteractions(registry, storage);
+    }
+
+    /** Forms of a file URL that pass the firewall, so only the sign-in rule stops them. */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/files",
+            "/files/r1",
+            "/files/r1/",
+            "/files/r1/notes.txt/",
+            "/files/r1/notes.txt?download=1",
+            "/files/unknown/notes.txt",
+    })
+    void refusesEveryFormOfAFileUrlWithoutSignIn(String path) throws Exception {
+        mvc.perform(get(URI.create(path))).andExpect(status().isUnauthorized());
         verifyNoInteractions(registry, storage);
     }
 
