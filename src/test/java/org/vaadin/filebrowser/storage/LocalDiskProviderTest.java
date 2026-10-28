@@ -208,4 +208,14 @@ class LocalDiskProviderTest {
         assertThat(missing.healthy()).isFalse();
         assertThatThrownBy(() -> missing.list("")).isInstanceOf(StorageException.class);
     }
+
+    @Test
+    void readsPartOfAFile() throws IOException {
+        try (final var in = provider.openRead("notes.txt", 1, 3)) {
+            assertThat(new String(in.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("ote");
+        }
+        try (final var in = provider.openRead("notes.txt", 3, 100)) {
+            assertThat(new String(in.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("es");
+        }
+    }
 }

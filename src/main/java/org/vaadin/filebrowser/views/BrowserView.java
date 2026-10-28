@@ -46,6 +46,7 @@ import org.vaadin.filebrowser.ui.FileGridView;
 import org.vaadin.filebrowser.ui.FileListView;
 import org.vaadin.filebrowser.ui.HeaderBulkActions;
 import org.vaadin.filebrowser.ui.Icon;
+import org.vaadin.filebrowser.ui.Lightbox;
 import org.vaadin.filebrowser.ui.MenuPosition;
 import org.vaadin.filebrowser.ui.RootChip;
 import org.vaadin.filebrowser.ui.Segmented;
@@ -543,8 +544,16 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         } else if (entry.elsewhere()) {
             navigate(root.id(), entry.location(), entryValue.path());
         } else {
-            setFocused(entryValue.path());
+            preview(entryValue);
         }
+    }
+
+    private void preview(StorageEntry file) {
+        final var shown = displayEntries().stream().map(Located::entry).toList();
+        final var files = Lightbox.files(shown);
+        final var lightbox = new Lightbox(workspace.catalog(), root.id(), files, file, f -> setFocused(f.path()),
+                f -> download(List.of(Located.here(f, root.id()))));
+        lightbox.open();
     }
 
     @Override

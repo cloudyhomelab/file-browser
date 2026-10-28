@@ -256,6 +256,59 @@ abstract class RemoteProviderContract {
     }
 
     @Test
+    void readsPartOfAFile() throws IOException {
+        try (final var in = provider.openRead("Projects/brief.txt", 1, 3)) {
+            assertThat(new String(in.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("rie");
+        }
+        try (final var in = provider.openRead("Projects/brief.txt", 3, 100)) {
+            assertThat(new String(in.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("ef");
+        }
+    }
+
+    /** Digits counting up, so the bytes at any offset are known. */
+    protected static String counting(int length) {
+        final var text = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            text.append((char) ('0' + i % 10));
+        }
+        return text.toString();
+    }
+
+    @Test
+    void readsPartOfALargeFileNearItsEnd() throws IOException {
+        final var content = counting(2 * 1024 * 1024 + 7);
+        write(provider, "", "big.txt", content);
+        final var offset = content.length() - 10;
+        try (final var in = provider.openRead("big.txt", offset, 10)) {
+            assertThat(new String(in.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo(content.substring(offset));
+        }
+    }
+
+    @Test
+    void aPartReadDoesNotShiftTheNextReadOnItsSession() throws IOException {
+        write(provider, "", "digits.txt", counting(4096));
+        for (int i = 0; i < 12; i++) {
+            try (final var in = provider.openRead("digits.txt", 1000 + i, 3)) {
+                assertThat(new String(in.readAllBytes(), StandardCharsets.UTF_8))
+                        .isEqualTo(counting(4096).substring(1000 + i, 1003 + i));
+            }
+            assertThat(read(provider, "notes.txt")).isEqualTo("notes");
+        }
+    }
+
+    @Test
+    void aReadAbandonedPartWayGivesItsSessionBack() throws IOException {
+        // large enough that the server is still sending when the reader gives up
+        write(provider, "", "big.bin", "x".repeat(4 * 1024 * 1024));
+        for (int i = 0; i < 12; i++) {
+            try (final var in = provider.openRead("big.bin", i, 1024 * 1024)) {
+                assertThat(in.read()).isEqualTo('x');
+            }
+        }
+        assertThat(read(provider, "notes.txt")).isEqualTo("notes");
+    }
+
+    @Test
     void deletesAnEmptyFolderButLeavesOneThatIsNot() throws IOException {
         provider.createFolder("", "Empty");
 

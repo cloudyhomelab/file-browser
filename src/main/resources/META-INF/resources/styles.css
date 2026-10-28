@@ -68,6 +68,14 @@
   --fb-busy-travel: 340%;             /* past the bar's end, in multiples of the segment's width */
   /* the file-system menu in the move and copy picker */
   --fb-move-roots-width: 360px;
+  /* the lightbox */
+  --fb-lightbox-margin: 24px;                    /* space between the window edge and the lightbox */
+  --fb-lightbox-gap: 16px;                       /* space around the file inside the stage */
+  --fb-lightbox-backdrop: rgba(11, 11, 11, 0.80);
+  --fb-lightbox-stage: #16181d;                  /* behind images and video */
+  --fb-lightbox-on-stage: rgba(255, 255, 255, 0.86);
+  --fb-lightbox-step-hover: rgba(255, 255, 255, 0.12);
+  --fb-lightbox-audio-width: 560px;
   --fb-ease: cubic-bezier(0.2, 0.0, 0.0, 1.0);
   --fb-fast: 120ms;
   --fb-normal: 200ms;
@@ -1003,3 +1011,33 @@ vaadin-button.fb-btn.fb-field-browse {
 .fb-switch--on .fb-switch-thumb { transform: translateX(14px); }
 .fb-switch:focus-visible { outline: none; }
 .fb-switch:focus-visible .fb-switch-track { box-shadow: var(--fb-shadow-focus); }
+
+/* ================= lightbox ================= */
+
+vaadin-dialog.fb-lightbox::part(backdrop) { background: var(--fb-lightbox-backdrop); }
+vaadin-dialog.fb-lightbox::part(overlay) {
+  width: calc(100vw - 2 * var(--fb-lightbox-margin)); height: calc(100vh - 2 * var(--fb-lightbox-margin));
+  max-width: none; max-height: none; border-radius: var(--fb-radius-l); box-shadow: var(--fb-shadow-overlay);
+  background: var(--fb-white); overflow: hidden;
+}
+vaadin-dialog.fb-lightbox::part(content) { padding: 0; display: flex; flex-direction: column; height: 100%; min-height: 0; box-sizing: border-box; }
+.fb-lightbox-head { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 18px; border-bottom: 1px solid var(--fb-border); }
+.fb-lightbox-title { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
+.fb-lightbox-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fb-weight-semibold) 15px/1.3 var(--fb-font-sans); color: var(--fb-fg); }
+.fb-lightbox-position { flex-shrink: 0; font: 400 12.5px/1 var(--fb-font-sans); color: var(--fb-fg-tertiary); }
+.fb-lightbox-actions { display: flex; align-items: center; gap: 8px; }
+.fb-lightbox-actions a.fb-ghost-btn { text-decoration: none; }
+.fb-lightbox-body { flex: 1; min-height: 0; display: flex; align-items: center; background: var(--fb-lightbox-stage); }
+.fb-lightbox-stage { flex: 1; min-width: 0; height: 100%; box-sizing: border-box; padding: var(--fb-lightbox-gap); display: flex; align-items: center; justify-content: center; }
+.fb-lightbox-step { flex-shrink: 0; margin: 0 6px; color: var(--fb-lightbox-on-stage); --icon-size: 22px; width: 40px; height: 40px; }
+.fb-lightbox-step:hover { background: var(--fb-lightbox-step-hover); }
+.fb-lightbox-step[disabled] { visibility: hidden; }
+.fb-lightbox-image { max-width: 100%; max-height: 100%; object-fit: contain; }
+.fb-lightbox-media { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.fb-lightbox-media video { max-width: 100%; max-height: 100%; }
+.fb-lightbox-media--audio, .fb-lightbox-media audio { width: min(var(--fb-lightbox-audio-width), 100%); }
+.fb-lightbox-frame, .fb-lightbox-pdf { width: 100%; height: 100%; border: 0; border-radius: var(--fb-radius-m); background: var(--fb-white); }
+.fb-lightbox-failed { display: flex; flex-direction: column; align-items: center; gap: 14px; color: var(--fb-lightbox-on-stage); --icon-size: 28px; }
+.fb-lightbox-failed { text-align: center; }
+.fb-lightbox-failed-text { font: var(--fb-weight-semibold) 14px/1.4 var(--fb-font-sans); }
+.fb-lightbox-failed-reason { margin-top: -8px; font: 400 13px/1.4 var(--fb-font-sans); opacity: 0.75; }

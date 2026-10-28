@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.io.UncheckedIOException;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -35,6 +36,8 @@ public class Catalog implements Serializable {
     private final Map<String, String> signInErrors;
     private final MountKinds mountKinds;
     private final Map<String, ArchiveFormat> archiveFormats;
+    /** Media type by lower-case extension, for files that may be shown in the page. */
+    private final Map<String, String> viewTypes;
 
     public Catalog() {
         final var mapper = JsonMapper.builder()
@@ -57,6 +60,19 @@ public class Catalog implements Serializable {
             }
         });
         this.archiveFormats = read(mapper, "data/archive-formats.json", new TypeReference<Map<String, ArchiveFormat>>() { });
+        final var extensionsByViewType = read(mapper, "data/view-types.json",
+                new TypeReference<Map<String, List<String>>>() { });
+        this.viewTypes = byExtension(extensionsByViewType);
+    }
+
+    private static Map<String, String> byExtension(Map<String, List<String>> extensionsByType) {
+        final var out = new HashMap<String, String>();
+        extensionsByType.forEach((type, extensions) -> extensions.forEach(ext -> {
+            if (out.put(ext, type) != null) {
+                throw new IllegalStateException("data/view-types.json lists extension " + ext + " more than once");
+            }
+        }));
+        return Map.copyOf(out);
     }
 
     private static <T> T read(JsonMapper mapper, String path, TypeReference<T> type) {
@@ -101,6 +117,16 @@ public class Catalog implements Serializable {
                 .map(Map.Entry::getKey)
                 .findFirst()
                 .orElse(GENERIC_TYPE);
+    }
+
+    /** The media type a file is shown with in the page; empty when it may only be downloaded. */
+    public Optional<String> viewType(String fileName) {
+        final var dot = fileName.lastIndexOf('.');
+        if (dot < 0) {
+            return Optional.empty();
+        }
+        final var ext = fileName.substring(dot + 1).toLowerCase(Locale.ROOT);
+        return Optional.ofNullable(viewTypes.get(ext));
     }
 
     /** The kind a file-store type is shown as; network and special ones are listed, anything else is a local disk. */

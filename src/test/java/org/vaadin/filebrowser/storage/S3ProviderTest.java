@@ -286,4 +286,43 @@ class S3ProviderTest {
         assertThat(read(provider, "Projects/brief.txt")).isEqualTo("changed");
         assertThat(provider.list("Projects")).extracting(StorageEntry::name).containsExactlyInAnyOrder("Design", "brief.txt");
     }
+
+    private static String counting(int length) {
+        final var text = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            text.append((char) ('0' + i % 10));
+        }
+        return text.toString();
+    }
+
+    @Test
+    void readsPartOfAnObjectWithARangeRequest() throws IOException {
+        final var content = counting(2 * 1024 * 1024 + 7);
+        put("big.txt", content);
+        final var offset = content.length() - 10;
+        try (final var in = provider.openRead("big.txt", offset, 10)) {
+            assertThat(new String(in.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo(content.substring(offset));
+        }
+        try (final var in = provider.openRead("big.txt", 3, 4)) {
+            assertThat(new String(in.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("3456");
+        }
+    }
+
+    @Test
+    void readsClosedEarlyLeaveTheClientWorking() throws IOException {
+        put("big.txt", counting(8 * 1024 * 1024));
+        put("notes.txt", "notes");
+        // more than the HTTP client keeps connections, so a connection left in a bad state would show
+        for (int i = 0; i < 60; i++) {
+            try (final var in = provider.openRead("big.txt")) {
+                assertThat(in.read()).isEqualTo('0');
+            }
+            try (final var in = provider.openRead("big.txt", 1024 * 1024, 1024 * 1024)) {
+                assertThat(in.read()).isEqualTo('6');
+            }
+        }
+        try (final var in = provider.openRead("notes.txt")) {
+            assertThat(new String(in.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("notes");
+        }
+    }
 }

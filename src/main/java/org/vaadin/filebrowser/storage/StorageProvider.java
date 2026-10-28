@@ -1,5 +1,6 @@
 package org.vaadin.filebrowser.storage;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Optional;
@@ -52,6 +53,27 @@ public interface StorageProvider {
     boolean deleteEmptyFolder(String path);
 
     InputStream openRead(String path);
+
+    /**
+     * {@code length} bytes from {@code offset}, fewer where the file ends first. The default reads from the start
+     * and skips, which costs a full read up to {@code offset} on remote storage; providers that can start part-way
+     * through override it.
+     */
+    default InputStream openRead(String path, long offset, long length) {
+        final var in = openRead(path);
+        try {
+            in.skipNBytes(offset);
+        } catch (IOException e) {
+            try {
+                in.close();
+            } catch (IOException suppressed) {
+                e.addSuppressed(suppressed);
+            }
+            final var name = StoragePaths.segments(path).getLast();
+            throw new StorageException("“" + name + "” cannot be read.", e);
+        }
+        return new LimitedInputStream(in, length);
+    }
 
     WriteHandle openWrite(String folder, String name, boolean replace);
 

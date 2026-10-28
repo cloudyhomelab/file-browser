@@ -201,9 +201,12 @@ Then record:
 - `service/` – session state (`Workspace`), file systems (`FileSystemRegistry`, `StorageService`),
   uploads and downloads, the signed-in user (`CurrentUser`), sign-in rules (`SignInPolicy`),
   accounts (`UserAccounts`) and per-user data (`UserData`).
+- `web/` – plain HTTP endpoints next to the Vaadin app: `/files/{rootId}/{path}` serves a file for viewing,
+  with byte ranges.
 - `ui/` – reusable components; `ui/dialog/` – modal dialogs.
 - `views/` – routes: `sign-in`, `` (file systems), `starred`, `fs/:rootId/:path*`.
-- `src/main/resources/data/` – file-system types, mount kinds, file types and sign-in error texts.
+- `src/main/resources/data/` – file-system types, mount kinds, file types, the media types files are viewed
+  with, and sign-in error texts.
 - `src/main/resources/db/migration/` – Flyway migrations.
 - `src/main/resources/META-INF/resources/oidc/` – sign-in button marks.
 - `src/main/resources/META-INF/resources/` – `styles.css` (design tokens as `--fb-*`, on top of Aura) and the `icons.svg` sprite.
