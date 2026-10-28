@@ -116,6 +116,19 @@ class LocalDiskProviderTest {
     }
 
     @Test
+    void renamingOverAFileReplacesItButNeverAFolder() throws IOException {
+        Files.writeString(root.resolve("draft.txt"), "draft");
+
+        provider.renameReplacing("draft.txt", "notes.txt");
+
+        assertThat(root.resolve("notes.txt")).hasContent("draft");
+        assertThat(root.resolve("draft.txt")).doesNotExist();
+        assertThatThrownBy(() -> provider.renameReplacing("notes.txt", "Projects")).hasMessageContaining("can't be replaced");
+        assertThatThrownBy(() -> provider.renameReplacing("Projects", "notes.txt")).hasMessageContaining("can't be replaced");
+        assertThat(root.resolve("Projects/brief.txt")).hasContent("brief");
+    }
+
+    @Test
     void copiesFoldersRecursively() throws IOException {
         provider.copy("Projects", "", "Projects copy");
         assertThat(read(provider, "Projects copy/brief.txt")).isEqualTo("brief");

@@ -20,5 +20,9 @@ public interface CopyProgress {
     /** {@code bytes} more were written. */
     void copied(long bytes);
 
+    /** {@code bytes} more of a copy were read back to verify it. */
+    default void verified(long bytes) {
+    }
+
     boolean cancelled();
 }

@@ -252,6 +252,22 @@ public class S3Provider implements StorageProvider, AutoCloseable {
         transfer(path, target, true, "rename");
     }
 
+    // a copy overwrites an existing key, so the old file stays until the new one is in place
+    @Override
+    public void renameReplacing(String path, String newName) {
+        StoragePaths.requireValidName(newName);
+        final var target = StoragePaths.child(parentOf(path), newName);
+        if (!exists(path)) {
+            throw new StorageException("“" + nameOf(path) + "” no longer exists.");
+        }
+        if (headFile(path).isEmpty() || folderExists(target)) {
+            throw new StorageException("“" + newName + "” can't be replaced: only a file replaces a file.");
+        }
+        final var what = "rename “" + nameOf(path) + "”";
+        copyObject(key(path), key(target), what);
+        deleteKeys(List.of(key(path)), what);
+    }
+
     @Override
     public void move(String path, String destinationFolder, String targetName) {
         StoragePaths.requireValidName(targetName);

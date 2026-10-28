@@ -229,6 +229,21 @@ public class LocalDiskProvider implements StorageProvider {
     }
 
     @Override
+    public void renameReplacing(String path, String newName) {
+        StoragePaths.requireValidName(newName);
+        final var source = existing(path);
+        final var target = resolve(StoragePaths.child(StoragePaths.join(parentOf(path)), newName));
+        if (Files.isDirectory(source, LinkOption.NOFOLLOW_LINKS) || Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS)) {
+            throw new StorageException("“" + newName + "” can't be replaced: only a file replaces a file.");
+        }
+        try {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException e) {
+            throw failure("rename “" + source.getFileName() + "”", e);
+        }
+    }
+
+    @Override
     public void move(String path, String destinationFolder, String targetName) {
         StoragePaths.requireValidName(targetName);
         final var source = existing(path);

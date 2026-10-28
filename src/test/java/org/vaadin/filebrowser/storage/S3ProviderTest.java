@@ -6,12 +6,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
@@ -245,5 +248,31 @@ class S3ProviderTest {
         assertThat(anonymous.healthy()).isFalse();
         assertThatThrownBy(() -> anonymous.list("")).isInstanceOf(StorageException.class);
         anonymous.close();
+    }
+
+    @Test
+    void renamingOverAFileReplacesItButNeverAFolder() throws IOException {
+        put("draft.txt", "draft");
+
+        provider.renameReplacing("draft.txt", "notes.txt");
+
+        assertThat(read(provider, "notes.txt")).isEqualTo("draft");
+        assertThat(provider.stat("draft.txt")).isEmpty();
+        assertThatThrownBy(() -> provider.renameReplacing("notes.txt", "Projects")).hasMessageContaining("can't be replaced");
+        assertThatThrownBy(() -> provider.renameReplacing("Projects", "notes.txt")).hasMessageContaining("can't be replaced");
+        assertThat(read(provider, "Projects/brief.txt")).isEqualTo("brief");
+    }
+
+    @Test
+    void aVerifiedCopyGoesToAndFromAnotherProvider(@TempDir Path disk) throws IOException {
+        final var local = new LocalDiskProvider(disk, name -> "generic", type -> "disk");
+
+        VerifiedCopy.copy(provider, "Projects", local, "", "Projects", false, CopyProgress.NONE);
+        Files.writeString(disk.resolve("Projects/brief.txt"), "changed");
+        VerifiedCopy.copy(local, "Projects/brief.txt", provider, "Projects", "brief.txt", true, CopyProgress.NONE);
+
+        assertThat(disk.resolve("Projects/Design/logo.txt")).hasContent("logo");
+        assertThat(read(provider, "Projects/brief.txt")).isEqualTo("changed");
+        assertThat(provider.list("Projects")).extracting(StorageEntry::name).containsExactlyInAnyOrder("Design", "brief.txt");
     }
 }

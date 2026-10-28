@@ -20,6 +20,12 @@ public interface StorageProvider {
 
     void rename(String path, String newName);
 
+    /**
+     * Renames a file within its folder, replacing a file already called {@code newName}; in one step where the
+     * storage can. A folder is never replaced, nor renamed this way.
+     */
+    void renameReplacing(String path, String newName);
+
     /** Moves into {@code destinationFolder} under {@code targetName}; never replaces what is already there. */
     void move(String path, String destinationFolder, String targetName);
 
