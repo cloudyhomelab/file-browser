@@ -45,7 +45,7 @@ class FileStreamControllerTest {
 
     private static final String TEXT = "0123456789";
     private static final String SANDBOXED = "default-src 'none'; img-src 'self'; media-src 'self'; "
-            + "style-src 'unsafe-inline'; sandbox";
+            + "style-src 'unsafe-inline'; frame-ancestors 'self'; sandbox";
 
     @TempDir
     Path dir;
@@ -178,7 +178,7 @@ class FileStreamControllerTest {
         fetch("doc.pdf")
                 .andExpect(content().contentType("application/pdf"))
                 .andExpect(header().string("Content-Security-Policy",
-                        "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'"))
+                        "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'self'"))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"));
         fetch("clip.mp4")
                 .andExpect(content().contentType("video/mp4"))
@@ -236,7 +236,7 @@ class FileStreamControllerTest {
         fetch("doc.pdf", HttpHeaders.IF_NONE_MATCH, pdfTag)
                 .andExpect(status().isNotModified())
                 .andExpect(header().string("Content-Security-Policy",
-                        "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'"))
+                        "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'self'"))
                 .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "private, no-cache"));
         fetch("notes.txt", HttpHeaders.IF_NONE_MATCH, etag())
                 .andExpect(status().isNotModified())

@@ -47,8 +47,9 @@ public class FileStreamController {
     private static final String CONTENT_TYPE_OPTIONS = "X-Content-Type-Options";
     private static final String RESOURCE_POLICY = "Cross-Origin-Resource-Policy";
     private static final String REFERRER_POLICY = "Referrer-Policy";
+    /** The app's own pages may frame a file; no other site may. */
     private static final String BASE_POLICY = "default-src 'none'; img-src 'self'; media-src 'self'; "
-            + "style-src 'unsafe-inline'";
+            + "style-src 'unsafe-inline'; frame-ancestors 'self'";
     private static final String SANDBOXED = BASE_POLICY + "; sandbox";
     /** Chrome's PDF viewer shows a blank page when the response is sandboxed. */
     private static final String PDF_POLICY = BASE_POLICY;

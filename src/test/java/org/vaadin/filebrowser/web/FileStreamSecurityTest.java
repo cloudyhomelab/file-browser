@@ -9,6 +9,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -156,6 +157,16 @@ class FileStreamSecurityTest {
     void refusesEveryFormOfAFileUrlWithoutSignIn(String path) throws Exception {
         mvc.perform(get(URI.create(path))).andExpect(status().isUnauthorized());
         verifyNoInteractions(registry, storage);
+    }
+
+    @Test
+    void letsOnlyTheAppFrameFiles() throws Exception {
+        mvc.perform(get(FILE).with(oidcLogin()))
+                .andExpect(header().string("X-Frame-Options", "SAMEORIGIN"));
+        mvc.perform(get("/starred").with(oidcLogin()))
+                .andExpect(header().string("X-Frame-Options", "DENY"));
+        mvc.perform(get("/starred"))
+                .andExpect(header().string("X-Frame-Options", "DENY"));
     }
 
     @Test
