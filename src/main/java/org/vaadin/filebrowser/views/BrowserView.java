@@ -678,8 +678,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private void duplicate(List<Located> targets) {
         final var done = forEachTarget(targets, e -> workspace.duplicate(root, e));
         if (done > 0) {
-            final var duplicatedLabel = done == targets.size() ? label(targets) : Formats.plural(done, "item");
-            Toasts.show("Duplicated " + duplicatedLabel, "copy");
+            final var copiedLabel = done == targets.size() ? label(targets) : Formats.plural(done, "item");
+            Toasts.show("Copied " + copiedLabel, "copy");
         }
         afterChange();
     }

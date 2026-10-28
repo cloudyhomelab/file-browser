@@ -51,12 +51,12 @@ public class EntryMenu extends Div {
             final var download = new Item(EntryAction.DOWNLOAD, "Download", "download", false);
             final var rename = new Item(EntryAction.RENAME, "Rename", "edit", false);
             final var move = new Item(EntryAction.MOVE, "Move to…", "move", false);
-            final var duplicate = new Item(EntryAction.COPY, "Duplicate", "copy", false);
+            final var copy = new Item(EntryAction.COPY, "Copy", "copy", false);
             final var delete = new Item(EntryAction.DELETE, "Delete", "trash", true);
             items.add(open);
             items.add(download);
             items.add(null);
-            items.addAll(List.of(rename, move, duplicate, star));
+            items.addAll(List.of(rename, move, copy, star));
             items.add(null);
             items.add(delete);
         }
