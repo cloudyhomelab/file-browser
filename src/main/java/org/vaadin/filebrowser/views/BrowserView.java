@@ -25,6 +25,7 @@ import org.vaadin.filebrowser.service.ArchiveExtractor;
 import org.vaadin.filebrowser.service.CurrentUser;
 import org.vaadin.filebrowser.service.Downloads;
 import org.vaadin.filebrowser.service.UploadQueue.Planned;
+import org.vaadin.filebrowser.service.TransferTask;
 import org.vaadin.filebrowser.service.UploadQueue;
 import org.vaadin.filebrowser.service.Workspace.ConflictChoice;
 import org.vaadin.filebrowser.service.Workspace.Density;
@@ -86,7 +87,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private static final String ROOT_PARAM = "rootId";
     private static final String PATH_PARAM = "path";
     private static final String FOCUS_PARAM = "focus";
-    private static final int UPLOAD_POLL_MS = 320;
+    /** How often the dock is updated while uploads or transfers run. */
+    private static final int TASK_POLL_MS = 320;
     /** Poll ticks don't land exactly on the interval; one this close to it counts as due. */
     private static final Duration AUTO_REFRESH_SLACK = Duration.ofSeconds(1);
 
@@ -136,7 +138,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var toolbarCallbacks = new Toolbar.Callbacks(this::onQuery, this::sortBy, this::setAutoRefresh,
                 this::toggleDensity, this::setLayout, this::newFolder, this::openUploadDialog);
         toolbar = new Toolbar(toolbarCallbacks);
-        dock = new UploadDock(workspace.catalog(), this::clearUploads);
+        dock = new UploadDock(workspace.catalog(), this::clearUploads, this::cancelTransfer);
 
         main = new FileDropArea(workspace.catalog(), false);
         main.addClassName("fb-main");
@@ -249,8 +251,18 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private void clearUploads() {
         workspace.uploads().clear();
+        workspace.transfers().clear();
         main.cancelUploads();
         refresh();
+    }
+
+    private void cancelTransfer(TransferTask task) {
+        workspace.transfers().cancel(task);
+        showDock();
+    }
+
+    private void showDock() {
+        dock.show(workspace.uploads().all(), workspace.transfers().all());
     }
 
     private void backToRoots() {
@@ -380,7 +392,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             final var bulkBar = new BulkBar(selected.size(), readOnly(), a -> handleAction(a, null), this::clearSelection);
             bulkSlot.add(bulkBar);
         }
-        dock.show(workspace.uploads().all());
+        showDock();
     }
 
     private void renderTitleRow(int count) {
@@ -767,51 +779,41 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         sidebar.setDropActive(on);
     }
 
-    /** {@code duplicate}: copied into its own folder as "name copy". */
-    private record PlannedTransfer(String name, boolean replace, boolean duplicate) {
-    }
-
+    /** Queues the move or copy with the names and Replace choices settled now; the queue reports the outcome. */
     private void transfer(Mode mode, List<Located> targets, List<String> dest, Set<String> existing,
                           Map<String, ConflictChoice> choices) {
         final var taken = new HashSet<>(existing);
-        final var plans = new HashMap<String, PlannedTransfer>();
-        final var moving = new ArrayList<Located>();
+        final var items = new ArrayList<TransferTask.Item>();
         for (final var t : targets) {
-            if (mode == Mode.COPY && inFolder(t.entry(), dest)) {
-                plans.put(t.entry().path(), new PlannedTransfer(null, false, true));
-                moving.add(t);
+            final var entry = t.entry();
+            if (mode == Mode.COPY && inFolder(entry, dest)) {
+                items.add(new TransferTask.Item(entry, entry.name(), false, true));
                 continue;
             }
-            final var name = t.entry().name();
-            final var choice = choices.get(name);
+            final var choice = choices.get(entry.name());
             if (choice == ConflictChoice.SKIP) {
                 continue;
             }
-            final var finalName = choice == ConflictChoice.KEEP_BOTH ? Workspace.keepBothName(name, taken) : name;
+            final var finalName = choice == ConflictChoice.KEEP_BOTH ? Workspace.keepBothName(entry.name(), taken)
+                    : entry.name();
             taken.add(finalName);
-            plans.put(t.entry().path(), new PlannedTransfer(finalName, choice == ConflictChoice.REPLACE, false));
-            moving.add(t);
+            items.add(new TransferTask.Item(entry, finalName, choice == ConflictChoice.REPLACE, false));
         }
-        final var done = forEachTarget(moving, e -> {
-            final var plan = plans.get(e.path());
-            if (plan.duplicate()) {
-                workspace.duplicate(root, e);
-            } else if (mode == Mode.MOVE) {
-                workspace.move(root, e, dest, plan.name(), plan.replace());
-            } else {
-                workspace.copy(root, e, dest, plan.name(), plan.replace());
-            }
-        });
         if (mode == Mode.MOVE) {
             selected.clear();
         }
-        if (done > 0) {
-            final var destName = folderName(dest);
-            final var doneLabel = done == targets.size() ? label(targets) : Formats.plural(done, "item");
-            final var verb = mode == Mode.MOVE ? "Moved " : "Copied ";
-            Toasts.show(verb + doneLabel + " to “" + destName + "”", mode == Mode.MOVE ? "move" : "copy");
+        if (items.isEmpty()) {
+            refresh();
+            return;
         }
-        afterChange();
+        final var kind = mode == Mode.MOVE ? TransferTask.Kind.MOVE : TransferTask.Kind.COPY;
+        try {
+            workspace.transfer(kind, root, dest, items);
+        } catch (StorageException e) {
+            Toasts.error(e.getMessage());
+        }
+        refresh();
+        updatePollInterval();
     }
 
     private void delete(List<Located> targets) {
@@ -1019,21 +1021,21 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         super.onDetach(detachEvent);
     }
 
-    /** One timer for both: fast while uploads run, else at the auto refresh interval, else off. */
+    /** One timer for all: fast while uploads or transfers run, else at the auto refresh interval, else off. */
     private void updatePollInterval() {
-        final var interval = workspace.uploads().active() ? UPLOAD_POLL_MS
+        final var interval = workspace.uploads().active() || workspace.transfers().pending() ? TASK_POLL_MS
                 : autoRefresh.on() ? (int) autoRefresh.interval().toMillis()
                 : -1;
         getUI().ifPresent(ui -> ui.setPollInterval(interval));
     }
 
     private void onPoll() {
-        onUploadPoll();
+        onTaskPoll();
         autoRefreshTick();
         updatePollInterval();
     }
 
-    private void onUploadPoll() {
+    private void onTaskPoll() {
         final var finished = workspace.uploads().takeFinished();
         for (final var t : finished) {
             switch (t.state()) {
@@ -1043,8 +1045,19 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                 default -> { }
             }
         }
-        if (finished.isEmpty()) {
-            dock.show(workspace.uploads().all());
+        final var transfersFinished = workspace.transfers().takeFinished();
+        for (final var t : transfersFinished) {
+            switch (t.state()) {
+                case DONE -> Toasts.show(t.message(), t.kind() == TransferTask.Kind.MOVE ? "move" : "copy");
+                case FAILED -> Toasts.error(t.message());
+                case CANCELLED -> Toasts.show(t.message(), "cross");
+                default -> { }
+            }
+        }
+        if (!transfersFinished.isEmpty()) {
+            afterChange();
+        } else if (finished.isEmpty()) {
+            showDock();
         } else {
             refresh();
         }

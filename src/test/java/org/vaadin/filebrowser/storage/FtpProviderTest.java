@@ -50,6 +50,11 @@ class FtpProviderTest {
         }
 
         @Override
+        protected boolean copiesOnServer() {
+            return false;
+        }
+
+        @Override
         protected List<String> serverNames(String folder) throws Exception {
             return FtpServers.names(EXPLICIT, FtpServers.HOME + folder);
         }
@@ -82,6 +87,11 @@ class FtpProviderTest {
         @Override
         protected String baseFolder() {
             return "";
+        }
+
+        @Override
+        protected boolean copiesOnServer() {
+            return false;
         }
 
         @Override

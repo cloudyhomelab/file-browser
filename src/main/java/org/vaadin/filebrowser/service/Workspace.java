@@ -3,11 +3,11 @@ package org.vaadin.filebrowser.service;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -16,6 +16,7 @@ import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.Located;
 import org.vaadin.filebrowser.data.Sort;
+import org.vaadin.filebrowser.storage.CopyProgress;
 import org.vaadin.filebrowser.storage.StorageConfig;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
@@ -28,7 +29,7 @@ import com.vaadin.flow.spring.annotation.VaadinSessionScope;
 /**
  * The signed-in user's view of the shared file systems (from {@link FileSystemRegistry}): file
  * operations through {@link StorageService}, the user's starred items and view preferences (saved
- * through {@link UserData}) and uploads. Lives for the Vaadin session.
+ * through {@link UserData}), uploads and transfers. Lives for the Vaadin session.
  */
 @SpringComponent
 @VaadinSessionScope
@@ -46,8 +47,10 @@ public class Workspace implements Serializable {
     private final StorageService storage;
     private final RootSecrets secrets;
     private final LinkFetcher links;
-    private final Set<String> starred = new LinkedHashSet<>();
+    // transfers move stars from their worker thread
+    private final Set<String> starred = ConcurrentHashMap.newKeySet();
     private final UploadQueue uploads;
+    private final TransferQueue transfers = new TransferQueue(new TransferWork());
     private final UserData userData;
     private final CurrentUser currentUser;
     private final String email;
@@ -319,23 +322,82 @@ public class Workspace implements Serializable {
      * deleted first; a folder is never replaced, nor replaced by one.
      */
     public void copy(FsRoot root, StorageEntry entry, List<String> destination, String targetName, boolean replace) {
+        copy(root, entry, destination, targetName, replace, CopyProgress.NONE);
+    }
+
+    private void copy(FsRoot root, StorageEntry entry, List<String> destination, String targetName, boolean replace,
+                      CopyProgress progress) {
         final var provider = writable(root);
         final var destinationPath = StoragePaths.join(destination);
         if (replace) {
             replaceFile(root, provider, entry, StoragePaths.child(destinationPath, targetName), targetName);
         }
-        provider.copy(entry.path(), destinationPath, targetName);
+        provider.copy(entry.path(), destinationPath, targetName, progress);
     }
 
     /** Copies next to the original as "name copy.ext", "name copy 2.ext", … */
     public String duplicate(FsRoot root, StorageEntry entry) {
+        return duplicate(root, entry, CopyProgress.NONE);
+    }
+
+    private String duplicate(FsRoot root, StorageEntry entry, CopyProgress progress) {
         final var provider = writable(root);
         final var siblings = new HashSet<String>();
         final var folder = StoragePaths.join(entry.parent());
         provider.list(folder).forEach(e -> siblings.add(e.name()));
         final var name = copyName(entry.name(), siblings);
-        provider.copy(entry.path(), folder, name);
+        provider.copy(entry.path(), folder, name, progress);
         return name;
+    }
+
+    // ---- transfers ------------------------------------------------------------------------
+
+    /** Queues a move or copy within {@code root}; names and Replace choices are fixed here. */
+    public TransferTask transfer(TransferTask.Kind kind, FsRoot root, List<String> destination,
+                                 List<TransferTask.Item> items) {
+        final var now = writableRoot(root);
+        return transfers.enqueue(kind, now, now, destination, items);
+    }
+
+    public TransferQueue transfers() {
+        return transfers;
+    }
+
+    /** A file system a transfer starts on must still be registered, unlocked, online and writable. */
+    private void requireReady(FsRoot root) {
+        final var now = current(root);
+        if (now.locked()) {
+            throw new StorageException("“" + now.name() + "” is locked.");
+        }
+        if (!now.online()) {
+            throw new StorageException("“" + now.name() + "” is offline.");
+        }
+        if (now.readOnly()) {
+            throw new StorageException("“" + now.name() + "” is read only.");
+        }
+    }
+
+    private final class TransferWork implements TransferQueue.Work {
+
+        @Override
+        public void check(TransferTask task) {
+            requireReady(task.sourceRoot());
+            if (!task.destinationRoot().id().equals(task.sourceRoot().id())) {
+                requireReady(task.destinationRoot());
+            }
+        }
+
+        @Override
+        public void run(TransferTask task, TransferTask.Item item, CopyProgress progress) {
+            final var root = task.sourceRoot();
+            if (item.duplicate()) {
+                duplicate(root, item.entry(), progress);
+            } else if (task.kind() == TransferTask.Kind.MOVE) {
+                move(root, item.entry(), task.destination(), item.name(), item.replace());
+            } else {
+                copy(root, item.entry(), task.destination(), item.name(), item.replace(), progress);
+            }
+        }
     }
 
     private void replaceFile(FsRoot root, StorageProvider provider, StorageEntry entry, String path, String name) {

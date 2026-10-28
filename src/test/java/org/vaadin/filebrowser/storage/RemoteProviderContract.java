@@ -27,6 +27,48 @@ abstract class RemoteProviderContract {
     /** Every name in {@code folder} on the server, hidden ones included. */
     protected abstract List<String> serverNames(String folder) throws Exception;
 
+    /** Whether the server copies files itself, so a copy streams no bytes through the app. */
+    protected abstract boolean copiesOnServer();
+
+    /** Counts what a copy streams, and cancels once {@code cancelAfter} bytes went through (never when negative). */
+    private static final class Counting implements CopyProgress {
+
+        private final long cancelAfter;
+        private long bytes;
+
+        Counting(long cancelAfter) {
+            this.cancelAfter = cancelAfter;
+        }
+
+        @Override
+        public void copied(long count) {
+            bytes += count;
+        }
+
+        @Override
+        public boolean cancelled() {
+            return cancelAfter >= 0 && bytes >= cancelAfter;
+        }
+    }
+
+    @Test
+    void aCopyStreamsBytesOnlyWhereTheServerCantCopy() throws IOException {
+        final var progress = new Counting(-1);
+        provider.copy("Projects", "", "Projects copy", progress);
+
+        assertThat(read(provider, "Projects copy/Design/logo.txt")).isEqualTo("logo");
+        assertThat(progress.bytes).isEqualTo(copiesOnServer() ? 0 : "logo".length() + "brief".length());
+    }
+
+    @Test
+    void aCancelledCopyLeavesNothingBehind() throws Exception {
+        assertThatThrownBy(() -> provider.copy("Projects", "", "Projects copy", new Counting(0)))
+                .isInstanceOf(CopyCancelledException.class);
+
+        assertThat(serverNames(folder)).doesNotContain("Projects copy");
+        assertThat(read(provider, "Projects/brief.txt")).isEqualTo("brief");
+    }
+
     protected String folder;
     protected StorageProvider provider;
 

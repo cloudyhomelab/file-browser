@@ -13,6 +13,8 @@ import java.util.UUID;
 import java.util.function.Function;
 
 import org.vaadin.filebrowser.data.Capacity;
+import org.vaadin.filebrowser.storage.CopyCancelledException;
+import org.vaadin.filebrowser.storage.CopyProgress;
 import org.vaadin.filebrowser.storage.Health;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
@@ -24,13 +26,14 @@ import org.vaadin.filebrowser.storage.WriteHandle;
  * A folder on a server reached over a file-transfer protocol. Subclasses provide the protocol's
  * primitive commands on a session; this class turns them into file-system operations with the
  * same checks and messages as the other providers. Uploads go to a hidden partial file that is
- * renamed into place on commit. Copies are downloaded and uploaded again, as neither protocol
- * copies on the server.
+ * renamed into place on commit. A file is copied on the server where the protocol can
+ * ({@link #copyOnServer}); otherwise it is downloaded and uploaded again.
  */
 public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseable {
 
     private static final String PARTIAL_PREFIX = ".";
     private static final String PARTIAL_SUFFIX = ".uploading";
+    private static final int COPY_BUFFER_SIZE = 64 * 1024;
 
     /** What the server says about one file or folder. */
     public record Node(String name, boolean folder, Long size, Instant modified) {
@@ -87,6 +90,11 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
 
     /** Creates or truncates {@code path}; closing the stream ends the transfer. */
     protected abstract OutputStream writeStream(S session, String path) throws IOException;
+
+    /** Copies a file on the server, never over an existing one; false when the server can't, so it is streamed. */
+    protected boolean copyOnServer(S session, String from, String to) throws IOException {
+        return false;
+    }
 
     /** Moves {@code from} over the existing file {@code to}; by default deletes it first. */
     protected void replaceNode(S session, String from, String to) throws IOException {
@@ -280,9 +288,14 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
         });
     }
 
-    /** Downloads and uploads again; a failure part-way removes what was copied so far. */
     @Override
     public void copy(String path, String destinationFolder, String targetName) {
+        copy(path, destinationFolder, targetName, CopyProgress.NONE);
+    }
+
+    /** A failure or cancel part-way removes what was copied so far. */
+    @Override
+    public void copy(String path, String destinationFolder, String targetName, CopyProgress progress) {
         StoragePaths.requireValidName(targetName);
         if (destinationFolder.equals(path) || destinationFolder.startsWith(path + "/")) {
             throw new StorageException("A folder can't be copied into itself.");
@@ -297,7 +310,7 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
                 throw new StorageException("“" + nameOf(path) + "” no longer exists.");
             }
             try {
-                copyNode(session, path, target, source.folder());
+                copyNode(session, path, target, source.folder(), progress);
             } catch (IOException | RuntimeException e) {
                 removeQuietly(target);
                 throw e;
@@ -307,15 +320,13 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
     }
 
     // the data goes through a second session: one session can't download and upload at once on FTP
-    private void copyNode(S session, String from, String to, boolean folder) throws IOException {
+    private void copyNode(S session, String from, String to, boolean folder, CopyProgress progress) throws IOException {
+        if (progress.cancelled()) {
+            throw new CopyCancelledException(nameOf(from));
+        }
         if (!folder) {
-            try (final var in = readStream(session, remote(from))) {
-                call("copy “" + nameOf(from) + "”", writer -> {
-                    try (final var out = writeStream(writer, remote(to))) {
-                        in.transferTo(out);
-                    }
-                    return null;
-                });
+            if (!copyOnServer(session, remote(from), remote(to))) {
+                stream(session, from, to, progress);
             }
             return;
         }
@@ -323,8 +334,27 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
         for (final var child : listNodes(session, remote(from))) {
             if (!isPartial(child.name())) {
                 copyNode(session, StoragePaths.child(from, child.name()), StoragePaths.child(to, child.name()),
-                        child.folder());
+                        child.folder(), progress);
             }
+        }
+    }
+
+    private void stream(S session, String from, String to, CopyProgress progress) throws IOException {
+        try (final var in = readStream(session, remote(from))) {
+            call("copy “" + nameOf(from) + "”", writer -> {
+                try (final var out = writeStream(writer, remote(to))) {
+                    final var buffer = new byte[COPY_BUFFER_SIZE];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) {
+                        if (progress.cancelled()) {
+                            throw new CopyCancelledException(nameOf(from));
+                        }
+                        out.write(buffer, 0, read);
+                        progress.copied(read);
+                    }
+                }
+                return null;
+            });
         }
     }
 
