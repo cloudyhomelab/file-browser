@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
@@ -79,6 +80,9 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
     /** One signed-in control connection. */
     public record Session(FTPClient ftp, boolean machineListing) {
     }
+
+    /** Replies to {@code REST} from a server that doesn't support it: unknown command, bad argument, not implemented. */
+    private static final Set<Integer> REST_NOT_SUPPORTED = Set.of(500, 501, 502, 504);
 
     private final Connection connection;
 
@@ -372,6 +376,27 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         if (!session.ftp().removeDirectory(path)) {
             throw refusal(session.ftp());
         }
+    }
+
+    /** Starts at {@code offset} with {@code REST}, so the server sends nothing before it. */
+    @Override
+    protected InputStream readStream(Session session, String path, long offset) throws IOException {
+        if (offset == 0) {
+            return readStream(session, path);
+        }
+        final var ftp = session.ftp();
+        ftp.setRestartOffset(offset);
+        try {
+            return readStream(session, path);
+        } catch (Refusal e) {
+            if (!REST_NOT_SUPPORTED.contains(ftp.getReplyCode())) {
+                throw e;
+            }
+        } finally {
+            // commons-net clears it once REST is sent, but not when opening the transfer fails before that
+            ftp.setRestartOffset(0);
+        }
+        return super.readStream(session, path, offset);
     }
 
     @Override

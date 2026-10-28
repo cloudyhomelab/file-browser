@@ -5,11 +5,11 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /** Ends after a given number of bytes; closing it closes the stream underneath. */
-final class LimitedInputStream extends FilterInputStream {
+public final class LimitedInputStream extends FilterInputStream {
 
     private long remaining;
 
-    LimitedInputStream(InputStream in, long limit) {
+    public LimitedInputStream(InputStream in, long limit) {
         super(in);
         this.remaining = limit;
     }

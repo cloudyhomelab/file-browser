@@ -16,6 +16,7 @@ import org.vaadin.filebrowser.data.Capacity;
 import org.vaadin.filebrowser.storage.CopyCancelledException;
 import org.vaadin.filebrowser.storage.CopyProgress;
 import org.vaadin.filebrowser.storage.Health;
+import org.vaadin.filebrowser.storage.LimitedInputStream;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.storage.StoragePaths;
@@ -87,6 +88,21 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
 
     /** Closing the stream ends the transfer and throws if the server reported it failed. */
     protected abstract InputStream readStream(S session, String path) throws IOException;
+
+    /**
+     * {@link #readStream(Object, String)} from {@code offset} on. By default it skips there, which transfers the
+     * skipped bytes unless the stream can move without reading.
+     */
+    protected InputStream readStream(S session, String path, long offset) throws IOException {
+        final var in = readStream(session, path);
+        try {
+            in.skipNBytes(offset);
+        } catch (IOException e) {
+            closeQuietly(in, e);
+            throw e;
+        }
+        return in;
+    }
 
     /** Creates or truncates {@code path}; closing the stream ends the transfer. */
     protected abstract OutputStream writeStream(S session, String path) throws IOException;
@@ -199,6 +215,15 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
 
     @Override
     public InputStream openRead(String path) {
+        return open(path, 0, Long.MAX_VALUE);
+    }
+
+    @Override
+    public InputStream openRead(String path, long offset, long length) {
+        return open(path, offset, length);
+    }
+
+    private InputStream open(String path, long offset, long length) {
         final var action = "read “" + nameOf(path) + "”";
         final S session;
         try {
@@ -211,13 +236,23 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
             if (node == null || node.folder()) {
                 throw new StorageException("“" + nameOf(path) + "” no longer exists.");
             }
-            return new SessionInputStream(readStream(session, remote(path)), session);
+            final var in = readStream(session, remote(path), offset);
+            final var limited = length == Long.MAX_VALUE ? in : new LimitedInputStream(in, length);
+            return new SessionInputStream(limited, session);
         } catch (IOException e) {
             pool.release(session, !(e instanceof Refusal));
             throw failure(action, e);
         } catch (RuntimeException e) {
             pool.release(session, false);
             throw e;
+        }
+    }
+
+    private static void closeQuietly(InputStream in, IOException failure) {
+        try {
+            in.close();
+        } catch (IOException suppressed) {
+            failure.addSuppressed(suppressed);
         }
     }
 
