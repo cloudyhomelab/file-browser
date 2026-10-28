@@ -20,6 +20,7 @@ import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.storage.StoragePaths;
 import org.vaadin.filebrowser.storage.StorageProvider;
+import org.vaadin.filebrowser.storage.VerifiedCopy;
 import org.vaadin.filebrowser.storage.WriteHandle;
 
 /**
@@ -27,13 +28,12 @@ import org.vaadin.filebrowser.storage.WriteHandle;
  * primitive commands on a session; this class turns them into file-system operations with the
  * same checks and messages as the other providers. Uploads go to a hidden partial file that is
  * renamed into place on commit. A file is copied on the server where the protocol can
- * ({@link #copyOnServer}); otherwise it is downloaded and uploaded again.
+ * ({@link #copyOnServer}); otherwise it is streamed through this app as a {@link VerifiedCopy}.
  */
 public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseable {
 
     private static final String PARTIAL_PREFIX = ".";
     private static final String PARTIAL_SUFFIX = ".uploading";
-    private static final int COPY_BUFFER_SIZE = 64 * 1024;
 
     /** What the server says about one file or folder. */
     public record Node(String name, boolean folder, Long size, Instant modified) {
@@ -274,6 +274,28 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
     }
 
     @Override
+    public void renameReplacing(String path, String newName) {
+        StoragePaths.requireValidName(newName);
+        call("rename “" + nameOf(path) + "”", session -> {
+            final var source = statNode(session, remote(path));
+            if (source == null) {
+                throw new StorageException("“" + nameOf(path) + "” no longer exists.");
+            }
+            final var target = StoragePaths.child(parentOf(path), newName);
+            final var existing = statNode(session, remote(target));
+            if (source.folder() || existing != null && existing.folder()) {
+                throw new StorageException("“" + newName + "” can't be replaced: only a file replaces a file.");
+            }
+            if (existing == null) {
+                renameNode(session, remote(path), remote(target));
+            } else {
+                replaceNode(session, remote(path), remote(target));
+            }
+            return null;
+        });
+    }
+
+    @Override
     public void move(String path, String destinationFolder, String targetName) {
         StoragePaths.requireValidName(targetName);
         if (destinationFolder.equals(path) || destinationFolder.startsWith(path + "/")) {
@@ -293,68 +315,56 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
         copy(path, destinationFolder, targetName, CopyProgress.NONE);
     }
 
-    /** A failure or cancel part-way removes what was copied so far. */
+    /**
+     * A failure or cancel part-way removes what was copied so far. Each step borrows a session and gives it
+     * back, so a streamed file holds only its reading and writing sessions.
+     */
     @Override
     public void copy(String path, String destinationFolder, String targetName, CopyProgress progress) {
         StoragePaths.requireValidName(targetName);
         if (destinationFolder.equals(path) || destinationFolder.startsWith(path + "/")) {
             throw new StorageException("A folder can't be copied into itself.");
         }
-        final var action = "copy “" + nameOf(path) + "”";
         final var target = StoragePaths.child(destinationFolder, targetName);
-        call(action, session -> {
+        final boolean folder = call("copy “" + nameOf(path) + "”", session -> {
             requireFolder(session, destinationFolder);
             requireFree(session, target, "“" + targetName + "” already exists in the destination.");
             final var source = statNode(session, remote(path));
             if (source == null) {
                 throw new StorageException("“" + nameOf(path) + "” no longer exists.");
             }
-            try {
-                copyNode(session, path, target, source.folder(), progress);
-            } catch (IOException | RuntimeException e) {
-                removeQuietly(target);
-                throw e;
-            }
-            return null;
+            return source.folder();
         });
+        try {
+            copyNode(path, target, folder, progress);
+        } catch (RuntimeException e) {
+            removeQuietly(target);
+            throw e;
+        }
     }
 
-    // the data goes through a second session: one session can't download and upload at once on FTP
-    private void copyNode(S session, String from, String to, boolean folder, CopyProgress progress) throws IOException {
+    // where the server can't copy a file, this app streams it and verifies the copy
+    private void copyNode(String from, String to, boolean folder, CopyProgress progress) {
         if (progress.cancelled()) {
             throw new CopyCancelledException(nameOf(from));
         }
+        final var action = "copy “" + nameOf(from) + "”";
         if (!folder) {
-            if (!copyOnServer(session, remote(from), remote(to))) {
-                stream(session, from, to, progress);
+            final boolean copied = call(action, session -> copyOnServer(session, remote(from), remote(to)));
+            if (!copied) {
+                VerifiedCopy.copy(this, from, this, parentOf(to), nameOf(to), false, progress);
             }
             return;
         }
-        makeFolder(session, remote(to));
-        for (final var child : listNodes(session, remote(from))) {
+        final var children = call(action, session -> {
+            makeFolder(session, remote(to));
+            return listNodes(session, remote(from));
+        });
+        for (final var child : children) {
             if (!isPartial(child.name())) {
-                copyNode(session, StoragePaths.child(from, child.name()), StoragePaths.child(to, child.name()),
-                        child.folder(), progress);
+                copyNode(StoragePaths.child(from, child.name()), StoragePaths.child(to, child.name()), child.folder(),
+                        progress);
             }
-        }
-    }
-
-    private void stream(S session, String from, String to, CopyProgress progress) throws IOException {
-        try (final var in = readStream(session, remote(from))) {
-            call("copy “" + nameOf(from) + "”", writer -> {
-                try (final var out = writeStream(writer, remote(to))) {
-                    final var buffer = new byte[COPY_BUFFER_SIZE];
-                    int read;
-                    while ((read = in.read(buffer)) != -1) {
-                        if (progress.cancelled()) {
-                            throw new CopyCancelledException(nameOf(from));
-                        }
-                        out.write(buffer, 0, read);
-                        progress.copied(read);
-                    }
-                }
-                return null;
-            });
         }
     }
 

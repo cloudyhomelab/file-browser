@@ -5,12 +5,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * What every remote provider must do, run against a real server by each subclass. Each test gets
@@ -35,6 +38,7 @@ abstract class RemoteProviderContract {
 
         private final long cancelAfter;
         private long bytes;
+        private long verified;
 
         Counting(long cancelAfter) {
             this.cancelAfter = cancelAfter;
@@ -46,18 +50,25 @@ abstract class RemoteProviderContract {
         }
 
         @Override
+        public void verified(long count) {
+            verified += count;
+        }
+
+        @Override
         public boolean cancelled() {
             return cancelAfter >= 0 && bytes >= cancelAfter;
         }
     }
 
     @Test
-    void aCopyStreamsBytesOnlyWhereTheServerCantCopy() throws IOException {
+    void aCopyStreamsAndVerifiesBytesOnlyWhereTheServerCantCopy() throws Exception {
         final var progress = new Counting(-1);
         provider.copy("Projects", "", "Projects copy", progress);
 
         assertThat(read(provider, "Projects copy/Design/logo.txt")).isEqualTo("logo");
         assertThat(progress.bytes).isEqualTo(copiesOnServer() ? 0 : "logo".length() + "brief".length());
+        assertThat(progress.verified).isEqualTo(progress.bytes);
+        assertThat(serverNames(folder + "/Projects copy")).noneMatch(n -> n.endsWith(".partial"));
     }
 
     @Test
@@ -242,5 +253,31 @@ abstract class RemoteProviderContract {
             assertThat(provider.list("Projects")).hasSize(2);
         }
         assertThat(provider.healthy()).isTrue();
+    }
+
+    @Test
+    void renamingOverAFileReplacesItButNeverAFolder() throws IOException {
+        write(provider, "", "draft.txt", "draft");
+
+        provider.renameReplacing("draft.txt", "notes.txt");
+
+        assertThat(read(provider, "notes.txt")).isEqualTo("draft");
+        assertThat(provider.stat("draft.txt")).isEmpty();
+        assertThatThrownBy(() -> provider.renameReplacing("notes.txt", "Projects")).hasMessageContaining("can't be replaced");
+        assertThatThrownBy(() -> provider.renameReplacing("Projects", "notes.txt")).hasMessageContaining("can't be replaced");
+        assertThat(read(provider, "Projects/brief.txt")).isEqualTo("brief");
+    }
+
+    @Test
+    void aVerifiedCopyGoesToAndFromAnotherProvider(@TempDir Path disk) throws IOException {
+        final var local = new LocalDiskProvider(disk, name -> "generic", type -> "disk");
+
+        VerifiedCopy.copy(provider, "Projects", local, "", "Projects", false, CopyProgress.NONE);
+        Files.writeString(disk.resolve("Projects/brief.txt"), "changed");
+        VerifiedCopy.copy(local, "Projects/brief.txt", provider, "Projects", "brief.txt", true, CopyProgress.NONE);
+
+        assertThat(disk.resolve("Projects/Design/logo.txt")).hasContent("logo");
+        assertThat(read(provider, "Projects/brief.txt")).isEqualTo("changed");
+        assertThat(provider.list("Projects")).extracting(StorageEntry::name).containsExactlyInAnyOrder("Design", "brief.txt");
     }
 }
