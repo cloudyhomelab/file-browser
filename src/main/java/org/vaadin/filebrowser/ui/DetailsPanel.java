@@ -83,6 +83,11 @@ public class DetailsPanel extends Composite<Aside> {
         rename.addClassName("fb-grow");
         move.addClassName("fb-grow");
         final var primaryRow = Ui.div("fb-details-actions-row", download, star);
+        if (!entry.folder()) {
+            final var previewButton = Buttons.create(Buttons.Kind.SECONDARY, "Preview", "eye",
+                    () -> onAction.accept(EntryAction.OPEN));
+            primaryRow.addComponentAtIndex(1, previewButton);
+        }
         final var secondaryRow = Ui.div("fb-details-actions-row", rename, move, delete);
         final var actions = Ui.div("fb-details-actions", primaryRow, secondaryRow);
         aside.add(actions);

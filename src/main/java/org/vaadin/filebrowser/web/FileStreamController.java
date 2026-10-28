@@ -41,18 +41,14 @@ public class FileStreamController {
 
     private static final System.Logger LOG = System.getLogger(FileStreamController.class.getName());
     private static final String OCTET_STREAM = "application/octet-stream";
-    private static final String PDF = "application/pdf";
     private static final String BYTES = "bytes";
     private static final String CONTENT_SECURITY_POLICY = "Content-Security-Policy";
     private static final String CONTENT_TYPE_OPTIONS = "X-Content-Type-Options";
     private static final String RESOURCE_POLICY = "Cross-Origin-Resource-Policy";
     private static final String REFERRER_POLICY = "Referrer-Policy";
-    /** The app's own pages may frame a file; no other site may. */
-    private static final String BASE_POLICY = "default-src 'none'; img-src 'self'; media-src 'self'; "
-            + "style-src 'unsafe-inline'; frame-ancestors 'self'";
-    private static final String SANDBOXED = BASE_POLICY + "; sandbox";
-    /** Chrome's PDF viewer shows a blank page when the response is sandboxed. */
-    private static final String PDF_POLICY = BASE_POLICY;
+    /** The app's own pages may frame a file (text is shown in an iframe); no other site may. */
+    private static final String SANDBOXED = "default-src 'none'; img-src 'self'; media-src 'self'; "
+            + "style-src 'unsafe-inline'; frame-ancestors 'self'; sandbox";
     /**
      * The browser revalidates with the ETag before reusing a copy. Where the storage's times are coarse (minutes
      * on FTP without MLSD, seconds on SFTP and S3), a rewrite of the same size within that time keeps its ETag.
@@ -119,9 +115,6 @@ public class FileStreamController {
         final var viewType = catalog.viewType(entry.name());
         // a 304's headers replace the cached copy's, so they must be the same as on the full response
         response.setHeader(HttpHeaders.CACHE_CONTROL, CACHE_POLICY);
-        if (viewType.filter(PDF::equals).isPresent()) {
-            response.setHeader(CONTENT_SECURITY_POLICY, PDF_POLICY);
-        }
         final var webRequest = new ServletWebRequest(request, response);
         if (webRequest.checkNotModified(etag, lastModified)) {
             return;

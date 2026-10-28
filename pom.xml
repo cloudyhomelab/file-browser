@@ -33,7 +33,16 @@
         <sshd.version>2.18.0</sshd.version>
         <commons-net.version>3.13.0</commons-net.version>
         <bouncycastle.version>1.84</bouncycastle.version>
+        <vcf-pdf-viewer.version>6.1.3</vcf-pdf-viewer.version>
     </properties>
+
+    <repositories>
+        <!-- Vaadin Directory add-ons, such as the PDF viewer, are published here rather than to Maven Central -->
+        <repository>
+            <id>vaadin-addons</id>
+            <url>https://maven.vaadin.com/vaadin-addons</url>
+        </repository>
+    </repositories>
 
     <dependencyManagement>
         <dependencies>
@@ -118,6 +127,11 @@
             <groupId>commons-net</groupId>
             <artifactId>commons-net</artifactId>
             <version>${commons-net.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.vaadin.addons.componentfactory</groupId>
+            <artifactId>vcf-pdf-viewer</artifactId>
+            <version>${vcf-pdf-viewer.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
