@@ -371,6 +371,23 @@ public class S3Provider implements StorageProvider, AutoCloseable {
         deleteKeys(keysUnder(folderKey(path), what), what);
     }
 
+    // a folder is only its marker; an object written under it meanwhile keeps the folder in existence
+    @Override
+    public boolean deleteEmptyFolder(String path) {
+        if (path.isEmpty()) {
+            throw new StorageException("The root of a file system can't be deleted.");
+        }
+        final var what = "delete “" + nameOf(path) + "”";
+        requireFolder(path);
+        final var marker = folderKey(path);
+        final var keys = keysUnder(marker, what);
+        if (keys.stream().anyMatch(k -> !k.equals(marker))) {
+            return false;
+        }
+        deleteKeys(keys, what);
+        return true;
+    }
+
     @Override
     public WriteHandle openWrite(String folder, String name, boolean replace) {
         StoragePaths.requireValidName(name);

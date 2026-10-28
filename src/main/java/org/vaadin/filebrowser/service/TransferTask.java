@@ -2,6 +2,7 @@ package org.vaadin.filebrowser.service;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.storage.StorageEntry;
@@ -57,13 +58,18 @@ public final class TransferTask implements Serializable {
     private final FsRoot destinationRoot;
     private final List<String> destination;
     private final List<Item> items;
-    /** Bytes of the items when they are all files; null when a folder makes the total unknown. */
-    private final Long bytesTotal;
+    /** Bytes of the items, once known: up front when they are all files, otherwise after walking their folders. */
+    private volatile Long bytesTotal;
     private volatile State state = State.QUEUED;
     private volatile int itemsDone;
     private volatile long bytesDone;
+    private volatile long bytesVerified;
     private volatile boolean cancelRequested;
+    /** What is happening right now, e.g. "Verifying “a.txt”…"; null when there is nothing to say. */
+    private volatile String status;
     private volatile String message;
+    /** Sentences added to the outcome, e.g. which originals a move kept. */
+    private final List<String> notes = new CopyOnWriteArrayList<>();
     private boolean announced;
 
     TransferTask(String id, Kind kind, FsRoot sourceRoot, FsRoot destinationRoot, List<String> destination,
@@ -89,6 +95,26 @@ public final class TransferTask implements Serializable {
 
     void copied(long bytes) {
         bytesDone += bytes;
+    }
+
+    void verified(long bytes) {
+        bytesVerified += bytes;
+    }
+
+    void bytesTotal(long bytes) {
+        bytesTotal = bytes;
+    }
+
+    void status(String text) {
+        status = text;
+    }
+
+    void note(String sentence) {
+        notes.add(sentence);
+    }
+
+    List<String> notes() {
+        return List.copyOf(notes);
     }
 
     void requestCancel() {
@@ -117,17 +143,35 @@ public final class TransferTask implements Serializable {
         return state == State.DONE || state == State.FAILED || state == State.CANCELLED;
     }
 
-    /** Percent of the bytes this app streamed; null when nothing reports bytes, so progress is unknown. */
+    /**
+     * Percent of the work this app streams: every byte is written and then read back to verify it, so the total
+     * counts twice. Null when nothing reports bytes, so progress is unknown.
+     */
     public Integer progress() {
-        if (bytesTotal == null || bytesTotal <= 0 || bytesDone == 0) {
+        final var total = bytesTotal;
+        if (total == null || total <= 0 || bytesDone == 0) {
             return null;
         }
-        return (int) Math.min(PERCENT, bytesDone * PERCENT / bytesTotal);
+        return (int) Math.min(PERCENT, (bytesDone + bytesVerified) * PERCENT / (2 * total));
+    }
+
+    public String status() {
+        return status;
+    }
+
+    public boolean betweenFileSystems() {
+        return !sourceRoot.id().equals(destinationRoot.id());
     }
 
     /** The destination folder's name, or the file system's for its top. */
     public String destinationName() {
         return destination.isEmpty() ? destinationRoot.name() : destination.getLast();
+    }
+
+    /** "“Inbox”", or "“Inbox” in “Dev bucket”" on another file system. */
+    public String destinationLabel() {
+        final var folder = "“" + destinationName() + "”";
+        return betweenFileSystems() && !destination.isEmpty() ? folder + " in “" + destinationRoot.name() + "”" : folder;
     }
 
     /** "“a”" for one item, "3 items" for more. */

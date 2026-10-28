@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -103,6 +104,35 @@ class VerifiedCopyTest {
         assertThat(progress.copied).isEqualTo("brief".length() + "logo".length());
         assertThat(progress.verified).isEqualTo(progress.copied);
         assertThat(sourceRoot.resolve("Projects/brief.txt")).hasContent("brief");
+    }
+
+    @Test
+    void reportsWhatItVerifiedAndEachPhase() {
+        final var phases = new ArrayList<String>();
+        final var progress = new CopyProgress() {
+            @Override
+            public void copied(long bytes) {
+            }
+
+            @Override
+            public boolean cancelled() {
+                return false;
+            }
+
+            @Override
+            public void phase(String name, Phase phase) {
+                phases.add(phase + " " + name);
+            }
+        };
+
+        final var result = VerifiedCopy.copy(source, "Projects", destination, "Inbox", "Projects", false, progress);
+
+        assertThat(result.files()).extracting(StorageEntry::path)
+                .containsExactlyInAnyOrder("Projects/brief.txt", "Projects/Design/logo.txt");
+        assertThat(result.folders()).containsExactlyInAnyOrder("Projects", "Projects/Design", "Projects/Design/Empty");
+        assertThat(result.folders().getFirst()).isEqualTo("Projects");
+        assertThat(phases).containsExactlyInAnyOrder("COPYING brief.txt", "VERIFYING brief.txt",
+                "COPYING logo.txt", "VERIFYING logo.txt");
     }
 
     @Test

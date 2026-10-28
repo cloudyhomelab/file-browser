@@ -376,6 +376,29 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
         }
     }
 
+    // servers refuse rmdir on a folder that isn't empty; the listing tells that apart from other refusals
+    @Override
+    public boolean deleteEmptyFolder(String path) {
+        if (path.isEmpty()) {
+            throw new StorageException("The root of a file system can't be deleted.");
+        }
+        return call("delete “" + nameOf(path) + "”", session -> {
+            final var node = statNode(session, remote(path));
+            if (node == null || !node.folder()) {
+                throw new StorageException("“" + nameOf(path) + "” is not a folder.");
+            }
+            try {
+                deleteEmptyFolder(session, remote(path));
+                return true;
+            } catch (Refusal e) {
+                if (!listNodes(session, remote(path)).isEmpty()) {
+                    return false;
+                }
+                throw e;
+            }
+        });
+    }
+
     @Override
     public void delete(String path) {
         if (path.isEmpty()) {

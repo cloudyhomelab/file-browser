@@ -256,6 +256,17 @@ abstract class RemoteProviderContract {
     }
 
     @Test
+    void deletesAnEmptyFolderButLeavesOneThatIsNot() throws IOException {
+        provider.createFolder("", "Empty");
+
+        assertThat(provider.deleteEmptyFolder("Empty")).isTrue();
+        assertThat(provider.deleteEmptyFolder("Projects")).isFalse();
+
+        assertThat(provider.stat("Empty")).isEmpty();
+        assertThat(read(provider, "Projects/brief.txt")).isEqualTo("brief");
+    }
+
+    @Test
     void renamingOverAFileReplacesItButNeverAFolder() throws IOException {
         write(provider, "", "draft.txt", "draft");
 

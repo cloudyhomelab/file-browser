@@ -121,10 +121,10 @@ class WorkspaceTest {
         workspace.setStarred("a", "notes.txt", true);
         final var notes = entry("notes.txt");
 
-        final var copy = workspace.transfer(TransferTask.Kind.COPY, held, List.of(),
+        final var copy = workspace.transfer(TransferTask.Kind.COPY, held, held, List.of(),
                 List.of(new TransferTask.Item(notes, notes.name(), false, true)));
         finish(copy);
-        final var move = workspace.transfer(TransferTask.Kind.MOVE, held, List.of("Archive"),
+        final var move = workspace.transfer(TransferTask.Kind.MOVE, held, held, List.of("Archive"),
                 List.of(new TransferTask.Item(notes, "notes.txt", false, false)));
         finish(move);
 
@@ -148,6 +148,63 @@ class WorkspaceTest {
         assertThat(task.state()).isEqualTo(TransferTask.State.FAILED);
         assertThat(task.message()).isEqualTo("“Projects” is locked. Nothing was copied.");
         assertThat(blocker.resolve("notes.txt")).doesNotExist();
+    }
+
+    /** A second disk file system, "Archive", with an "Inbox" folder. */
+    private FsRoot archive() throws IOException {
+        final var archiveFolder = Files.createDirectories(dir.resolve("archive/Inbox")).getParent();
+        final var definition = new FsRoot("b", "Archive", DiskStorageType.KEY, archiveFolder.toString(), Map.of(),
+                Access.READ_WRITE, RootStatus.UNKNOWN);
+        registry.add(definition, Map.of());
+        return registry.find("b").orElseThrow();
+    }
+
+    @Test
+    void transfersGoToWritableFileSystemsWithTheCurrentOneFirst() throws Exception {
+        final var archive = archive();
+
+        assertThat(workspace.transferTargets(archive)).extracting(FsRoot::id).containsExactly("b", "a");
+        registry.update("b", "Archive", Access.READ_ONLY);
+        assertThat(workspace.transferTargets(archive)).extracting(FsRoot::id).containsExactly("a");
+    }
+
+    @Test
+    void aCopyFromAReadOnlyFileSystemGoesToAnotherOne() throws Exception {
+        final var archive = archive();
+        registry.update("a", "Projects", Access.READ_ONLY);
+        final var notes = entry("notes.txt");
+
+        final var task = workspace.transfer(TransferTask.Kind.COPY, held, archive, List.of("Inbox"),
+                List.of(new TransferTask.Item(notes, "notes.txt", false, false)));
+        finish(task);
+
+        assertThat(task.message()).isEqualTo("Copied “notes.txt” to “Inbox” in “Archive”");
+        assertThat(dir.resolve("archive/Inbox/notes.txt")).hasContent("notes");
+        assertThat(folder.resolve("notes.txt")).hasContent("notes");
+        assertThatThrownBy(() -> workspace.transfer(TransferTask.Kind.MOVE, held, archive, List.of("Inbox"),
+                List.of(new TransferTask.Item(notes, "notes.txt", false, false)))).hasMessageContaining("read only");
+    }
+
+    @Test
+    void aMoveToAnotherFileSystemTakesTheFilesAndTheirStars() throws Exception {
+        final var archive = archive();
+        Files.createDirectories(folder.resolve("Reports/2025"));
+        Files.writeString(folder.resolve("Reports/2025/q1.txt"), "q1");
+        workspace.setStarred("a", "Reports/2025/q1.txt", true);
+        workspace.setStarred("a", "Reports", true);
+        final var reports = entry("Reports");
+
+        final var task = workspace.transfer(TransferTask.Kind.MOVE, held, archive, List.of("Inbox"),
+                List.of(new TransferTask.Item(reports, "Reports", false, false)));
+        finish(task);
+
+        assertThat(task.state()).isEqualTo(TransferTask.State.DONE);
+        assertThat(task.progress()).isEqualTo(100);
+        assertThat(dir.resolve("archive/Inbox/Reports/2025/q1.txt")).hasContent("q1");
+        assertThat(folder.resolve("Reports")).doesNotExist();
+        assertThat(workspace.isStarred("b", "Inbox/Reports/2025/q1.txt")).isTrue();
+        assertThat(workspace.isStarred("b", "Inbox/Reports")).isTrue();
+        assertThat(workspace.isStarred("a", "Reports")).isFalse();
     }
 
     @Test
