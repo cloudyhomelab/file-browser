@@ -1,6 +1,7 @@
 package org.vaadin.filebrowser.storage;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -17,6 +18,7 @@ import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -25,6 +27,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.Delete;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -213,8 +216,20 @@ public class S3Provider implements StorageProvider, AutoCloseable {
 
     @Override
     public InputStream openRead(String path) {
+        return get(path, null);
+    }
+
+    @Override
+    public InputStream openRead(String path, long offset, long length) {
+        final var last = length > Long.MAX_VALUE - offset ? "" : String.valueOf(offset + length - 1);
+        return get(path, "bytes=" + offset + "-" + last);
+    }
+
+    /** @param range an HTTP {@code Range} value, or null for the whole object */
+    private InputStream get(String path, String range) {
         try {
-            return client.getObject(r -> r.bucket(location.bucket()).key(key(path)));
+            final var response = client.getObject(r -> r.bucket(location.bucket()).key(key(path)).range(range));
+            return new AbortingInputStream(response);
         } catch (S3Exception e) {
             if (e.statusCode() == NOT_FOUND) {
                 throw new StorageException("“" + nameOf(path) + "” no longer exists.", e);
@@ -539,5 +554,43 @@ public class S3Provider implements StorageProvider, AutoCloseable {
             return new StorageException("Could not " + action + ": it no longer exists.", e);
         }
         return new StorageException("Could not " + action + ".", e);
+    }
+
+    /**
+     * Closing the SDK's stream reads the rest of the object so the connection can be reused; one closed before
+     * the end is aborted instead, so a dropped download or seek doesn't fetch what nobody reads.
+     */
+    private static final class AbortingInputStream extends FilterInputStream {
+
+        private final ResponseInputStream<GetObjectResponse> response;
+        private boolean ended;
+
+        AbortingInputStream(ResponseInputStream<GetObjectResponse> response) {
+            super(response);
+            this.response = response;
+        }
+
+        @Override
+        public int read() throws IOException {
+            final var b = super.read();
+            ended |= b < 0;
+            return b;
+        }
+
+        @Override
+        public int read(byte[] bytes, int offset, int length) throws IOException {
+            final var n = super.read(bytes, offset, length);
+            ended |= n < 0;
+            return n;
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (ended) {
+                super.close();
+            } else {
+                response.abort();
+            }
+        }
     }
 }
