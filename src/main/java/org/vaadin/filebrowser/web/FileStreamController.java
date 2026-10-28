@@ -52,7 +52,10 @@ public class FileStreamController {
     private static final String SANDBOXED = BASE_POLICY + "; sandbox";
     /** Chrome's PDF viewer shows a blank page when the response is sandboxed. */
     private static final String PDF_POLICY = BASE_POLICY;
-    /** The browser revalidates with the ETag before reusing a copy, so a changed file is never shown stale. */
+    /**
+     * The browser revalidates with the ETag before reusing a copy. Where the storage's times are coarse (minutes
+     * on FTP without MLSD, seconds on SFTP and S3), a rewrite of the same size within that time keeps its ETag.
+     */
     private static final String CACHE_POLICY = "private, no-cache";
 
     private final FileSystemRegistry registry;
