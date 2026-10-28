@@ -36,6 +36,7 @@ import org.vaadin.filebrowser.data.RootStatus;
 import org.vaadin.filebrowser.storage.DiskStorageType;
 import org.vaadin.filebrowser.storage.S3StorageType;
 import org.vaadin.filebrowser.storage.StorageConfig;
+import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
 
 /** A view keeps the {@link FsRoot} it opened with; changes an admin makes later must still apply. */
@@ -100,6 +101,53 @@ class WorkspaceTest {
         SecurityContextHolder.getContext().setAuthentication(new OAuth2AuthenticationToken(user, authorities, "dex"));
         final var properties = new FileBrowserProperties(null, null, null, null, true, null, null, null, null, null, null);
         return new CurrentUser(null, properties);
+    }
+
+    private static void finish(TransferTask task) throws InterruptedException {
+        final var deadline = Instant.now().plusSeconds(5);
+        while (!task.finished() && Instant.now().isBefore(deadline)) {
+            Thread.sleep(5);
+        }
+        assertThat(task.finished()).as("finished in time").isTrue();
+    }
+
+    private StorageEntry entry(String name) {
+        return workspace.list(held, List.of()).stream().filter(e -> e.name().equals(name)).findFirst().orElseThrow();
+    }
+
+    @Test
+    void aQueuedMoveTakesItsStarAlongAndAQueuedCopyDuplicatesInPlace() throws Exception {
+        Files.createDirectory(folder.resolve("Archive"));
+        workspace.setStarred("a", "notes.txt", true);
+        final var notes = entry("notes.txt");
+
+        final var copy = workspace.transfer(TransferTask.Kind.COPY, held, List.of(),
+                List.of(new TransferTask.Item(notes, notes.name(), false, true)));
+        finish(copy);
+        final var move = workspace.transfer(TransferTask.Kind.MOVE, held, List.of("Archive"),
+                List.of(new TransferTask.Item(notes, "notes.txt", false, false)));
+        finish(move);
+
+        assertThat(copy.state()).isEqualTo(TransferTask.State.DONE);
+        assertThat(move.message()).isEqualTo("Moved “notes.txt” to “Archive”");
+        assertThat(folder.resolve("notes copy.txt")).hasContent("notes");
+        assertThat(folder.resolve("Archive/notes.txt")).hasContent("notes");
+        assertThat(workspace.isStarred("a", "Archive/notes.txt")).isTrue();
+    }
+
+    @Test
+    void aTransferOnAFileSystemLockedSinceItWasQueuedFails() throws Exception {
+        final var notes = entry("notes.txt");
+        final var blocker = Files.createDirectory(folder.resolve("Big"));
+        Files.writeString(blocker.resolve("data.bin"), "x".repeat(1024));
+        registry.update("a", "Projects", Access.LOCKED);
+        final var task = workspace.transfers().enqueue(TransferTask.Kind.COPY, held, held, List.of("Big"),
+                List.of(new TransferTask.Item(notes, "notes.txt", false, false)));
+        finish(task);
+
+        assertThat(task.state()).isEqualTo(TransferTask.State.FAILED);
+        assertThat(task.message()).isEqualTo("“Projects” is locked. Nothing was copied.");
+        assertThat(blocker.resolve("notes.txt")).doesNotExist();
     }
 
     @Test

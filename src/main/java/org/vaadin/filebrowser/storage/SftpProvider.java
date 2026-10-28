@@ -24,6 +24,8 @@ import org.apache.sshd.common.config.keys.KeyUtils;
 import org.apache.sshd.common.util.security.SecurityUtils;
 import org.apache.sshd.sftp.client.SftpClient;
 import org.apache.sshd.sftp.client.SftpClientFactory;
+import org.apache.sshd.sftp.client.extensions.CopyDataExtension;
+import org.apache.sshd.sftp.client.extensions.CopyFileExtension;
 import org.apache.sshd.sftp.client.extensions.openssh.OpenSSHPosixRenameExtension;
 import org.apache.sshd.sftp.client.extensions.openssh.OpenSSHStatPathExtension;
 import org.apache.sshd.sftp.common.SftpConstants;
@@ -40,6 +42,8 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final long BYTES_PER_GB = 1024L * 1024 * 1024;
+    /** copy-data's length for "until the end of the source". */
+    private static final long COPY_TO_END = 0;
     /** The fingerprint the session must see; empty when none is pinned yet. */
     private static final AttributeRepository.AttributeKey<String> PINNED = new AttributeRepository.AttributeKey<>();
     /** Where the verifier leaves the fingerprint it saw. */
@@ -299,6 +303,32 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
         } catch (SftpException e) {
             throw refusal(e);
         }
+    }
+
+    // copy-file copies in one request; OpenSSH (9.0+) offers copy-data instead, which copies between two open
+    // handles. The extensions' own isSupported() only reads the SFTP v5+ lists, so what the server advertised
+    // at version 3 is checked here.
+    @Override
+    protected boolean copyOnServer(Session session, String from, String to) throws IOException {
+        final var sftp = session.sftp();
+        final var offered = sftp.getServerExtensions().keySet();
+        try {
+            if (offered.contains(SftpConstants.EXT_COPY_FILE)) {
+                sftp.getExtension(CopyFileExtension.class).copyFile(from, to, false);
+                return true;
+            }
+            if (offered.contains(SftpConstants.EXT_COPY_DATA)) {
+                try (final var source = sftp.open(from, SftpClient.OpenMode.Read);
+                     final var target = sftp.open(to, SftpClient.OpenMode.Write, SftpClient.OpenMode.Create,
+                             SftpClient.OpenMode.Exclusive)) {
+                    sftp.getExtension(CopyDataExtension.class).copyData(source, 0, COPY_TO_END, target, 0);
+                }
+                return true;
+            }
+        } catch (SftpException e) {
+            throw refusal(e);
+        }
+        return false;
     }
 
     /** A status the server sent back; the session stays usable. */

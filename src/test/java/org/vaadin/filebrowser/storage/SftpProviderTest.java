@@ -20,6 +20,12 @@ import org.vaadin.filebrowser.data.Catalog;
 @Testcontainers(disabledWithoutDocker = true)
 class SftpProviderTest extends RemoteProviderContract {
 
+    // OpenSSH offers copy-data
+    @Override
+    protected boolean copiesOnServer() {
+        return true;
+    }
+
     private static final int SSH_PORT = 2222;
     private static final String USER = "test";
     private static final String PASSWORD = "test-password";

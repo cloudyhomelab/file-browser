@@ -29,6 +29,11 @@ public interface StorageProvider {
      */
     void copy(String path, String destinationFolder, String targetName);
 
+    /** As {@link #copy(String, String, String)}, reporting to {@code progress} where this app streams the bytes. */
+    default void copy(String path, String destinationFolder, String targetName, CopyProgress progress) {
+        copy(path, destinationFolder, targetName);
+    }
+
     /** Deletes permanently; folders are deleted with their contents. */
     void delete(String path);
 
