@@ -31,7 +31,8 @@ record ByteRange(long start, long end) {
      * range at a time, so several ranges in one request are answered with the whole file.
      */
     static Request parse(String header, long size) {
-        if (header == null || !header.startsWith(UNIT) || header.contains(",")) {
+        // an empty file has no byte to start a range at, and sending it whole is the useful answer
+        if (header == null || !header.startsWith(UNIT) || header.contains(",") || size == 0) {
             return new Whole();
         }
         final var spec = header.substring(UNIT.length()).trim();
@@ -57,14 +58,16 @@ record ByteRange(long start, long end) {
             return new Unsatisfiable();
         }
         final var end = last.map(l -> Math.min(l, size - 1)).orElse(size - 1);
-        return new Part(new ByteRange(start, end));
+        final var range = new ByteRange(start, end);
+        return new Part(range);
     }
 
     private static Request suffix(long suffix, long size) {
-        if (suffix == 0 || size == 0) {
+        if (suffix == 0) {
             return new Unsatisfiable();
         }
-        return new Part(new ByteRange(Math.max(0, size - suffix), size - 1));
+        final var range = new ByteRange(Math.max(0, size - suffix), size - 1);
+        return new Part(range);
     }
 
     private static Optional<Long> number(String digits) {
@@ -75,7 +78,8 @@ record ByteRange(long start, long end) {
         try {
             return Optional.of(Long.parseLong(digits));
         } catch (NumberFormatException e) {
-            return Optional.empty();
+            // too many digits for a long: larger than any file, so the range runs to the end or starts past it
+            return Optional.of(Long.MAX_VALUE);
         }
     }
 }
