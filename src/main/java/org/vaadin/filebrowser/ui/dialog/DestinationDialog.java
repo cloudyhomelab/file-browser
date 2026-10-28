@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,8 +21,12 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.function.SerializableConsumer;
 
-public class MoveDialog extends FbDialog {
+/** Picks the folder that items are moved or copied into. */
+public class DestinationDialog extends FbDialog {
 
+    public enum Mode { MOVE, COPY }
+
+    private final Mode mode;
     private final FsRoot root;
     private final SubfolderLoader loader;
     private final Map<String, List<String>> loaded = new HashMap<>();
@@ -33,10 +38,11 @@ public class MoveDialog extends FbDialog {
     private final Button confirm;
     private List<String> dest = List.of();
 
-    public MoveDialog(List<StorageEntry> entries, FsRoot root, SubfolderLoader loader, List<String> currentPath,
-                      SerializableConsumer<List<String>> onConfirm) {
-        super("Move " + (entries.size() > 1 ? entries.size() + " items" : "“" + entries.getFirst().name() + "”"),
-                "move", Tone.ACCENT, Width.MEDIUM);
+    public DestinationDialog(Mode mode, List<StorageEntry> entries, FsRoot root, SubfolderLoader loader,
+                             List<String> currentPath, SerializableConsumer<List<String>> onConfirm) {
+        super(verb(mode) + " " + (entries.size() > 1 ? entries.size() + " items" : "“" + entries.getFirst().name() + "”"),
+                icon(mode), Tone.ACCENT, Width.MEDIUM);
+        this.mode = mode;
         this.root = root;
         this.loader = loader;
         this.currentPath = currentPath;
@@ -48,7 +54,7 @@ public class MoveDialog extends FbDialog {
         final var intro = Ui.div("fb-dialog-text fb-dialog-text--s", introLead, introRoot, introEnd);
         add(intro, picker, status);
 
-        confirm = Buttons.create(Buttons.Kind.PRIMARY, "Move here", "move", () -> {
+        confirm = Buttons.create(Buttons.Kind.PRIMARY, verb(mode) + " here", icon(mode), () -> {
             if (valid()) {
                 close();
                 onConfirm.accept(dest);
@@ -57,6 +63,14 @@ public class MoveDialog extends FbDialog {
         final var cancel = cancelButton();
         footer(cancel, confirm);
         render();
+    }
+
+    private static String verb(Mode mode) {
+        return mode == Mode.MOVE ? "Move" : "Copy";
+    }
+
+    private static String icon(Mode mode) {
+        return mode == Mode.MOVE ? "move" : "copy";
     }
 
     private static String key(List<String> path) {
@@ -74,13 +88,15 @@ public class MoveDialog extends FbDialog {
     }
 
     private boolean valid() {
-        return check() == MoveCheck.OK;
+        final var check = check();
+        return check == MoveCheck.OK || mode == Mode.COPY && check == MoveCheck.SAME_FOLDER;
     }
 
     private void render() {
         picker.removeAll();
         final var homeIcon = new Icon("home");
-        final var rootRow = row(List.of(), 0, homeIcon, root.name() + " (root)", currentPath.isEmpty());
+        final var rootRow = row(List.of(), 0, homeIcon, root.name() + " (root)",
+                mode == Mode.MOVE && currentPath.isEmpty());
         rootRow.addClassName("fb-move-row--root");
         picker.add(rootRow);
         for (final var name : subfolders(List.of())) {
@@ -89,15 +105,18 @@ public class MoveDialog extends FbDialog {
 
         status.removeAll();
         final var check = check();
-        final var bad = check != MoveCheck.OK;
+        final var bad = !valid();
         status.getElement().getClassList().set("fb-move-status--error", bad);
         final var statusIcon = new Icon(bad ? "warn" : "info");
         status.add(statusIcon);
         if (check == MoveCheck.INTO_ITSELF) {
-            final var message = new Span("Can't move a folder into itself.");
+            final var message = new Span("Can't " + verb(mode).toLowerCase(Locale.ROOT) + " a folder into itself.");
+            status.add(message);
+        } else if (bad) {
+            final var message = new Span("Items are already here.");
             status.add(message);
         } else if (check == MoveCheck.SAME_FOLDER) {
-            final var message = new Span("Items are already here.");
+            final var message = new Span("Copies are made here, named “… copy”.");
             status.add(message);
         } else {
             final var label = new Span("Destination: ");

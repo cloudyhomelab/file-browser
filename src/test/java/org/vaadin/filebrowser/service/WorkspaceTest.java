@@ -182,6 +182,31 @@ class WorkspaceTest {
     }
 
     @Test
+    void aCopyThatReplacesKeepsTheOriginalAndItsStar() throws IOException {
+        Files.createDirectory(folder.resolve("Archive"));
+        Files.writeString(folder.resolve("Archive/notes.txt"), "older");
+        workspace.setStarred("a", "notes.txt", true);
+        workspace.setStarred("a", "Archive/notes.txt", true);
+        final var notes = workspace.list(held, List.of()).stream().filter(e -> e.name().equals("notes.txt")).findFirst().orElseThrow();
+
+        workspace.copy(held, notes, List.of("Archive"), "notes.txt", true);
+
+        assertThat(folder.resolve("Archive/notes.txt")).hasContent("notes");
+        assertThat(folder.resolve("notes.txt")).hasContent("notes");
+        assertThat(workspace.isStarred("a", "notes.txt")).isTrue();
+        assertThat(workspace.isStarred("a", "Archive/notes.txt")).isFalse();
+    }
+
+    @Test
+    void aDuplicateIsNamedCopyNextToTheOriginal() {
+        final var notes = workspace.list(held, List.of()).stream().filter(e -> e.name().equals("notes.txt")).findFirst().orElseThrow();
+
+        assertThat(workspace.duplicate(held, notes)).isEqualTo("notes copy.txt");
+        assertThat(workspace.duplicate(held, notes)).isEqualTo("notes copy 2.txt");
+        assertThat(folder.resolve("notes copy 2.txt")).hasContent("notes");
+    }
+
+    @Test
     void onlyAdminsMayBrowseTheServersFolders() {
         // no one is signed in here, so the current user is not an admin
         assertThatThrownBy(() -> workspace.serverFolders(dir.toString())).isInstanceOf(AccessDeniedException.class);

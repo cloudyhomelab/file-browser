@@ -22,12 +22,12 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.function.SerializableConsumer;
 
 /**
- * Per-item decision for uploads or moves whose names already exist in the destination folder. Clashes
+ * Per-item decision for uploads, moves or copies whose names already exist in the destination folder. Clashes
  * that involve a folder offer only Keep both or Skip: a folder is never replaced, nor replaces anything.
  */
 public class ConflictDialog extends FbDialog {
 
-    public enum Purpose { UPLOAD, MOVE }
+    public enum Purpose { UPLOAD, MOVE, COPY }
 
     /**
      * A name that already exists in the destination.
@@ -70,8 +70,9 @@ public class ConflictDialog extends FbDialog {
         final var introText = switch (purpose) {
             case UPLOAD -> clashes.size() + " of " + totalCount + " uploaded file" + (totalCount > 1 ? "s" : "")
                     + " match names already in this folder. Choose what to do with each.";
-            case MOVE -> clashes.size() + " of " + totalCount + " item" + (totalCount > 1 ? "s" : "")
-                    + " being moved match names already in the destination. Choose what to do with each.";
+            case MOVE, COPY -> clashes.size() + " of " + totalCount + " item" + (totalCount > 1 ? "s" : "")
+                    + " being " + (purpose == Purpose.MOVE ? "moved" : "copied")
+                    + " match names already in the destination. Choose what to do with each.";
         };
         final var intro = new Paragraph(introText);
         intro.setClassName("fb-dialog-text fb-dialog-text--s");
@@ -81,7 +82,11 @@ public class ConflictDialog extends FbDialog {
         }
         add(rows);
 
-        final var proceedLabel = purpose == Purpose.UPLOAD ? "Continue upload" : "Move";
+        final var proceedLabel = switch (purpose) {
+            case UPLOAD -> "Continue upload";
+            case MOVE -> "Move";
+            case COPY -> "Copy";
+        };
         final var proceed = Buttons.create(Buttons.Kind.PRIMARY, proceedLabel, null, () -> {
             close();
             final var resolved = Map.copyOf(choices);
@@ -150,12 +155,20 @@ public class ConflictDialog extends FbDialog {
         switch (choice) {
             case REPLACE -> detail.add("Overwrites the existing file");
             case KEEP_BOTH -> {
-                final var lead = new Span(extraction ? "Extracts into " : purpose == Purpose.UPLOAD ? "Uploads as " : "Moves as ");
+                final var lead = new Span(extraction ? "Extracts into " : switch (purpose) {
+                    case UPLOAD -> "Uploads as ";
+                    case MOVE -> "Moves as ";
+                    case COPY -> "Copies as ";
+                });
                 final var newName = Workspace.keepBothName(c.name(), existingNames);
                 final var newNameText = Ui.span("fb-mono", newName);
                 detail.add(lead, newNameText);
             }
-            case SKIP -> detail.add(extraction ? "Won't be extracted" : purpose == Purpose.UPLOAD ? "Won't be uploaded" : "Won't be moved");
+            case SKIP -> detail.add(extraction ? "Won't be extracted" : switch (purpose) {
+                case UPLOAD -> "Won't be uploaded";
+                case MOVE -> "Won't be moved";
+                case COPY -> "Won't be copied";
+            });
         }
     }
 }

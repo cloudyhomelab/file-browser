@@ -247,12 +247,16 @@ public class LocalDiskProvider implements StorageProvider {
     }
 
     @Override
-    public void copy(String path, String targetName) {
+    public void copy(String path, String destinationFolder, String targetName) {
         StoragePaths.requireValidName(targetName);
         final var source = existing(path);
-        final var target = resolve(StoragePaths.child(StoragePaths.join(parentOf(path)), targetName));
+        final var destination = existingFolder(destinationFolder);
+        if (destination.startsWith(source)) {
+            throw new StorageException("A folder can't be copied into itself.");
+        }
+        final var target = resolve(StoragePaths.child(destinationFolder, targetName));
         if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-            throw new StorageException("“" + targetName + "” already exists here.");
+            throw new StorageException("“" + targetName + "” already exists in the destination.");
         }
         try {
             if (Files.isDirectory(source)) {

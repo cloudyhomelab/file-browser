@@ -282,12 +282,16 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
 
     /** Downloads and uploads again; a failure part-way removes what was copied so far. */
     @Override
-    public void copy(String path, String targetName) {
+    public void copy(String path, String destinationFolder, String targetName) {
         StoragePaths.requireValidName(targetName);
+        if (destinationFolder.equals(path) || destinationFolder.startsWith(path + "/")) {
+            throw new StorageException("A folder can't be copied into itself.");
+        }
         final var action = "copy “" + nameOf(path) + "”";
-        final var target = StoragePaths.child(parentOf(path), targetName);
+        final var target = StoragePaths.child(destinationFolder, targetName);
         call(action, session -> {
-            requireFree(session, target, "“" + targetName + "” already exists here.");
+            requireFolder(session, destinationFolder);
+            requireFree(session, target, "“" + targetName + "” already exists in the destination.");
             final var source = statNode(session, remote(path));
             if (source == null) {
                 throw new StorageException("“" + nameOf(path) + "” no longer exists.");

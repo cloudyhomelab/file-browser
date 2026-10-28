@@ -154,10 +154,14 @@ class S3ProviderTest {
         assertThat(read(provider, "Work/Design/brief (1).txt")).isEqualTo("brief");
         provider.move("Work/Design/brief (1).txt", "Work", "brief.txt");
 
-        provider.copy("Work", "Work copy");
+        provider.copy("Work", "", "Work copy");
         assertThat(read(provider, "Work copy/brief.txt")).isEqualTo("brief");
         assertThat(read(provider, "Work/brief.txt")).isEqualTo("brief");
-        assertThatThrownBy(() -> provider.copy("Work/brief.txt", "Design")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.copy("Work/brief.txt", "Work", "Design")).isInstanceOf(StorageException.class);
+        provider.copy("Work/brief.txt", "Work/Design", "brief.txt");
+        assertThat(read(provider, "Work/Design/brief.txt")).isEqualTo("brief");
+        assertThat(read(provider, "Work/brief.txt")).isEqualTo("brief");
+        assertThatThrownBy(() -> provider.copy("Work", "Work/Design", "Work")).hasMessageContaining("into itself");
     }
 
     @Test
