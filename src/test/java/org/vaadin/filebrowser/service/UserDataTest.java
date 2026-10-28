@@ -73,10 +73,10 @@ class UserDataTest {
     void preferencesRoundTripAndDefaultToNothing() {
         assertThat(data.preferences("a@x.org")).isEmpty();
         final var saved = new UserData.Preferences(Workspace.Layout.GRID, Workspace.Density.COMFORTABLE,
-                new Sort(SortKey.SIZE, false));
+                new Sort(SortKey.SIZE, false), true);
         data.savePreferences("A@x.org", saved);
         assertThat(data.preferences("a@x.org")).contains(saved);
-        final var changed = new UserData.Preferences(Workspace.Layout.LIST, Workspace.Density.DENSE, Sort.DEFAULT);
+        final var changed = new UserData.Preferences(Workspace.Layout.LIST, Workspace.Density.DENSE, Sort.DEFAULT, false);
         data.savePreferences("a@x.org", changed);
         assertThat(data.preferences("a@x.org")).contains(changed);
     }

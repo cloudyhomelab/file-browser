@@ -471,6 +471,7 @@ vaadin-button.fb-login-submit { font-weight: var(--fb-weight-semibold); margin-t
 .fb-page-main--starred .fb-page-titlebar { align-items: center; gap: 12px; }
 .fb-page-titlebar h1 { display: inline-flex; align-items: center; gap: 10px; font: var(--fb-weight-bold) 28px/1.1 var(--fb-font-sans); letter-spacing: -0.01em; color: var(--fb-fg); }
 .fb-page-titlebar h1 .fb-icon { --icon-size: 26px; color: var(--fb-accent); }
+.fb-page-titlebar > .fb-switch { align-self: center; }
 .fb-page-intro { margin: 0 0 28px; font: 400 15px/1.5 var(--fb-font-sans); color: var(--fb-fg-secondary); max-width: 560px; }
 .fb-page-main--starred .fb-page-intro { max-width: none; }
 .fb-back-link {

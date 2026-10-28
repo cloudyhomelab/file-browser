@@ -15,10 +15,10 @@ import org.vaadin.filebrowser.storage.StoragePaths;
 @Repository
 public class UserData {
 
-    public record Preferences(Workspace.Layout layout, Workspace.Density density, Sort sort) {
+    public record Preferences(Workspace.Layout layout, Workspace.Density density, Sort sort, boolean groupByType) {
 
         public static final Preferences DEFAULT =
-                new Preferences(Workspace.Layout.GRID, Workspace.Density.DENSE, Sort.DEFAULT);
+                new Preferences(Workspace.Layout.GRID, Workspace.Density.DENSE, Sort.DEFAULT, false);
     }
 
     private final JdbcClient jdbc;
@@ -99,26 +99,28 @@ public class UserData {
                     final var layout = Workspace.Layout.valueOf(rs.getString("layout"));
                     final var density = Workspace.Density.valueOf(rs.getString("density"));
                     final var sort = new Sort(SortKey.valueOf(rs.getString("sort_key")), rs.getInt("sort_ascending") != 0);
-                    return new Preferences(layout, density, sort);
+                    return new Preferences(layout, density, sort, rs.getInt("group_by_type") != 0);
                 })
                 .optional();
     }
 
     public void savePreferences(String email, Preferences preferences) {
         jdbc.sql("""
-                        INSERT INTO user_preference (email, layout, density, sort_key, sort_ascending)
-                        VALUES (:email, :layout, :density, :sortKey, :ascending)
+                        INSERT INTO user_preference (email, layout, density, sort_key, sort_ascending, group_by_type)
+                        VALUES (:email, :layout, :density, :sortKey, :ascending, :groupByType)
                         ON CONFLICT (email) DO UPDATE SET
                             layout = excluded.layout,
                             density = excluded.density,
                             sort_key = excluded.sort_key,
-                            sort_ascending = excluded.sort_ascending
+                            sort_ascending = excluded.sort_ascending,
+                            group_by_type = excluded.group_by_type
                         """)
                 .param("email", normalize(email))
                 .param("layout", preferences.layout().name())
                 .param("density", preferences.density().name())
                 .param("sortKey", preferences.sort().key().name())
                 .param("ascending", preferences.sort().ascending() ? 1 : 0)
+                .param("groupByType", preferences.groupByType() ? 1 : 0)
                 .update();
     }
 }
