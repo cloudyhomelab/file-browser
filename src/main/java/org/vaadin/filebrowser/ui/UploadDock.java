@@ -139,7 +139,9 @@ public class UploadDock extends Composite<Div> {
                 : new Icon(t.kind() == TransferTask.Kind.MOVE ? "move" : "copy");
         badge.add(badgeIcon);
         final var verb = t.finished() ? "" : t.kind().running() + " ";
-        final var nameText = new Span(verb + t.label() + " → " + t.destinationName());
+        final var where = t.betweenFileSystems() && !t.destination().isEmpty()
+                ? t.destinationName() + " · " + t.destinationRoot().name() : t.destinationName();
+        final var nameText = new Span(verb + t.label() + " → " + where);
         final var name = Ui.div("fb-dock-name", nameText);
         final var body = Ui.div("fb-dock-body", name);
         switch (t.state()) {
@@ -155,6 +157,9 @@ public class UploadDock extends Composite<Div> {
                 }
                 final var bar = Ui.div("fb-dock-bar" + (progress == null ? " fb-dock-bar--busy" : ""), fill);
                 body.add(bar);
+                if (t.status() != null) {
+                    body.add(line("fb-dock-note", t.status()));
+                }
             }
         }
         final var row = Ui.div("fb-dock-row", badge, body);

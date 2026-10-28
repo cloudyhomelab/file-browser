@@ -301,6 +301,25 @@ public class LocalDiskProvider implements StorageProvider {
     }
 
     @Override
+    public boolean deleteEmptyFolder(String path) {
+        if (path.isEmpty()) {
+            throw new StorageException("The root of a file system can't be deleted.");
+        }
+        final var target = existing(path);
+        if (!Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS)) {
+            throw new StorageException("“" + target.getFileName() + "” is not a folder.");
+        }
+        try {
+            Files.delete(target);
+            return true;
+        } catch (DirectoryNotEmptyException e) {
+            return false;
+        } catch (IOException e) {
+            throw failure("delete “" + target.getFileName() + "”", e);
+        }
+    }
+
+    @Override
     public void delete(String path) {
         if (path.isEmpty()) {
             throw new StorageException("The root of a file system can't be deleted.");

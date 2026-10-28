@@ -66,6 +66,8 @@
   --fb-busy-width: 30%;
   --fb-busy-duration: 1.2s;
   --fb-busy-travel: 340%;             /* past the bar's end, in multiples of the segment's width */
+  /* the file-system menu in the move and copy picker */
+  --fb-move-roots-width: 360px;
   --fb-ease: cubic-bezier(0.2, 0.0, 0.0, 1.0);
   --fb-fast: 120ms;
   --fb-normal: 200ms;
@@ -631,6 +633,8 @@ vaadin-button.fb-login-submit { font-weight: var(--fb-weight-semibold); margin-t
 .fb-switcher-item-name { display: block; font: var(--fb-weight-medium) 13.5px/1.2 var(--fb-font-sans); color: var(--fb-fg); }
 .fb-switcher-item-endpoint { display: block; font: 400 11.5px/1.2 var(--fb-font-mono); color: var(--fb-fg-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fb-switcher-check { display: inline-flex; color: var(--fb-accent); }
+.fb-move-roots { margin-bottom: 12px; }
+.fb-move-roots-menu { width: var(--fb-move-roots-width); }
 
 /* folder tree + starred nav */
 .fb-tree { display: flex; flex-direction: column; gap: 1px; }

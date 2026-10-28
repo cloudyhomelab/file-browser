@@ -2,6 +2,7 @@ package org.vaadin.filebrowser.service;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ import java.util.stream.Stream;
 import org.springframework.security.access.AccessDeniedException;
 import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Catalog;
+import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.Located;
 import org.vaadin.filebrowser.data.Sort;
@@ -22,6 +24,7 @@ import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.storage.StoragePaths;
 import org.vaadin.filebrowser.storage.StorageProvider;
+import org.vaadin.filebrowser.storage.VerifiedCopy;
 
 import com.vaadin.flow.spring.annotation.SpringComponent;
 import com.vaadin.flow.spring.annotation.VaadinSessionScope;
@@ -267,6 +270,14 @@ public class Workspace implements Serializable {
         }
     }
 
+    /** Moves the stars on exactly {@code path} to {@code newPath} on another file system. */
+    private void moveStarAcross(FsRoot from, String path, FsRoot to, String newPath) {
+        userData.moveStarAcross(from.id(), path, to.id(), newPath);
+        if (starred.remove(starKey(from.id(), path))) {
+            starred.add(starKey(to.id(), newPath));
+        }
+    }
+
     private void dropStars(String rootId, String path) {
         userData.dropStars(rootId, path);
         final var exact = starKey(rootId, path);
@@ -352,19 +363,32 @@ public class Workspace implements Serializable {
 
     // ---- transfers ------------------------------------------------------------------------
 
-    /** Queues a move or copy within {@code root}; names and Replace choices are fixed here. */
-    public TransferTask transfer(TransferTask.Kind kind, FsRoot root, List<String> destination,
+    /**
+     * Queues a move or copy from {@code root} into {@code destination} on {@code destinationRoot}; names and Replace
+     * choices are fixed here. A copy may come from a read-only file system; a move's source must be writable.
+     */
+    public TransferTask transfer(TransferTask.Kind kind, FsRoot root, FsRoot destinationRoot, List<String> destination,
                                  List<TransferTask.Item> items) {
-        final var now = writableRoot(root);
-        return transfers.enqueue(kind, now, now, destination, items);
+        final var target = writableRoot(destinationRoot);
+        final var source = kind == TransferTask.Kind.MOVE ? writableRoot(root) : current(root);
+        return transfers.enqueue(kind, source, target, destination, items);
+    }
+
+    /** The file systems a transfer can go to: writable and online, {@code from} first, then by name. */
+    public List<FsRoot> transferTargets(FsRoot from) {
+        return registry.all().stream()
+                .filter(r -> r.browsable() && !r.readOnly())
+                .sorted(Comparator.comparing((FsRoot r) -> !r.id().equals(from.id()))
+                        .thenComparing(FsRoot::name, String.CASE_INSENSITIVE_ORDER))
+                .toList();
     }
 
     public TransferQueue transfers() {
         return transfers;
     }
 
-    /** A file system a transfer starts on must still be registered, unlocked, online and writable. */
-    private void requireReady(FsRoot root) {
+    /** A file system a transfer starts on must still be registered, unlocked and online, and writable if asked. */
+    private void requireReady(FsRoot root, boolean writable) {
         final var now = current(root);
         if (now.locked()) {
             throw new StorageException("“" + now.name() + "” is locked.");
@@ -372,31 +396,87 @@ public class Workspace implements Serializable {
         if (!now.online()) {
             throw new StorageException("“" + now.name() + "” is offline.");
         }
-        if (now.readOnly()) {
+        if (writable && now.readOnly()) {
             throw new StorageException("“" + now.name() + "” is read only.");
         }
+    }
+
+    /** Bytes of the files in {@code entry}, walking a folder. */
+    private static long size(StorageProvider provider, StorageEntry entry) {
+        if (!entry.folder()) {
+            return entry.size() == null ? 0 : entry.size();
+        }
+        return provider.list(entry.path()).stream().mapToLong(child -> size(provider, child)).sum();
     }
 
     private final class TransferWork implements TransferQueue.Work {
 
         @Override
         public void check(TransferTask task) {
-            requireReady(task.sourceRoot());
-            if (!task.destinationRoot().id().equals(task.sourceRoot().id())) {
-                requireReady(task.destinationRoot());
+            final var within = !task.betweenFileSystems();
+            requireReady(task.sourceRoot(), task.kind() == TransferTask.Kind.MOVE || within);
+            if (!within) {
+                requireReady(task.destinationRoot(), true);
             }
+        }
+
+        @Override
+        public void prepare(TransferTask task) {
+            if (!task.betweenFileSystems()) {
+                return;
+            }
+            task.status("Preparing…");
+            final var provider = provider(current(task.sourceRoot()));
+            task.bytesTotal(task.items().stream().mapToLong(i -> size(provider, i.entry())).sum());
         }
 
         @Override
         public void run(TransferTask task, TransferTask.Item item, CopyProgress progress) {
             final var root = task.sourceRoot();
-            if (item.duplicate()) {
+            if (task.betweenFileSystems()) {
+                transferAcross(task, item, progress);
+            } else if (item.duplicate()) {
                 duplicate(root, item.entry(), progress);
             } else if (task.kind() == TransferTask.Kind.MOVE) {
                 move(root, item.entry(), task.destination(), item.name(), item.replace());
             } else {
                 copy(root, item.entry(), task.destination(), item.name(), item.replace(), progress);
             }
+        }
+    }
+
+    /** A verified copy to another file system; for a move, then the originals that were verified. */
+    private void transferAcross(TransferTask task, TransferTask.Item item, CopyProgress progress) {
+        final var sourceRoot = task.sourceRoot();
+        final var targetRoot = task.destinationRoot();
+        final var from = provider(current(sourceRoot));
+        final var to = writable(targetRoot);
+        final var folder = StoragePaths.join(task.destination());
+        final var target = StoragePaths.child(folder, item.name());
+        final var result = VerifiedCopy.copy(from, item.entry().path(), to, folder, item.name(), item.replace(), progress);
+        if (item.replace()) {
+            dropStars(targetRoot.id(), target);
+        }
+        if (task.kind() == TransferTask.Kind.MOVE) {
+            removeOriginals(task, item, from, target, result);
+        }
+    }
+
+    /** Deletes the originals a move verified, moving their stars along; what stays is noted on the task. */
+    private void removeOriginals(TransferTask task, TransferTask.Item item, StorageProvider from, String target,
+                                 VerifiedCopy.Result result) {
+        final OriginalRemoval.Outcome outcome;
+        try {
+            outcome = OriginalRemoval.remove(from, item.entry(), result);
+        } catch (StorageException e) {
+            throw new StorageException("“" + item.entry().name() + "” was copied, but the original couldn't be removed.", e);
+        }
+        final var top = item.entry().path();
+        outcome.deleted().forEach(path -> moveStarAcross(task.sourceRoot(), path, task.destinationRoot(),
+                target + path.substring(top.length())));
+        outcome.changed().forEach(name -> task.note("“" + name + "” changed during the move; the original was kept."));
+        if (outcome.added() > 0) {
+            task.note(Formats.plural(outcome.added(), "item") + " added during the move stayed in the original folder.");
         }
     }
 

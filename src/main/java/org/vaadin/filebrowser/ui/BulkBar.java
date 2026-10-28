@@ -19,7 +19,7 @@ public class BulkBar extends Composite<Div> {
         final var leadingSeparator = Ui.divider("fb-bulkbar-sep");
         final var download = action("download", "Download", EntryAction.DOWNLOAD, false, false, onAction);
         final var move = action("move", "Move", EntryAction.MOVE, false, readOnly, onAction);
-        final var copy = action("copy", "Copy", EntryAction.COPY, false, readOnly, onAction);
+        final var copy = action("copy", "Copy", EntryAction.COPY, false, false, onAction);
         final var delete = action("trash", "Delete", EntryAction.DELETE, true, readOnly, onAction);
         final var trailingSeparator = Ui.divider("fb-bulkbar-sep fb-bulkbar-sep--tight");
         final var crossIcon = new Icon("cross");

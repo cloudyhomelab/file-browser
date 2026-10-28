@@ -24,5 +24,11 @@ public interface CopyProgress {
     default void verified(long bytes) {
     }
 
+    enum Phase { COPYING, VERIFYING }
+
+    /** A streamed file named {@code name} enters {@code phase}. */
+    default void phase(String name, Phase phase) {
+    }
+
     boolean cancelled();
 }

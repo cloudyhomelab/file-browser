@@ -59,6 +59,7 @@ class TransferQueueTest {
             }
             if (streamBytes > 0) {
                 progress.copied(streamBytes);
+                progress.verified(streamBytes);
             }
             ran.add(name);
         }
@@ -111,6 +112,35 @@ class TransferQueueTest {
         assertThat(second.message()).isEqualTo("Copied “c” to “Inbox”");
         assertThat(queue.takeFinished()).containsExactly(first, second);
         assertThat(queue.takeFinished()).isEmpty();
+    }
+
+    @Test
+    void notesFromTheWorkFollowTheOutcome() throws InterruptedException {
+        final var queue = new TransferQueue(new TransferQueue.Work() {
+            @Override
+            public void check(TransferTask task) {
+            }
+
+            @Override
+            public void prepare(TransferTask task) {
+                task.bytesTotal(20);
+            }
+
+            @Override
+            public void run(TransferTask task, TransferTask.Item item, CopyProgress progress) {
+                progress.phase(item.entry().name(), CopyProgress.Phase.VERIFYING);
+                progress.copied(10);
+                progress.verified(10);
+                task.note("“" + item.entry().name() + "” changed during the move; the original was kept.");
+            }
+        });
+
+        final var task = enqueue(queue, TransferTask.Kind.MOVE, "a");
+        finish(task);
+
+        assertThat(task.status()).isEqualTo("Verifying “a”…");
+        assertThat(task.progress()).isEqualTo(50);
+        assertThat(task.message()).isEqualTo("Moved “a” to “Inbox”. “a” changed during the move; the original was kept.");
     }
 
     @Test

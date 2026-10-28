@@ -5,7 +5,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -23,11 +25,20 @@ public final class VerifiedCopy {
     }
 
     /**
+     * What a copy wrote, for deleting the originals of a move.
+     *
+     * @param files   the source files that were copied and verified, as they were listed before being read
+     * @param folders the source folders that were copied, parents before their contents
+     */
+    public record Result(List<StorageEntry> files, List<String> folders) {
+    }
+
+    /**
      * Copies {@code path} of {@code from} into {@code folder} of {@code to} as {@code name}. With {@code replace},
      * an existing file of that name is replaced once the copy is verified; a folder is never replaced.
      */
-    public static void copy(StorageProvider from, String path, StorageProvider to, String folder, String name,
-                            boolean replace, CopyProgress progress) {
+    public static Result copy(StorageProvider from, String path, StorageProvider to, String folder, String name,
+                              boolean replace, CopyProgress progress) {
         StoragePaths.requireValidName(name);
         final var source = from.stat(path)
                 .orElseThrow(() -> new StorageException("“" + nameOf(path) + "” no longer exists."));
@@ -37,23 +48,28 @@ public final class VerifiedCopy {
             throw new StorageException(replace ? "“" + name + "” can't be replaced: only a file replaces a file."
                     : "“" + name + "” already exists in the destination.");
         }
+        final var result = new Result(new ArrayList<>(), new ArrayList<>());
         if (source.folder()) {
-            copyFolder(from, path, to, folder, name, progress);
+            copyFolder(from, path, to, folder, name, progress, result);
         } else {
             copyFile(from, path, to, folder, name, existing.isPresent(), progress);
+            result.files().add(source);
         }
+        return new Result(List.copyOf(result.files()), List.copyOf(result.folders()));
     }
 
     private static void copyFolder(StorageProvider from, String path, StorageProvider to, String folder, String name,
-                                   CopyProgress progress) {
+                                   CopyProgress progress, Result result) {
         to.createFolder(folder, name);
+        result.folders().add(path);
         final var target = StoragePaths.child(folder, name);
         try {
             for (final var child : from.list(path)) {
                 if (child.folder()) {
-                    copyFolder(from, child.path(), to, target, child.name(), progress);
+                    copyFolder(from, child.path(), to, target, child.name(), progress, result);
                 } else {
                     copyFile(from, child.path(), to, target, child.name(), false, progress);
+                    result.files().add(child);
                 }
             }
         } catch (RuntimeException e) {
@@ -68,12 +84,14 @@ public final class VerifiedCopy {
         final var temporaryName = nameOf(temporary);
         try {
             final byte[] written;
+            progress.phase(name, CopyProgress.Phase.COPYING);
             try (final var in = from.openRead(path);
                  final var write = to.openWrite(folder, temporaryName, false)) {
                 written = transfer(in, write.stream(), name, progress::copied, progress);
                 write.commit();
             }
             final byte[] readBack;
+            progress.phase(name, CopyProgress.Phase.VERIFYING);
             try (final var in = to.openRead(temporary)) {
                 readBack = transfer(in, OutputStream.nullOutputStream(), name, progress::verified, progress);
             }

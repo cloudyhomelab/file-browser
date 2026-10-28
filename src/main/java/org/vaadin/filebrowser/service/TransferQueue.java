@@ -25,6 +25,11 @@ public class TransferQueue implements Serializable {
         /** Before a task starts: throws when its file systems can't take it now. */
         void check(TransferTask task);
 
+        /** After the check, before the first item: e.g. learns the task's total size. */
+        default void prepare(TransferTask task) {
+        }
+
+        /** Moves or copies one item; sentences worth adding to the outcome go to {@link TransferTask#note}. */
         void run(TransferTask task, TransferTask.Item item, CopyProgress progress);
     }
 
@@ -111,6 +116,7 @@ public class TransferQueue implements Serializable {
     private void run(TransferTask task) {
         try {
             work.check(task);
+            work.prepare(task);
         } catch (StorageException e) {
             task.state(TransferTask.State.FAILED, e.getMessage() + " Nothing was " + task.kind().participle() + ".");
             return;
@@ -122,27 +128,48 @@ public class TransferQueue implements Serializable {
             }
 
             @Override
+            public void verified(long bytes) {
+                task.verified(bytes);
+            }
+
+            @Override
+            public void phase(String name, Phase phase) {
+                task.status((phase == Phase.COPYING ? "Copying “" : "Verifying “") + name + "”…");
+            }
+
+            @Override
             public boolean cancelled() {
                 return task.cancelRequested();
             }
         };
         for (final var item : task.items()) {
             if (task.cancelRequested()) {
-                task.state(TransferTask.State.CANCELLED, cancelled(task));
+                task.state(TransferTask.State.CANCELLED, withNotes(task, cancelled(task)));
                 return;
             }
             try {
                 work.run(task, item, progress);
             } catch (CopyCancelledException e) {
-                task.state(TransferTask.State.CANCELLED, cancelled(task));
+                task.state(TransferTask.State.CANCELLED, withNotes(task, cancelled(task)));
                 return;
             } catch (StorageException e) {
-                task.state(TransferTask.State.FAILED, failed(task, e.getMessage()));
+                task.state(TransferTask.State.FAILED, withNotes(task, failed(task, e.getMessage())));
                 return;
             }
             task.itemDone();
         }
-        task.state(TransferTask.State.DONE, task.kind().done() + " " + task.label() + " to “" + task.destinationName() + "”");
+        task.state(TransferTask.State.DONE, withNotes(task, task.kind().done() + " " + task.label() + " to "
+                + task.destinationLabel()));
+    }
+
+    /** {@code outcome}, followed by what the work noted along the way. */
+    private static String withNotes(TransferTask task, String outcome) {
+        final var notes = task.notes();
+        if (notes.isEmpty()) {
+            return outcome;
+        }
+        final var end = outcome.endsWith(".") ? " " : ". ";
+        return outcome + end + String.join(" ", notes);
     }
 
     private static String cancelled(TransferTask task) {
@@ -176,7 +203,7 @@ public class TransferQueue implements Serializable {
 
     /** "Moved 2 of 5 items to “Inbox”". */
     private static String partial(TransferTask task) {
-        return task.kind().done() + " " + task.itemsDone() + " of " + task.items().size() + " items to “"
-                + task.destinationName() + "”";
+        return task.kind().done() + " " + task.itemsDone() + " of " + task.items().size() + " items to "
+                + task.destinationLabel();
     }
 }

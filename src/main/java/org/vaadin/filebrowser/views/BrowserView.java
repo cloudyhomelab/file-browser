@@ -691,11 +691,15 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void pickDestination(Mode mode, List<Located> targets) {
+        final var fileSystems = workspace.transferTargets(root);
+        if (fileSystems.isEmpty()) {
+            Toasts.readOnly();
+            return;
+        }
         final var entries = targets.stream().map(Located::entry).toList();
-        final var pickRoot = root;
         final var from = folderOf(targets.getFirst());
-        final var dialog = new DestinationDialog(mode, entries, root, folder -> workspace.subfolders(pickRoot, folder),
-                from, dest -> checkClashes(mode, targets, dest, false));
+        final var dialog = new DestinationDialog(mode, entries, root, fileSystems, workspace.catalog(),
+                workspace::subfolders, from, (destRoot, dest) -> checkClashes(mode, targets, destRoot, dest, false));
         dialog.open();
     }
 
@@ -708,10 +712,11 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
      * move without clashes is confirmed first; the clash dialog serves as the confirmation otherwise. Items copied
      * into their own folder never clash: they become "name copy".
      */
-    private void checkClashes(Mode mode, List<Located> targets, List<String> dest, boolean confirm) {
+    private void checkClashes(Mode mode, List<Located> targets, FsRoot destRoot, List<String> dest, boolean confirm) {
         final List<StorageEntry> existing;
+        final var sameRoot = destRoot.id().equals(root.id());
         try {
-            existing = workspace.list(root, dest);
+            existing = workspace.list(destRoot, dest);
         } catch (StorageException e) {
             Toasts.error(e.getMessage());
             return;
@@ -720,7 +725,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         existing.forEach(e -> existingFolders.put(e.name(), e.folder()));
         final var clashes = targets.stream()
                 .map(Located::entry)
-                .filter(e -> mode == Mode.MOVE || !inFolder(e, dest))
+                .filter(e -> mode == Mode.MOVE || !sameRoot || !inFolder(e, dest))
                 .filter(e -> existingFolders.containsKey(e.name()))
                 .map(e -> new ConflictDialog.Clash(e.name(), e.type(), e.folder() || existingFolders.get(e.name())))
                 .toList();
@@ -728,17 +733,17 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         if (clashes.isEmpty() && confirm) {
             final var entries = targets.stream().map(Located::entry).toList();
             final var confirmDialog = new MoveConfirmDialog(entries, folderName(dest),
-                    () -> transfer(mode, targets, dest, names, Map.of()));
+                    () -> transfer(mode, targets, destRoot, dest, names, Map.of()));
             confirmDialog.open();
             return;
         }
         if (clashes.isEmpty()) {
-            transfer(mode, targets, dest, names, Map.of());
+            transfer(mode, targets, destRoot, dest, names, Map.of());
             return;
         }
         final var purpose = mode == Mode.MOVE ? ConflictDialog.Purpose.MOVE : ConflictDialog.Purpose.COPY;
         final var dialog = new ConflictDialog(purpose, workspace.catalog(), clashes, targets.size(),
-                names, choices -> transfer(mode, targets, dest, names, choices));
+                names, choices -> transfer(mode, targets, destRoot, dest, names, choices));
         dialog.open();
     }
 
@@ -765,7 +770,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         switch (MoveCheck.of(path, movedFolders, dest)) {
             case SAME_FOLDER -> { }
             case INTO_ITSELF -> Toasts.error("Can't move a folder into itself.");
-            case OK -> checkClashes(Mode.MOVE, targets, dest, true);
+            case OK -> checkClashes(Mode.MOVE, targets, root, dest, true);
         }
     }
 
@@ -780,13 +785,14 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     /** Queues the move or copy with the names and Replace choices settled now; the queue reports the outcome. */
-    private void transfer(Mode mode, List<Located> targets, List<String> dest, Set<String> existing,
+    private void transfer(Mode mode, List<Located> targets, FsRoot destRoot, List<String> dest, Set<String> existing,
                           Map<String, ConflictChoice> choices) {
+        final var sameRoot = destRoot.id().equals(root.id());
         final var taken = new HashSet<>(existing);
         final var items = new ArrayList<TransferTask.Item>();
         for (final var t : targets) {
             final var entry = t.entry();
-            if (mode == Mode.COPY && inFolder(entry, dest)) {
+            if (mode == Mode.COPY && sameRoot && inFolder(entry, dest)) {
                 items.add(new TransferTask.Item(entry, entry.name(), false, true));
                 continue;
             }
@@ -808,7 +814,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         }
         final var kind = mode == Mode.MOVE ? TransferTask.Kind.MOVE : TransferTask.Kind.COPY;
         try {
-            workspace.transfer(kind, root, dest, items);
+            workspace.transfer(kind, root, destRoot, dest, items);
         } catch (StorageException e) {
             Toasts.error(e.getMessage());
         }

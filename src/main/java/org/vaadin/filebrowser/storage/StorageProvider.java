@@ -43,6 +43,14 @@ public interface StorageProvider {
     /** Deletes permanently; folders are deleted with their contents. */
     void delete(String path);
 
+    /**
+     * Deletes a folder only if it is empty, in the same step as the check where the storage allows it, so a
+     * file written into it meanwhile is never lost.
+     *
+     * @return false when the folder isn't empty and was left alone
+     */
+    boolean deleteEmptyFolder(String path);
+
     InputStream openRead(String path);
 
     WriteHandle openWrite(String folder, String name, boolean replace);

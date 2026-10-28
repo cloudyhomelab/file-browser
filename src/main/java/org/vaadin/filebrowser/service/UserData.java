@@ -77,6 +77,20 @@ public class UserData {
                 .update();
     }
 
+    /** Re-points every user's stars on exactly {@code path} to {@code newPath} on another file system. */
+    public void moveStarAcross(String rootId, String path, String newRootId, String newPath) {
+        jdbc.sql("""
+                        UPDATE OR REPLACE starred_item
+                        SET root_id = :newRoot, path = :newPath
+                        WHERE root_id = :root AND path = :path
+                        """)
+                .param("root", rootId)
+                .param("path", path)
+                .param("newRoot", newRootId)
+                .param("newPath", newPath)
+                .update();
+    }
+
     /** Drops every user's stars on {@code path} and anything inside it. */
     public void dropStars(String rootId, String path) {
         jdbc.sql("""
