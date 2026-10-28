@@ -266,6 +266,18 @@ abstract class RemoteProviderContract {
     }
 
     @Test
+    void aReadAbandonedPartWayGivesItsSessionBack() throws IOException {
+        // large enough that the server is still sending when the reader gives up
+        write(provider, "", "big.bin", "x".repeat(4 * 1024 * 1024));
+        for (int i = 0; i < 12; i++) {
+            try (final var in = provider.openRead("big.bin", i, 1024 * 1024)) {
+                assertThat(in.read()).isEqualTo('x');
+            }
+        }
+        assertThat(read(provider, "notes.txt")).isEqualTo("notes");
+    }
+
+    @Test
     void deletesAnEmptyFolderButLeavesOneThatIsNot() throws IOException {
         provider.createFolder("", "Empty");
 

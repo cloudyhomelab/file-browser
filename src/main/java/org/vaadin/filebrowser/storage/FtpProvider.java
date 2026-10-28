@@ -382,11 +382,29 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
             throw refusal(ftp);
         }
         return new FilterInputStream(in) {
+            private boolean ended;
+
+            @Override
+            public int read() throws IOException {
+                final var b = super.read();
+                ended |= b < 0;
+                return b;
+            }
+
+            @Override
+            public int read(byte[] bytes, int offset, int length) throws IOException {
+                final var n = super.read(bytes, offset, length);
+                ended |= n < 0;
+                return n;
+            }
+
             @Override
             public void close() throws IOException {
                 super.close();
-                // the server confirms the end of the transfer on the control connection
-                if (!ftp.completePendingCommand()) {
+                // the server confirms the end of the transfer on the control connection; a reader that stopped
+                // early cut the data connection, which the server answers with 426 on a control connection
+                // that is still fine
+                if (!ftp.completePendingCommand() && (ended || ftp.getReplyCode() != FTPReply.TRANSFER_ABORTED)) {
                     throw refusal(ftp);
                 }
             }
