@@ -115,6 +115,12 @@ public class FileStreamController {
                       HttpServletResponse response) throws IOException {
         final var etag = etag(entry);
         final var lastModified = entry.modified() == null ? -1 : entry.modified().toEpochMilli();
+        final var viewType = catalog.viewType(entry.name());
+        // a 304's headers replace the cached copy's, so they must be the same as on the full response
+        response.setHeader(HttpHeaders.CACHE_CONTROL, CACHE_POLICY);
+        if (viewType.filter(PDF::equals).isPresent()) {
+            response.setHeader(CONTENT_SECURITY_POLICY, PDF_POLICY);
+        }
         final var webRequest = new ServletWebRequest(request, response);
         if (webRequest.checkNotModified(etag, lastModified)) {
             return;
@@ -145,7 +151,7 @@ public class FileStreamController {
         }
         // closing gives a remote session back to its pool, so it must happen whatever fails below
         try {
-            describe(entry, response);
+            describe(entry, viewType, response);
             if (range != null) {
                 response.setStatus(HttpStatus.PARTIAL_CONTENT.value());
                 response.setHeader(HttpHeaders.CONTENT_RANGE,
@@ -180,16 +186,11 @@ public class FileStreamController {
                 : provider.openRead(entry.path(), range.start(), range.length());
     }
 
-    private void describe(StorageEntry entry, HttpServletResponse response) {
-        final var viewType = catalog.viewType(entry.name());
+    private static void describe(StorageEntry entry, Optional<String> viewType, HttpServletResponse response) {
         final var disposition = viewType.isPresent() ? ContentDisposition.inline() : ContentDisposition.attachment();
         final var header = disposition.filename(entry.name(), StandardCharsets.UTF_8).build();
         response.setHeader(HttpHeaders.CONTENT_DISPOSITION, header.toString());
         response.setContentType(viewType.orElse(OCTET_STREAM));
-        response.setHeader(HttpHeaders.CACHE_CONTROL, CACHE_POLICY);
-        if (viewType.filter(PDF::equals).isPresent()) {
-            response.setHeader(CONTENT_SECURITY_POLICY, PDF_POLICY);
-        }
     }
 
     /** Strong, from size and modified time; null when either is unknown. */

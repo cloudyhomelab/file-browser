@@ -231,6 +231,20 @@ class FileStreamControllerTest {
     }
 
     @Test
+    void keepsThePolicyAndCacheHeadersOnNotModified() throws Exception {
+        final var pdfTag = fetch("doc.pdf").andReturn().getResponse().getHeader(HttpHeaders.ETAG);
+        fetch("doc.pdf", HttpHeaders.IF_NONE_MATCH, pdfTag)
+                .andExpect(status().isNotModified())
+                .andExpect(header().string("Content-Security-Policy",
+                        "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'"))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "private, no-cache"));
+        fetch("notes.txt", HttpHeaders.IF_NONE_MATCH, etag())
+                .andExpect(status().isNotModified())
+                .andExpect(header().string("Content-Security-Policy", SANDBOXED))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "private, no-cache"));
+    }
+
+    @Test
     void answersNotModifiedForAnUnchangedDate() throws Exception {
         fetch("notes.txt", HttpHeaders.IF_MODIFIED_SINCE, lastModified())
                 .andExpect(status().isNotModified());
