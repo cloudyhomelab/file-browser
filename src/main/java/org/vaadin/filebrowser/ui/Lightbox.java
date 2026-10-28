@@ -116,8 +116,7 @@ public class Lightbox extends Dialog {
         name.setText(file.name());
         position.setText((index + 1) + " of " + files.size());
         newTab.setHref(url);
-        // a PDF on its own is sandboxed, which Chrome's built-in viewer shows as a blank page
-        newTab.setVisible(reachable && viewer.filter(v -> v != Viewer.PDF).isPresent());
+        newTab.setVisible(reachable && viewer.isPresent());
         previous.setEnabled(index > 0);
         next.setEnabled(index < files.size() - 1);
         stage.removeAll();
