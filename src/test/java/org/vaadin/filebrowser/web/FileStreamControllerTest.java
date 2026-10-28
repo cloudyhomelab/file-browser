@@ -1,7 +1,10 @@
 package org.vaadin.filebrowser.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
@@ -9,10 +12,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,7 +37,9 @@ import org.vaadin.filebrowser.data.RootStatus;
 import org.vaadin.filebrowser.service.FileSystemRegistry;
 import org.vaadin.filebrowser.service.StorageService;
 import org.vaadin.filebrowser.storage.LocalDiskProvider;
+import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
+import org.vaadin.filebrowser.storage.StorageProvider;
 
 class FileStreamControllerTest {
 
@@ -57,11 +66,11 @@ class FileStreamControllerTest {
         registry = mock(FileSystemRegistry.class);
         storage = mock(StorageService.class);
         final var root = root(Access.READ_WRITE);
-        when(registry.find("r1")).thenReturn(Optional.of(root));
         when(registry.find(any())).thenAnswer(a -> "r1".equals(a.getArgument(0)) ? Optional.of(root) : Optional.empty());
         final var provider = new LocalDiskProvider(dir, name -> "generic", type -> "disk");
         when(storage.provider(any())).thenReturn(provider);
-        final var controller = new FileStreamController(registry, storage, new Catalog());
+        final var catalog = new Catalog();
+        final var controller = new FileStreamController(registry, storage, catalog);
         mvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -79,6 +88,48 @@ class FileStreamControllerTest {
 
     private String etag() throws Exception {
         return fetch("notes.txt").andReturn().getResponse().getHeader(HttpHeaders.ETAG);
+    }
+
+    private String lastModified() throws Exception {
+        return fetch("notes.txt").andReturn().getResponse().getHeader(HttpHeaders.LAST_MODIFIED);
+    }
+
+    /** Replaces the disk with a provider that knows only {@code entry}. */
+    private StorageProvider only(StorageEntry entry) {
+        final var provider = mock(StorageProvider.class);
+        when(provider.stat(entry.path())).thenReturn(Optional.of(entry));
+        when(storage.provider(any())).thenReturn(provider);
+        return provider;
+    }
+
+    /** Counts how often it is closed, and can fail on read or on close. */
+    private static final class Tracked extends ByteArrayInputStream {
+
+        private final boolean failRead;
+        private final boolean failClose;
+        private int closed;
+
+        Tracked(String content, boolean failRead, boolean failClose) {
+            super(content.getBytes(StandardCharsets.UTF_8));
+            this.failRead = failRead;
+            this.failClose = failClose;
+        }
+
+        @Override
+        public synchronized long transferTo(OutputStream out) throws IOException {
+            if (failRead) {
+                throw new IOException("connection reset");
+            }
+            return super.transferTo(out);
+        }
+
+        @Override
+        public void close() throws IOException {
+            closed++;
+            if (failClose) {
+                throw new IOException("426 Failure writing network stream.");
+            }
+        }
     }
 
     @Test
@@ -180,6 +231,71 @@ class FileStreamControllerTest {
     }
 
     @Test
+    void answersNotModifiedForAnUnchangedDate() throws Exception {
+        fetch("notes.txt", HttpHeaders.IF_MODIFIED_SINCE, lastModified())
+                .andExpect(status().isNotModified());
+    }
+
+    @Test
+    void sendsTheRangeOnlyWhileAnIfRangeDateStillMatches() throws Exception {
+        fetch("notes.txt", HttpHeaders.RANGE, "bytes=0-1", HttpHeaders.IF_RANGE, lastModified())
+                .andExpect(status().isPartialContent());
+        fetch("notes.txt", HttpHeaders.RANGE, "bytes=0-1", HttpHeaders.IF_RANGE, "Thu, 01 Jan 1970 00:00:00 GMT")
+                .andExpect(status().isOk())
+                .andExpect(content().string(TEXT));
+    }
+
+    @Test
+    void answersHeadWithARange() throws Exception {
+        mvc.perform(head("/files/r1/notes.txt").header(HttpHeaders.RANGE, "bytes=2-5"))
+                .andExpect(status().isPartialContent())
+                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 2-5/10"))
+                .andExpect(header().longValue(HttpHeaders.CONTENT_LENGTH, 4))
+                .andExpect(content().string(""));
+    }
+
+    @Test
+    void sendsAFileOfUnknownSizeWholeWithoutValidators() throws Exception {
+        final var entry = new StorageEntry("stream.txt", "stream.txt", false, "text", null, null, null, null);
+        final var provider = only(entry);
+        when(provider.openRead("stream.txt")).thenReturn(new Tracked("abc", false, false));
+        fetch("stream.txt", HttpHeaders.RANGE, "bytes=0-0")
+                .andExpect(status().isOk())
+                .andExpect(content().string("abc"))
+                .andExpect(header().doesNotExist(HttpHeaders.ACCEPT_RANGES))
+                .andExpect(header().doesNotExist(HttpHeaders.CONTENT_LENGTH))
+                .andExpect(header().doesNotExist(HttpHeaders.ETAG));
+    }
+
+    @Test
+    void reportsAFileThatCantBeOpened() throws Exception {
+        final var entry = new StorageEntry("gone.txt", "gone.txt", false, "text", 3L, Instant.EPOCH, null, null);
+        final var provider = only(entry);
+        when(provider.openRead("gone.txt")).thenThrow(new StorageException("gone"));
+        fetch("gone.txt").andExpect(status().isServiceUnavailable());
+    }
+
+    @Test
+    void closesTheStreamWhenSendingFails() {
+        final var entry = new StorageEntry("reset.txt", "reset.txt", false, "text", 3L, Instant.EPOCH, null, null);
+        final var provider = only(entry);
+        final var stream = new Tracked("abc", true, false);
+        when(provider.openRead("reset.txt")).thenReturn(stream);
+        assertThatThrownBy(() -> fetch("reset.txt")).isInstanceOf(Exception.class);
+        assertThat(stream.closed).isEqualTo(1);
+    }
+
+    @Test
+    void onlyLogsAFailureToCloseAfterTheFileWasSent() throws Exception {
+        final var entry = new StorageEntry("ftp.txt", "ftp.txt", false, "text", 3L, Instant.EPOCH, null, null);
+        final var provider = only(entry);
+        final var stream = new Tracked("abc", false, true);
+        when(provider.openRead("ftp.txt")).thenReturn(stream);
+        fetch("ftp.txt").andExpect(status().isOk()).andExpect(content().string("abc"));
+        assertThat(stream.closed).isEqualTo(1);
+    }
+
+    @Test
     void answersHeadWithoutABody() throws Exception {
         mvc.perform(head("/files/r1/notes.txt"))
                 .andExpect(status().isOk())
@@ -205,6 +321,7 @@ class FileStreamControllerTest {
     void refusesLockedFileSystems() throws Exception {
         when(registry.find(any())).thenReturn(Optional.of(root(Access.LOCKED)));
         fetch("notes.txt").andExpect(status().isForbidden()).andExpect(content().string(""));
+        verifyNoInteractions(storage);
     }
 
     @Test

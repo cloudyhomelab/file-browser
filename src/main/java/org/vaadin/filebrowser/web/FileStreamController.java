@@ -39,6 +39,7 @@ public class FileStreamController {
     /** Requests that reach this controller, for the security configuration. */
     public static final String PATH_PATTERN = BASE_PATH + "/**";
 
+    private static final System.Logger LOG = System.getLogger(FileStreamController.class.getName());
     private static final String OCTET_STREAM = "application/octet-stream";
     private static final String PDF = "application/pdf";
     private static final String BYTES = "bytes";
@@ -139,20 +140,34 @@ public class FileStreamController {
             response.setStatus(HttpStatus.SERVICE_UNAVAILABLE.value());
             return;
         }
-        describe(entry, response);
-        if (range != null) {
-            response.setStatus(HttpStatus.PARTIAL_CONTENT.value());
-            response.setHeader(HttpHeaders.CONTENT_RANGE,
-                    BYTES + " " + range.start() + "-" + range.end() + "/" + size);
-            response.setContentLengthLong(range.length());
-        } else if (size != null) {
-            response.setContentLengthLong(size);
-        }
-        if (in != null) {
-            // closing gives a remote session back to its pool, also when the browser drops the request
-            try (in) {
+        // closing gives a remote session back to its pool, so it must happen whatever fails below
+        try {
+            describe(entry, response);
+            if (range != null) {
+                response.setStatus(HttpStatus.PARTIAL_CONTENT.value());
+                response.setHeader(HttpHeaders.CONTENT_RANGE,
+                        BYTES + " " + range.start() + "-" + range.end() + "/" + size);
+                response.setContentLengthLong(range.length());
+            } else if (size != null) {
+                response.setContentLengthLong(size);
+            }
+            if (in != null) {
                 in.transferTo(response.getOutputStream());
             }
+        } finally {
+            close(in, entry);
+        }
+    }
+
+    /** The bytes were sent, or the transfer already failed, before this runs; a failure to close is only logged. */
+    private static void close(InputStream in, StorageEntry entry) {
+        if (in == null) {
+            return;
+        }
+        try {
+            in.close();
+        } catch (IOException | StorageException e) {
+            LOG.log(System.Logger.Level.WARNING, "Closing the stream of “" + entry.path() + "” failed", e);
         }
     }
 
