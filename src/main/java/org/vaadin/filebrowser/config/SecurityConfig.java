@@ -9,6 +9,7 @@ import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.AuthenticationException;
@@ -16,8 +17,11 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.vaadin.filebrowser.service.SignInPolicy;
 import org.vaadin.filebrowser.service.UserAccounts;
+import org.vaadin.filebrowser.web.FileStreamController;
 
 import com.vaadin.flow.spring.security.VaadinSecurityConfigurer;
 
@@ -43,7 +47,14 @@ public class SecurityConfig {
         final var loginPage = registrations.size() == 1
                 ? AUTHORIZATION_PATH + registrations.getFirst().getRegistrationId()
                 : SIGN_IN_PATH;
-        http.authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC_RESOURCES).permitAll());
+        final var files = PathPatternRequestMatcher.withDefaults().matcher(FileStreamController.PATH_PATTERN);
+        // Vaadin denies requests outside its own routes unless a rule here allows them
+        http.authorizeHttpRequests(auth -> auth
+                .requestMatchers(PUBLIC_RESOURCES).permitAll()
+                .requestMatchers(files).authenticated());
+        // media elements can't follow a redirect to the provider's sign-in page
+        http.exceptionHandling(e -> e.defaultAuthenticationEntryPointFor(
+                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED), files));
         // the provider session is ended too when it advertises end_session_endpoint (Google does not)
         http.with(VaadinSecurityConfigurer.vaadin(), vaadin -> vaadin.oauth2LoginPage(loginPage, POST_LOGOUT_REDIRECT));
         final var userService = new FileBrowserOidcUserService(policy, properties, accounts);

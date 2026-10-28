@@ -256,6 +256,16 @@ abstract class RemoteProviderContract {
     }
 
     @Test
+    void readsPartOfAFile() throws IOException {
+        try (final var in = provider.openRead("Projects/brief.txt", 1, 3)) {
+            assertThat(new String(in.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("rie");
+        }
+        try (final var in = provider.openRead("Projects/brief.txt", 3, 100)) {
+            assertThat(new String(in.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("ef");
+        }
+    }
+
+    @Test
     void deletesAnEmptyFolderButLeavesOneThatIsNot() throws IOException {
         provider.createFolder("", "Empty");
 

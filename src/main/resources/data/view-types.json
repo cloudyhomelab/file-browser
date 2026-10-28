@@ -1,0 +1,22 @@
+{
+  "image/png":                 ["png"],
+  "image/jpeg":                ["jpg", "jpeg"],
+  "image/gif":                 ["gif"],
+  "image/webp":                ["webp"],
+  "image/avif":                ["avif"],
+  "image/bmp":                 ["bmp"],
+  "video/mp4":                 ["mp4", "m4v"],
+  "video/webm":                ["webm"],
+  "video/ogg":                 ["ogv"],
+  "video/quicktime":           ["mov"],
+  "audio/mpeg":                ["mp3"],
+  "audio/mp4":                 ["m4a"],
+  "audio/aac":                 ["aac"],
+  "audio/ogg":                 ["ogg", "oga", "opus"],
+  "audio/wav":                 ["wav"],
+  "audio/flac":                ["flac"],
+  "application/pdf":           ["pdf"],
+  "text/plain; charset=utf-8": ["txt", "md", "log", "csv", "json", "js", "ts", "tsx", "jsx", "java", "py", "sh",
+                                "css", "yml", "yaml", "toml", "ini", "conf", "properties",
+                                "html", "htm", "xhtml", "xml", "svg"]
+}
