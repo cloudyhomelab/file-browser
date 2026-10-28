@@ -34,4 +34,19 @@ public interface EntryHandler extends Serializable {
     Sort sort();
 
     void sortBy(SortKey key);
+
+    /** Whether entries can be dragged onto folders to move them. */
+    default boolean draggable() {
+        return false;
+    }
+
+    default void dragStarted() {
+    }
+
+    default void dragEnded() {
+    }
+
+    /** {@code dragged} was dropped onto the folder {@code folder}. */
+    default void dropOnto(Located dragged, Located folder) {
+    }
 }

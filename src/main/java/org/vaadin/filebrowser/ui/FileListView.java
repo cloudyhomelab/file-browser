@@ -20,6 +20,7 @@ public class FileListView extends Composite<Div> {
 
     private final EntryHandler handler;
     private final Map<Located, Div> rows = new LinkedHashMap<>();
+    private final DragMove.Targets dropTargets = new DragMove.Targets();
 
     public FileListView(List<Located> entries, EntryHandler handler, Density density, Catalog catalog) {
         this.handler = handler;
@@ -45,7 +46,7 @@ public class FileListView extends Composite<Div> {
         table.add(header);
 
         for (final var entry : entries) {
-            final var row = row(entry, handler, catalog);
+            final var row = row(entry, handler, catalog, dropTargets);
             rows.put(entry, row);
             table.add(row);
         }
@@ -57,6 +58,10 @@ public class FileListView extends Composite<Div> {
      */
     public void refreshFocus() {
         rows.forEach((entry, row) -> row.getElement().getClassList().set("fb-row--focused", handler.focused(entry)));
+    }
+
+    public void setDropActive(boolean on) {
+        dropTargets.setActive(on);
     }
 
     private static Component colHead(String label, SortKey key, EntryHandler handler) {
@@ -71,7 +76,7 @@ public class FileListView extends Composite<Div> {
         return button;
     }
 
-    private static Div row(Located located, EntryHandler handler, Catalog catalog) {
+    private static Div row(Located located, EntryHandler handler, Catalog catalog, DragMove.Targets dropTargets) {
         final var entry = located.entry();
         final var selected = handler.selectable() && handler.selected(located);
         final var starred = handler.starred(located);
@@ -134,6 +139,12 @@ public class FileListView extends Composite<Div> {
             }
         });
         MenuPosition.onContextMenu(row, pos -> handler.contextMenu(located, pos));
+        if (handler.draggable()) {
+            DragMove.source(row, located, handler);
+            if (entry.folder()) {
+                dropTargets.add(row, dragged -> handler.dropOnto(dragged, located));
+            }
+        }
         return row;
     }
 }

@@ -11,15 +11,21 @@ import com.vaadin.flow.component.html.Div;
 
 public class FileGridView extends Composite<Div> {
 
+    private final DragMove.Targets dropTargets = new DragMove.Targets();
+
     public FileGridView(List<Located> entries, EntryHandler handler, Catalog catalog) {
         getContent().setClassName("fb-cards");
         for (final var located : entries) {
-            final var card = card(located, handler, catalog);
+            final var card = card(located, handler, catalog, dropTargets);
             getContent().add(card);
         }
     }
 
-    private static Div card(Located located, EntryHandler handler, Catalog catalog) {
+    public void setDropActive(boolean on) {
+        dropTargets.setActive(on);
+    }
+
+    private static Div card(Located located, EntryHandler handler, Catalog catalog, DragMove.Targets dropTargets) {
         final var entry = located.entry();
         final var selected = handler.selectable() && handler.selected(located);
         final var starred = handler.starred(located);
@@ -67,6 +73,12 @@ public class FileGridView extends Composite<Div> {
             }
         });
         MenuPosition.onContextMenu(card, pos -> handler.contextMenu(located, pos));
+        if (handler.draggable()) {
+            DragMove.source(card, located, handler);
+            if (entry.folder()) {
+                dropTargets.add(card, dragged -> handler.dropOnto(dragged, located));
+            }
+        }
         return card;
     }
 }

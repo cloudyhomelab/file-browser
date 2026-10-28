@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.vaadin.filebrowser.data.FsRoot;
+import org.vaadin.filebrowser.data.MoveCheck;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.ui.Buttons;
 import org.vaadin.filebrowser.ui.Icon;
@@ -68,17 +69,12 @@ public class MoveDialog extends FbDialog {
         return List.copyOf(out);
     }
 
-    private boolean intoSelf() {
-        final var k = key(dest);
-        return movedFolderKeys.stream().anyMatch(d -> k.equals(d) || k.startsWith(d + "/"));
-    }
-
-    private boolean sameAsCurrent() {
-        return key(dest).equals(key(currentPath));
+    private MoveCheck check() {
+        return MoveCheck.of(currentPath, movedFolderKeys, dest);
     }
 
     private boolean valid() {
-        return !intoSelf() && !sameAsCurrent();
+        return check() == MoveCheck.OK;
     }
 
     private void render() {
@@ -92,14 +88,15 @@ public class MoveDialog extends FbDialog {
         }
 
         status.removeAll();
-        final var bad = intoSelf() || sameAsCurrent();
+        final var check = check();
+        final var bad = check != MoveCheck.OK;
         status.getElement().getClassList().set("fb-move-status--error", bad);
         final var statusIcon = new Icon(bad ? "warn" : "info");
         status.add(statusIcon);
-        if (intoSelf()) {
+        if (check == MoveCheck.INTO_ITSELF) {
             final var message = new Span("Can't move a folder into itself.");
             status.add(message);
-        } else if (sameAsCurrent()) {
+        } else if (check == MoveCheck.SAME_FOLDER) {
             final var message = new Span("Items are already here.");
             status.add(message);
         } else {

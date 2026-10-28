@@ -4,12 +4,14 @@ import java.util.List;
 
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
+import org.vaadin.filebrowser.data.Located;
 import org.vaadin.filebrowser.service.CurrentUser;
 
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Aside;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Nav;
+import com.vaadin.flow.function.SerializableBiConsumer;
 import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.function.SerializableRunnable;
 
@@ -17,7 +19,7 @@ public class Sidebar extends Composite<Aside> {
 
     public record Callbacks(SerializableConsumer<List<String>> onNavigate, SerializableConsumer<FsRoot> onPickRoot,
                             SerializableRunnable onAllRoots, SerializableRunnable onStarred,
-                            SerializableRunnable onLogout) {
+                            SerializableRunnable onLogout, SerializableBiConsumer<Located, List<String>> onDropInto) {
     }
 
     private final FolderTree folderTree;
@@ -28,7 +30,7 @@ public class Sidebar extends Composite<Aside> {
                    Callbacks callbacks) {
         final var aside = getContent();
         aside.setClassName("fb-sidebar");
-        folderTree = new FolderTree(folders, callbacks.onNavigate());
+        folderTree = new FolderTree(folders, callbacks.onNavigate(), callbacks.onDropInto());
         onStarred = callbacks.onStarred();
 
         final var nav = new Nav(folderTree);
@@ -69,6 +71,10 @@ public class Sidebar extends Composite<Aside> {
         }
         item.addClickListener(e -> onStarred.run());
         starredSlot.add(item);
+    }
+
+    public void setDropActive(boolean on) {
+        folderTree.setDropActive(on);
     }
 
     /** Re-reads folders after something was created, renamed, moved or deleted. */
