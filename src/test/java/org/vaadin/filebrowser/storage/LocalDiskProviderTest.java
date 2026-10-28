@@ -117,10 +117,21 @@ class LocalDiskProviderTest {
 
     @Test
     void copiesFoldersRecursively() throws IOException {
-        provider.copy("Projects", "Projects copy");
+        provider.copy("Projects", "", "Projects copy");
         assertThat(read(provider, "Projects copy/brief.txt")).isEqualTo("brief");
         assertThat(root.resolve("Projects copy/Design")).isDirectory();
-        assertThatThrownBy(() -> provider.copy("notes.txt", "Projects")).isInstanceOf(StorageException.class);
+        assertThatThrownBy(() -> provider.copy("notes.txt", "", "Projects")).isInstanceOf(StorageException.class);
+    }
+
+    @Test
+    void copiesIntoAnotherFolderButNeverIntoItself() throws IOException {
+        provider.copy("notes.txt", "Projects/Design", "notes.txt");
+        assertThat(read(provider, "Projects/Design/notes.txt")).isEqualTo("notes");
+        assertThat(root.resolve("notes.txt")).exists();
+        assertThatThrownBy(() -> provider.copy("notes.txt", "Projects/Design", "notes.txt"))
+                .hasMessageContaining("already exists");
+        assertThatThrownBy(() -> provider.copy("Projects", "Projects/Design", "Projects"))
+                .hasMessageContaining("into itself");
     }
 
     @Test

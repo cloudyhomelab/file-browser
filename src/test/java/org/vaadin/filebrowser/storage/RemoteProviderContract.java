@@ -143,11 +143,16 @@ abstract class RemoteProviderContract {
         assertThat(read(provider, "Projects/Design/brief (1).txt")).isEqualTo("brief");
         provider.move("Projects/Design/brief (1).txt", "Projects", "brief.txt");
 
-        provider.copy("Projects", "Projects copy");
+        provider.copy("Projects", "", "Projects copy");
         assertThat(read(provider, "Projects copy/Design/logo.txt")).isEqualTo("logo");
         assertThat(read(provider, "Projects/Design/logo.txt")).isEqualTo("logo");
-        provider.copy("Projects/brief.txt", "brief copy.txt");
+        provider.copy("Projects/brief.txt", "Projects", "brief copy.txt");
         assertThat(read(provider, "Projects/brief copy.txt")).isEqualTo("brief");
+        provider.copy("Projects/brief.txt", "Projects/Design", "brief.txt");
+        assertThat(read(provider, "Projects/Design/brief.txt")).isEqualTo("brief");
+        assertThatThrownBy(() -> provider.copy("Projects/brief.txt", "Projects/Design", "brief.txt"))
+                .hasMessageContaining("already exists");
+        assertThatThrownBy(() -> provider.copy("Projects", "Projects/Design", "Projects")).hasMessageContaining("into itself");
     }
 
     @Test

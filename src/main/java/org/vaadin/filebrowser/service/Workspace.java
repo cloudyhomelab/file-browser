@@ -308,27 +308,45 @@ public class Workspace implements Serializable {
         final var destinationPath = StoragePaths.join(destination);
         final var moved = StoragePaths.child(destinationPath, targetName);
         if (replace) {
-            final var existing = provider.stat(moved);
-            if (existing.isPresent()) {
-                if (entry.folder() || existing.get().folder()) {
-                    throw new StorageException("“" + targetName + "” can't be replaced: only a file replaces a file.");
-                }
-                provider.delete(moved);
-                dropStars(root.id(), moved);
-            }
+            replaceFile(root, provider, entry, moved, targetName);
         }
         provider.move(entry.path(), destinationPath, targetName);
         moveStars(root.id(), entry.path(), moved);
+    }
+
+    /**
+     * Copies into {@code destination} as {@code targetName}. With {@code replace}, an existing file of that name is
+     * deleted first; a folder is never replaced, nor replaced by one.
+     */
+    public void copy(FsRoot root, StorageEntry entry, List<String> destination, String targetName, boolean replace) {
+        final var provider = writable(root);
+        final var destinationPath = StoragePaths.join(destination);
+        if (replace) {
+            replaceFile(root, provider, entry, StoragePaths.child(destinationPath, targetName), targetName);
+        }
+        provider.copy(entry.path(), destinationPath, targetName);
     }
 
     /** Copies next to the original as "name copy.ext", "name copy 2.ext", … */
     public String duplicate(FsRoot root, StorageEntry entry) {
         final var provider = writable(root);
         final var siblings = new HashSet<String>();
-        provider.list(StoragePaths.join(entry.parent())).forEach(e -> siblings.add(e.name()));
+        final var folder = StoragePaths.join(entry.parent());
+        provider.list(folder).forEach(e -> siblings.add(e.name()));
         final var name = copyName(entry.name(), siblings);
-        provider.copy(entry.path(), name);
+        provider.copy(entry.path(), folder, name);
         return name;
+    }
+
+    private void replaceFile(FsRoot root, StorageProvider provider, StorageEntry entry, String path, String name) {
+        final var existing = provider.stat(path);
+        if (existing.isPresent()) {
+            if (entry.folder() || existing.get().folder()) {
+                throw new StorageException("“" + name + "” can't be replaced: only a file replaces a file.");
+            }
+            provider.delete(path);
+            dropStars(root.id(), path);
+        }
     }
 
     private static String copyName(String name, Set<String> taken) {

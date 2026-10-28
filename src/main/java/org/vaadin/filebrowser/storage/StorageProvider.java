@@ -23,8 +23,11 @@ public interface StorageProvider {
     /** Moves into {@code destinationFolder} under {@code targetName}; never replaces what is already there. */
     void move(String path, String destinationFolder, String targetName);
 
-    /** Copies a file or folder (recursively) next to the original under {@code targetName}. */
-    void copy(String path, String targetName);
+    /**
+     * Copies a file or folder (recursively) into {@code destinationFolder} under {@code targetName}; never replaces
+     * what is already there.
+     */
+    void copy(String path, String destinationFolder, String targetName);
 
     /** Deletes permanently; folders are deleted with their contents. */
     void delete(String path);
