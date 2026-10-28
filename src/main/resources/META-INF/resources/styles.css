@@ -58,6 +58,10 @@
   --fb-shadow-m: 0 4px 12px -2px rgba(28, 48, 74, 0.18), 0 1px 3px rgba(20, 20, 20, 0.10);
   --fb-shadow-overlay: 0 12px 32px -8px rgba(28, 48, 74, 0.32), 0 2px 6px rgba(20, 20, 20, 0.08);
   --fb-shadow-focus: 0 0 0 2px rgba(50, 102, 228, 0.45);
+  /* the folder an entry would be dropped into */
+  --fb-shadow-drop: inset 0 0 0 2px var(--fb-accent);
+  /* an entry while it is being dragged */
+  --fb-dragged-opacity: 0.45;
   --fb-ease: cubic-bezier(0.2, 0.0, 0.0, 1.0);
   --fb-fast: 120ms;
   --fb-normal: 200ms;
@@ -636,6 +640,7 @@ vaadin-button.fb-login-submit { font-weight: var(--fb-weight-semibold); margin-t
 .fb-tree-row--active, .fb-tree-row--active:hover { background: var(--fb-accent-bg-subtle); color: var(--fb-accent-text); font-weight: var(--fb-weight-semibold); }
 .fb-tree-row--active > .fb-icon { color: var(--fb-accent); }
 .fb-tree-row--all { padding: 0 8px; --icon-size: 15px; }
+.fb-tree-row.v-drag-over-target { background: var(--fb-accent-bg-subtle); box-shadow: var(--fb-shadow-drop); }
 .fb-caret {
   width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
   border: none; background: transparent; padding: 0; cursor: pointer; color: var(--fb-fg-tertiary); --icon-size: 13px;
@@ -731,6 +736,8 @@ vaadin-text-field.fb-search [slot="prefix"] { color: var(--fb-fg-secondary); }
 .fb-row:last-child { border-bottom: none; }
 .fb-row:hover, .fb-row--focused { background: var(--fb-bg-subtle); }
 .fb-row--selected, .fb-row--selected:hover { background: var(--fb-accent-bg-subtle); }
+.fb-row.v-drag-over-target { background: var(--fb-accent-bg-subtle); box-shadow: var(--fb-shadow-drop); }
+.fb-row.v-dragged, .fb-card.v-dragged { opacity: var(--fb-dragged-opacity); }
 .fb-row--selected::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2.5px; background: var(--fb-accent); }
 .fb-row-check { visibility: hidden; display: inline-flex; }
 .fb-row:hover .fb-row-check, .fb-row--selected .fb-row-check { visibility: visible; }
@@ -756,6 +763,7 @@ vaadin-text-field.fb-search [slot="prefix"] { color: var(--fb-fg-secondary); }
 }
 .fb-card:hover { box-shadow: var(--fb-shadow-m); transform: translateY(-2px); }
 .fb-card--selected { border-color: var(--fb-accent); background: var(--fb-accent-bg-subtle); }
+.fb-card.v-drag-over-target { border-color: var(--fb-accent); background: var(--fb-accent-bg-subtle); box-shadow: var(--fb-shadow-drop); }
 .fb-card-check { position: absolute; top: 9px; left: 9px; visibility: hidden; display: inline-flex; }
 .fb-card:hover .fb-card-check, .fb-card--selected .fb-card-check { visibility: visible; }
 .fb-card-starmark { position: absolute; top: 8px; left: 8px; color: var(--fb-accent); display: inline-flex; }

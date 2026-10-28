@@ -18,6 +18,7 @@ import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.IncomingFile;
 import org.vaadin.filebrowser.data.Located;
+import org.vaadin.filebrowser.data.MoveCheck;
 import org.vaadin.filebrowser.data.Sort;
 import org.vaadin.filebrowser.data.SortKey;
 import org.vaadin.filebrowser.service.ArchiveExtractor;
@@ -31,6 +32,7 @@ import org.vaadin.filebrowser.service.Workspace.Layout;
 import org.vaadin.filebrowser.service.Workspace;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
+import org.vaadin.filebrowser.storage.StoragePaths;
 import org.vaadin.filebrowser.ui.Badge;
 import org.vaadin.filebrowser.ui.BulkBar;
 import org.vaadin.filebrowser.ui.DetailsPanel;
@@ -53,6 +55,7 @@ import org.vaadin.filebrowser.ui.Ui;
 import org.vaadin.filebrowser.ui.UploadDock;
 import org.vaadin.filebrowser.ui.dialog.ConflictDialog;
 import org.vaadin.filebrowser.ui.dialog.DeleteDialog;
+import org.vaadin.filebrowser.ui.dialog.MoveConfirmDialog;
 import org.vaadin.filebrowser.ui.dialog.MoveDialog;
 import org.vaadin.filebrowser.ui.dialog.NameDialog;
 import org.vaadin.filebrowser.ui.dialog.UploadDialog;
@@ -106,12 +109,15 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private List<String> path = List.of();
     private Sidebar sidebar;
     private FileListView listView;
+    private FileGridView gridView;
     private String query = "";
     private List<StorageEntry> currentEntries = List.of();
     private String loadError;
     private final Set<String> selected = new HashSet<>();
     private String focused;
     private boolean starredView;
+    /** Between a drag start and its end; drop targets are active and auto refresh waits meanwhile. */
+    private boolean dragging;
     private boolean resetting;
     private Registration pollRegistration;
     private AutoRefresh autoRefresh = AutoRefresh.OFF;
@@ -191,7 +197,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             autoRefresh = AutoRefresh.OFF;
             updatePollInterval();
             final var sidebarCallbacks = new Sidebar.Callbacks(this::navTo, this::openRoot, this::backToRoots,
-                    this::showStarred, this::logout);
+                    this::showStarred, this::logout, this::dropInto);
             final var browsable = workspace.browsableRoots();
             final var sidebarRoot = root;
             final var user = currentUser.get().orElse(null);
@@ -331,7 +337,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     /** A poll tick with auto refresh on: re-read, and render only if the folder changed. */
     private void autoRefreshTick() {
-        if (!autoRefresh.on() || Duration.between(lastLoad, Instant.now()).plus(AUTO_REFRESH_SLACK)
+        if (dragging || !autoRefresh.on() || Duration.between(lastLoad, Instant.now()).plus(AUTO_REFRESH_SLACK)
                 .compareTo(autoRefresh.interval()) < 0) {
             return;
         }
@@ -350,6 +356,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void render() {
+        // rows are rebuilt with their drop targets off; a dragged row that is replaced never reports its drag end
+        dragging = false;
         final var entries = displayEntries();
         shownSignature = signature(entries, loadError);
         final var starredCount = workspace.starredIn(root).size();
@@ -427,6 +435,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private void renderContent(List<Located> entries) {
         content.removeAll();
         listView = null;
+        gridView = null;
         if (loadError != null && !starredView) {
             final var unavailable = EmptyState.unavailable(loadError);
             content.add(unavailable);
@@ -444,7 +453,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             listView = new FileListView(entries, this, workspace.density(), workspace.catalog());
             content.add(listView);
         } else {
-            final var gridView = new FileGridView(entries, this, workspace.catalog());
+            gridView = new FileGridView(entries, this, workspace.catalog());
             content.add(gridView);
         }
     }
@@ -523,6 +532,29 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         } else {
             setFocused(entryValue.path());
         }
+    }
+
+    @Override
+    public boolean draggable() {
+        return !starredView && !readOnly();
+    }
+
+    @Override
+    public void dragStarted() {
+        dragging = true;
+        setDropTargetsActive(true);
+    }
+
+    @Override
+    public void dragEnded() {
+        dragging = false;
+        setDropTargetsActive(false);
+    }
+
+    @Override
+    public void dropOnto(Located dragged, Located folder) {
+        final var folderPath = append(folderOf(folder), folder.entry().name());
+        dropInto(dragged, folderPath);
     }
 
     @Override
@@ -606,7 +638,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                 final var moveRoot = root;
                 final var from = folderOf(first);
                 final var dialog = new MoveDialog(entries, root, folder -> workspace.subfolders(moveRoot, folder), from,
-                        dest -> checkClashes(targets, dest));
+                        dest -> checkClashes(targets, dest, false));
                 dialog.open();
             }
             case DELETE -> {
@@ -652,8 +684,11 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         return done;
     }
 
-    /** Asks what to do with names that already exist in {@code dest}, then moves. */
-    private void checkClashes(List<Located> targets, List<String> dest) {
+    /**
+     * Asks what to do with names that already exist in {@code dest}, then moves. With {@code confirm}, a move
+     * without clashes is confirmed first; the clash dialog serves as the confirmation otherwise.
+     */
+    private void checkClashes(List<Located> targets, List<String> dest, boolean confirm) {
         final List<StorageEntry> existing;
         try {
             existing = workspace.list(root, dest);
@@ -669,6 +704,12 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                 .map(e -> new ConflictDialog.Clash(e.name(), e.type(), e.folder() || existingFolders.get(e.name())))
                 .toList();
         final var names = Set.copyOf(existingFolders.keySet());
+        if (clashes.isEmpty() && confirm) {
+            final var entries = targets.stream().map(Located::entry).toList();
+            final var confirmDialog = new MoveConfirmDialog(entries, folderName(dest), () -> move(targets, dest, names, Map.of()));
+            confirmDialog.open();
+            return;
+        }
         if (clashes.isEmpty()) {
             move(targets, dest, names, Map.of());
             return;
@@ -676,6 +717,43 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var dialog = new ConflictDialog(ConflictDialog.Purpose.MOVE, workspace.catalog(), clashes, targets.size(),
                 names, choices -> move(targets, dest, names, choices));
         dialog.open();
+    }
+
+    private String folderName(List<String> folder) {
+        return folder.isEmpty() ? root.name() : folder.getLast();
+    }
+
+    /** {@code dragged} was dropped onto a folder in the list, the grid or the tree. */
+    private void dropInto(Located dragged, List<String> dest) {
+        setDropTargetsActive(false);
+        dragging = false;
+        if (!draggable()) {
+            return;
+        }
+        final var targets = selected(dragged)
+                ? displayEntries().stream().filter(this::selected).toList()
+                : List.of(dragged);
+        final var destPath = StoragePaths.join(dest);
+        // dropping a folder onto itself is the usual slip at the end of a drag, not a mistake worth a message
+        if (targets.stream().anyMatch(t -> t.entry().path().equals(destPath))) {
+            return;
+        }
+        final var movedFolders = targets.stream().map(Located::entry).filter(StorageEntry::folder).map(StorageEntry::path).toList();
+        switch (MoveCheck.of(path, movedFolders, dest)) {
+            case SAME_FOLDER -> { }
+            case INTO_ITSELF -> Toasts.error("Can't move a folder into itself.");
+            case OK -> checkClashes(targets, dest, true);
+        }
+    }
+
+    private void setDropTargetsActive(boolean on) {
+        if (listView != null) {
+            listView.setDropActive(on);
+        }
+        if (gridView != null) {
+            gridView.setDropActive(on);
+        }
+        sidebar.setDropActive(on);
     }
 
     private record PlannedMove(String name, boolean replace) {
@@ -702,7 +780,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         });
         selected.clear();
         if (done > 0) {
-            final var destName = dest.isEmpty() ? root.name() : dest.getLast();
+            final var destName = folderName(dest);
             final var movedLabel = done == targets.size() ? label(targets) : Formats.plural(done, "item");
             Toasts.show("Moved " + movedLabel + " to “" + destName + "”", "move");
         }
