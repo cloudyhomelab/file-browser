@@ -21,7 +21,7 @@ public class CapacityMeter extends Composite<Div> {
         if (cap == null) {
             div.addClassName("fb-capacity--none");
             final var reason = root.online() ? null : root.status().reason();
-            final var icon = new Icon(reason != null ? "warn" : "link");
+            final var icon = new Icon(root.online() ? "note" : "warn");
             final var note = reason != null ? reason
                     : !root.online() ? "Unavailable"
                     : kind.usageNote() != null ? kind.usageNote()
