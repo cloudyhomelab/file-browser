@@ -253,14 +253,15 @@ public class S3Provider implements StorageProvider, AutoCloseable {
     }
 
     @Override
-    public void move(String path, String destinationFolder) {
+    public void move(String path, String destinationFolder, String targetName) {
+        StoragePaths.requireValidName(targetName);
         if (destinationFolder.equals(path) || destinationFolder.startsWith(path + "/")) {
             throw new StorageException("A folder can't be moved into itself.");
         }
         requireFolder(destinationFolder);
-        final var target = StoragePaths.child(destinationFolder, nameOf(path));
+        final var target = StoragePaths.child(destinationFolder, targetName);
         if (exists(target)) {
-            throw new StorageException("“" + nameOf(path) + "” already exists in the destination.");
+            throw new StorageException("“" + targetName + "” already exists in the destination.");
         }
         transfer(path, target, true, "move");
     }

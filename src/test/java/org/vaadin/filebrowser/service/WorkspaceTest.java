@@ -140,6 +140,48 @@ class WorkspaceTest {
     }
 
     @Test
+    void aMoveThatReplacesDeletesTheExistingFileAndItsStar() throws IOException {
+        Files.createDirectory(folder.resolve("Archive"));
+        Files.writeString(folder.resolve("Archive/notes.txt"), "older");
+        workspace.setStarred("a", "notes.txt", true);
+        workspace.setStarred("a", "Archive/notes.txt", true);
+        final var notes = workspace.list(held, List.of()).stream().filter(e -> e.name().equals("notes.txt")).findFirst().orElseThrow();
+
+        workspace.move(held, notes, List.of("Archive"), "notes.txt", true);
+
+        assertThat(folder.resolve("Archive/notes.txt")).hasContent("notes");
+        assertThat(folder.resolve("notes.txt")).doesNotExist();
+        assertThat(workspace.isStarred("a", "Archive/notes.txt")).isTrue();
+        assertThat(workspace.isStarred("a", "notes.txt")).isFalse();
+    }
+
+    @Test
+    void aMoveUnderANewNameTakesItsStarAlong() throws IOException {
+        Files.createDirectory(folder.resolve("Archive"));
+        Files.writeString(folder.resolve("Archive/notes.txt"), "older");
+        workspace.setStarred("a", "notes.txt", true);
+        final var notes = workspace.list(held, List.of()).stream().filter(e -> e.name().equals("notes.txt")).findFirst().orElseThrow();
+
+        workspace.move(held, notes, List.of("Archive"), "notes (1).txt", false);
+
+        assertThat(folder.resolve("Archive/notes (1).txt")).hasContent("notes");
+        assertThat(folder.resolve("Archive/notes.txt")).hasContent("older");
+        assertThat(workspace.isStarred("a", "Archive/notes (1).txt")).isTrue();
+    }
+
+    @Test
+    void aFolderIsNeverReplaced() throws IOException {
+        Files.createDirectories(folder.resolve("Archive/notes.txt"));
+        final var notes = workspace.list(held, List.of()).stream().filter(e -> e.name().equals("notes.txt")).findFirst().orElseThrow();
+
+        assertThatThrownBy(() -> workspace.move(held, notes, List.of("Archive"), "notes.txt", true))
+                .isInstanceOf(StorageException.class)
+                .hasMessageContaining("can't be replaced");
+        assertThat(folder.resolve("Archive/notes.txt")).isDirectory();
+        assertThat(folder.resolve("notes.txt")).hasContent("notes");
+    }
+
+    @Test
     void onlyAdminsMayBrowseTheServersFolders() {
         // no one is signed in here, so the current user is not an admin
         assertThatThrownBy(() -> workspace.serverFolders(dir.toString())).isInstanceOf(AccessDeniedException.class);
