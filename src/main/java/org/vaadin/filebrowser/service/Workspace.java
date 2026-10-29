@@ -523,11 +523,11 @@ public class Workspace implements Serializable {
         final var dot = name.lastIndexOf('.');
         final var base = dot > 0 ? name.substring(0, dot) : name;
         final var ext = dot > 0 ? name.substring(dot) : "";
-        int n = 1;
+        int number = 1;
         String candidate;
         do {
-            candidate = base + " (" + n + ")" + ext;
-            n++;
+            candidate = base + " (" + number + ")" + ext;
+            number++;
         } while (taken.contains(candidate));
         return candidate;
     }

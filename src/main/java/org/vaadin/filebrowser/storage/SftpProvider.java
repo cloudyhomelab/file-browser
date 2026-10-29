@@ -142,18 +142,18 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     }
 
     /** Tells a host key that isn't trusted from a refused sign-in. */
-    private static StorageException signInFailure(String seen, String pinned, IOException e) {
+    private static StorageException signInFailure(String seen, String pinned, IOException cause) {
         if (seen != null && pinned.isEmpty()) {
             return new UntrustedServerException(seen);
         }
         if (seen != null && !seen.equals(pinned)) {
             return new StorageException("The server's host key changed. If that is expected, remove this "
-                    + "file system and add it again.", e);
+                    + "file system and add it again.", cause);
         }
         if (seen == null) {
-            return new StorageException("The server didn't complete the connection.", e);
+            return new StorageException("The server didn't complete the connection.", cause);
         }
-        return new StorageException("The server refused the user name or credentials.", e);
+        return new StorageException("The server refused the user name or credentials.", cause);
     }
 
     @Override
@@ -180,14 +180,14 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     }
 
     @Override
-    protected StorageException failure(String action, IOException e) {
-        if (e instanceof SftpRefusal refusal && refusal.status == SftpConstants.SSH_FX_PERMISSION_DENIED) {
-            return new StorageException("You don't have permission to " + action + ".", e);
+    protected StorageException failure(String action, IOException cause) {
+        if (cause instanceof SftpRefusal refusal && refusal.status == SftpConstants.SSH_FX_PERMISSION_DENIED) {
+            return new StorageException("You don't have permission to " + action + ".", cause);
         }
-        if (e instanceof SftpRefusal refusal && refusal.status == SftpConstants.SSH_FX_NO_SUCH_FILE) {
-            return new StorageException("Could not " + action + ": it no longer exists.", e);
+        if (cause instanceof SftpRefusal refusal && refusal.status == SftpConstants.SSH_FX_NO_SUCH_FILE) {
+            return new StorageException("Could not " + action + ": it no longer exists.", cause);
         }
-        return super.failure(action, e);
+        return super.failure(action, cause);
     }
 
     // ---- primitives -----------------------------------------------------------------------
@@ -332,9 +332,9 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     }
 
     /** A status the server sent back; the session stays usable. */
-    private static IOException refusal(SftpException e) {
-        final var refusal = new SftpRefusal(e);
-        refusal.initCause(e);
+    private static IOException refusal(SftpException cause) {
+        final var refusal = new SftpRefusal(cause);
+        refusal.initCause(cause);
         return refusal;
     }
 
@@ -342,9 +342,9 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
 
         private final int status;
 
-        SftpRefusal(SftpException e) {
-            super(e.getMessage());
-            this.status = e.getStatus();
+        SftpRefusal(SftpException cause) {
+            super(cause.getMessage());
+            this.status = cause.getStatus();
         }
     }
 

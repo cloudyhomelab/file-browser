@@ -106,10 +106,10 @@ public class UploadDialog extends FbDialog {
         render();
     }
 
-    private void offer(IncomingFile f) {
-        offered.removeIf(o -> o.name().equals(f.name()));
-        offered.addFirst(f);
-        picked.put(f.name(), f);
+    private void offer(IncomingFile file) {
+        offered.removeIf(o -> o.name().equals(file.name()));
+        offered.addFirst(file);
+        picked.put(file.name(), file);
     }
 
     private void addLink(SerializableFunction<String, LinkFetcher.LinkInfo> inspectLink) {
@@ -180,18 +180,18 @@ public class UploadDialog extends FbDialog {
      * A panel joined to an archive's row: "Extract", and when on, where to, what to do on clashes
      * and whether to keep the archive.
      */
-    private Div extractOptions(IncomingFile f, ArchiveFormat.Match match) {
+    private Div extractOptions(IncomingFile file, ArchiveFormat.Match match) {
         final var single = match.format().singleFile();
-        final var options = extract.get(f.name());
+        final var options = extract.get(file.name());
         final var panel = Ui.div("fb-upload-extract");
         final var toggle = new Switch(options != null);
         toggle.addValueChangeListener(e -> {
             if (e.getValue()) {
                 // a single compressed file has just one file to put next to the others
-                extract.put(f.name(), single ? new ExtractOptions(false, false, ExtractOptions.Clash.KEEP_BOTH)
+                extract.put(file.name(), single ? new ExtractOptions(false, false, ExtractOptions.Clash.KEEP_BOTH)
                         : ExtractOptions.DEFAULT);
             } else {
-                extract.remove(f.name());
+                extract.remove(file.name());
             }
             render();
         });
@@ -203,7 +203,7 @@ public class UploadDialog extends FbDialog {
             final var newFolder = Segmented.Option.text(Boolean.TRUE, "New folder");
             final var here = Segmented.Option.text(Boolean.FALSE, "This folder");
             final var where = new Segmented<>("fb-seg--extract", List.of(newFolder, here), options.newFolder(), v -> {
-                extract.put(f.name(), new ExtractOptions(v, options.keepArchive(), options.clash()));
+                extract.put(file.name(), new ExtractOptions(v, options.keepArchive(), options.clash()));
                 render();
             });
             addOption(panel, "Into", where);
@@ -213,14 +213,14 @@ public class UploadDialog extends FbDialog {
             final var replace = Segmented.Option.text(ExtractOptions.Clash.REPLACE, "Replace");
             final var skip = Segmented.Option.text(ExtractOptions.Clash.SKIP, "Skip");
             final var clash = new Segmented<>("fb-seg--extract", List.of(keepBoth, replace, skip), options.clash(), v -> {
-                extract.put(f.name(), new ExtractOptions(options.newFolder(), options.keepArchive(), v));
+                extract.put(file.name(), new ExtractOptions(options.newFolder(), options.keepArchive(), v));
                 render();
             });
             addOption(panel, "If a name exists", clash);
         }
         final var keep = new Switch(options.keepArchive());
         keep.addValueChangeListener(e -> {
-            extract.put(f.name(), new ExtractOptions(options.newFolder(), e.getValue(), options.clash()));
+            extract.put(file.name(), new ExtractOptions(options.newFolder(), e.getValue(), options.clash()));
             render();
         });
         addOption(panel, "Keep archive", keep);

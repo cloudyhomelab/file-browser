@@ -19,28 +19,28 @@ public final class LimitedInputStream extends FilterInputStream {
         if (remaining <= 0) {
             return -1;
         }
-        final var b = super.read();
-        if (b >= 0) {
+        final var value = super.read();
+        if (value >= 0) {
             remaining--;
         }
-        return b;
+        return value;
     }
 
     @Override
-    public int read(byte[] b, int off, int len) throws IOException {
+    public int read(byte[] buffer, int off, int len) throws IOException {
         if (remaining <= 0) {
             return -1;
         }
-        final var n = super.read(b, off, (int) Math.min(len, remaining));
-        if (n > 0) {
-            remaining -= n;
+        final var count = super.read(buffer, off, (int) Math.min(len, remaining));
+        if (count > 0) {
+            remaining -= count;
         }
-        return n;
+        return count;
     }
 
     @Override
-    public long skip(long n) throws IOException {
-        final var skipped = super.skip(Math.min(n, remaining));
+    public long skip(long count) throws IOException {
+        final var skipped = super.skip(Math.min(count, remaining));
         remaining -= skipped;
         return skipped;
     }

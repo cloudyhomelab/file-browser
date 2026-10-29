@@ -99,10 +99,10 @@ public class ConflictDialog extends FbDialog {
         render();
     }
 
-    private static String title(Purpose purpose, int n) {
+    private static String title(Purpose purpose, int count) {
         final var noun = purpose == Purpose.UPLOAD ? "file" : "item";
         final var where = purpose == Purpose.UPLOAD ? "here" : "in the destination";
-        return n + " " + noun + (n > 1 ? "s" : "") + " already exist" + (n > 1 ? "" : "s") + " " + where;
+        return count + " " + noun + (count > 1 ? "s" : "") + " already exist" + (count > 1 ? "" : "s") + " " + where;
     }
 
     private void render() {
@@ -152,8 +152,8 @@ public class ConflictDialog extends FbDialog {
         summary.setText(summaryText);
     }
 
-    private void detail(Div detail, Clash c, ConflictChoice choice) {
-        final var extraction = purpose == Purpose.UPLOAD && c.folder();
+    private void detail(Div detail, Clash clash, ConflictChoice choice) {
+        final var extraction = purpose == Purpose.UPLOAD && clash.folder();
         switch (choice) {
             case REPLACE -> detail.add("Overwrites the existing file");
             case KEEP_BOTH -> {
@@ -162,7 +162,7 @@ public class ConflictDialog extends FbDialog {
                     case MOVE -> "Moves as ";
                     case COPY -> "Copies as ";
                 });
-                final var newName = Workspace.keepBothName(c.name(), existingNames);
+                final var newName = Workspace.keepBothName(clash.name(), existingNames);
                 final var newNameText = Ui.span("fb-mono", newName);
                 detail.add(lead, newNameText);
             }

@@ -169,14 +169,14 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     }
 
     @Override
-    protected StorageException failure(String action, IOException e) {
-        if (e instanceof SmbRefusal refusal && refusal.status == NtStatus.STATUS_ACCESS_DENIED) {
-            return new StorageException("You don't have permission to " + action + ".", e);
+    protected StorageException failure(String action, IOException cause) {
+        if (cause instanceof SmbRefusal refusal && refusal.status == NtStatus.STATUS_ACCESS_DENIED) {
+            return new StorageException("You don't have permission to " + action + ".", cause);
         }
-        if (e instanceof SmbRefusal refusal && MISSING.contains(refusal.status)) {
-            return new StorageException("Could not " + action + ": it no longer exists.", e);
+        if (cause instanceof SmbRefusal refusal && MISSING.contains(refusal.status)) {
+            return new StorageException("Could not " + action + ": it no longer exists.", cause);
         }
-        return super.failure(action, e);
+        return super.failure(action, cause);
     }
 
     // ---- primitives -----------------------------------------------------------------------
@@ -332,9 +332,9 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     }
 
     /** A status the server sent back; the session stays usable. */
-    private static IOException refusal(SMBApiException e) {
-        final var refusal = new SmbRefusal(e);
-        refusal.initCause(e);
+    private static IOException refusal(SMBApiException cause) {
+        final var refusal = new SmbRefusal(cause);
+        refusal.initCause(cause);
         return refusal;
     }
 
@@ -343,10 +343,10 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
         private final NtStatus status;
         private final long code;
 
-        SmbRefusal(SMBApiException e) {
-            super(e.getMessage());
-            this.status = e.getStatus();
-            this.code = e.getStatusCode();
+        SmbRefusal(SMBApiException cause) {
+            super(cause.getMessage());
+            this.status = cause.getStatus();
+            this.code = cause.getStatusCode();
         }
     }
 
@@ -380,8 +380,8 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
         }
 
         @Override
-        public long skip(long n) {
-            final var skipped = Math.max(0, n);
+        public long skip(long count) {
+            final var skipped = Math.max(0, count);
             position += skipped;
             return skipped;
         }
@@ -404,8 +404,8 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
         }
 
         @Override
-        public void write(int b) throws IOException {
-            out.write(b);
+        public void write(int value) throws IOException {
+            out.write(value);
         }
 
         @Override

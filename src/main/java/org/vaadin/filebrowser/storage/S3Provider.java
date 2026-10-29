@@ -436,8 +436,8 @@ public class S3Provider implements StorageProvider, AutoCloseable {
         @Getter
         private final OutputStream stream = new OutputStream() {
             @Override
-            public void write(int b) throws IOException {
-                buffer.write(b);
+            public void write(int value) throws IOException {
+                buffer.write(value);
                 flushFullParts();
             }
 
@@ -544,14 +544,14 @@ public class S3Provider implements StorageProvider, AutoCloseable {
         client.close();
     }
 
-    private static StorageException failure(String action, SdkException e) {
-        if (e instanceof S3Exception s3 && s3.statusCode() == FORBIDDEN) {
-            return new StorageException("You don't have permission to " + action + ".", e);
+    private static StorageException failure(String action, SdkException cause) {
+        if (cause instanceof S3Exception s3 && s3.statusCode() == FORBIDDEN) {
+            return new StorageException("You don't have permission to " + action + ".", cause);
         }
-        if (e instanceof S3Exception s3 && s3.statusCode() == NOT_FOUND) {
-            return new StorageException("Could not " + action + ": it no longer exists.", e);
+        if (cause instanceof S3Exception s3 && s3.statusCode() == NOT_FOUND) {
+            return new StorageException("Could not " + action + ": it no longer exists.", cause);
         }
-        return new StorageException("Could not " + action + ".", e);
+        return new StorageException("Could not " + action + ".", cause);
     }
 
     /**
@@ -570,16 +570,16 @@ public class S3Provider implements StorageProvider, AutoCloseable {
 
         @Override
         public int read() throws IOException {
-            final var b = super.read();
-            ended |= b < 0;
-            return b;
+            final var value = super.read();
+            ended |= value < 0;
+            return value;
         }
 
         @Override
         public int read(byte[] bytes, int offset, int length) throws IOException {
-            final var n = super.read(bytes, offset, length);
-            ended |= n < 0;
-            return n;
+            final var count = super.read(bytes, offset, length);
+            ended |= count < 0;
+            return count;
         }
 
         @Override

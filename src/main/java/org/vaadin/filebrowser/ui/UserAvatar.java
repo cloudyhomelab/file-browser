@@ -23,10 +23,10 @@ public class UserAvatar extends Span {
     }
 
     private static int colorIndex(String name) {
-        long h = 0;
+        long hash = 0;
         for (final var c : (name == null ? "" : name).toCharArray()) {
-            h = (h * HASH_MULTIPLIER + c) & 0xffffffffL;
+            hash = (hash * HASH_MULTIPLIER + c) & 0xffffffffL;
         }
-        return (int) (h % PALETTE_SIZE);
+        return (int) (hash % PALETTE_SIZE);
     }
 }

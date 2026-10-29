@@ -24,15 +24,15 @@ public final class Formats {
         if (bytes == null) {
             return "—";
         }
-        double n = bytes;
+        double value = bytes;
         int unit = 0;
-        while (n >= UNIT_STEP && unit < SIZE_UNITS.length - 1) {
-            n /= UNIT_STEP;
+        while (value >= UNIT_STEP && unit < SIZE_UNITS.length - 1) {
+            value /= UNIT_STEP;
             unit++;
         }
-        final var number = n >= WHOLE_NUMBER_FROM || unit == 0
-                ? String.valueOf(Math.round(n))
-                : String.format(Locale.US, "%.1f", n);
+        final var number = value >= WHOLE_NUMBER_FROM || unit == 0
+                ? String.valueOf(Math.round(value))
+                : String.format(Locale.US, "%.1f", value);
         return number + " " + SIZE_UNITS[unit];
     }
 

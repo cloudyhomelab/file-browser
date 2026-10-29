@@ -314,9 +314,9 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         if (starredView) {
             return workspace.starredIn(root);
         }
-        final var q = query.trim().toLowerCase(Locale.ROOT);
+        final var term = query.trim().toLowerCase(Locale.ROOT);
         final var filtered = currentEntries.stream()
-                .filter(e -> q.isEmpty() || e.name().toLowerCase(Locale.ROOT).contains(q))
+                .filter(e -> term.isEmpty() || e.name().toLowerCase(Locale.ROOT).contains(term))
                 .map(e -> Located.here(e, root.id()))
                 .toList();
         return workspace.getSort().apply(filtered);
@@ -330,8 +330,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     /** The folder an entry lives in: its own location for starred items. */
-    private List<String> folderOf(Located e) {
-        return e.elsewhere() ? e.location() : path;
+    private List<String> folderOf(Located located) {
+        return located.elsewhere() ? located.location() : path;
     }
 
     // ---- rendering ------------------------------------------------------------------------
@@ -947,16 +947,16 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     /** Whether the upload itself ends up in the folder: always, unless it's an archive extracted without keeping it. */
-    private static boolean stored(IncomingFile f) {
-        return f.extract() == null || f.extract().keepArchive();
+    private static boolean stored(IncomingFile file) {
+        return file.extract() == null || file.extract().keepArchive();
     }
 
     /** The folder an archive is extracted into, or null when it isn't extracted into a new folder. */
-    private String newFolderName(IncomingFile f) {
-        if (f.extract() == null || !f.extract().newFolder()) {
+    private String newFolderName(IncomingFile file) {
+        if (file.extract() == null || !file.extract().newFolder()) {
             return null;
         }
-        return workspace.getCatalog().archiveFormat(f.name())
+        return workspace.getCatalog().archiveFormat(file.name())
                 .filter(m -> !m.format().singleFile())
                 .map(ArchiveFormat.Match::baseName)
                 .orElse(null);

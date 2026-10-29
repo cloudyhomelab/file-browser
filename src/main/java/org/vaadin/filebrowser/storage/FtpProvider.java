@@ -144,15 +144,15 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         return ftps;
     }
 
-    private StorageException trustFailure(String seen, SSLException e) {
+    private StorageException trustFailure(String seen, SSLException cause) {
         if (seen != null && connection.certificate() == null) {
             return new UntrustedServerException(seen);
         }
         if (seen != null && !seen.equals(connection.certificate())) {
             return new StorageException("The server's certificate changed. If that is expected, remove this "
-                    + "file system and add it again.", e);
+                    + "file system and add it again.", cause);
         }
-        return new StorageException("Could not set up a secure connection with the server.", e);
+        return new StorageException("Could not set up a secure connection with the server.", cause);
     }
 
     /**
@@ -412,16 +412,16 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
 
             @Override
             public int read() throws IOException {
-                final var b = super.read();
-                ended |= b < 0;
-                return b;
+                final var value = super.read();
+                ended |= value < 0;
+                return value;
             }
 
             @Override
             public int read(byte[] bytes, int offset, int length) throws IOException {
-                final var n = super.read(bytes, offset, length);
-                ended |= n < 0;
-                return n;
+                final var count = super.read(bytes, offset, length);
+                ended |= count < 0;
+                return count;
             }
 
             @Override

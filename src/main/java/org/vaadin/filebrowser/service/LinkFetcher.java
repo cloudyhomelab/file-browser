@@ -131,7 +131,7 @@ public class LinkFetcher implements AutoCloseable {
             return new LimitedStream(entity.getContent(), maxBytes, opened);
         } catch (IOException | RuntimeException e) {
             opened.close();
-            throw e instanceof StorageException s ? s : new StorageException(REFUSED, e);
+            throw e instanceof StorageException storageException ? storageException : new StorageException(REFUSED, e);
         }
     }
 
@@ -260,24 +260,24 @@ public class LinkFetcher implements AutoCloseable {
 
         @Override
         public int read() throws IOException {
-            final var b = super.read();
-            if (b >= 0) {
-                count(1);
+            final var value = super.read();
+            if (value >= 0) {
+                countBytes(1);
             }
-            return b;
+            return value;
         }
 
         @Override
         public int read(byte[] buffer, int offset, int length) throws IOException {
-            final var n = super.read(buffer, offset, length);
-            if (n > 0) {
-                count(n);
+            final var count = super.read(buffer, offset, length);
+            if (count > 0) {
+                countBytes(count);
             }
-            return n;
+            return count;
         }
 
-        private void count(int n) throws IOException {
-            bytesRead += n;
+        private void countBytes(int bytes) throws IOException {
+            bytesRead += bytes;
             if (bytesRead > maxBytes) {
                 throw new TooLargeException();
             }

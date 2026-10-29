@@ -439,14 +439,14 @@ public class LocalDiskProvider implements StorageProvider {
         return segments.isEmpty() ? List.of() : segments.subList(0, segments.size() - 1);
     }
 
-    private static StorageException failure(String action, IOException e) {
-        if (e instanceof AccessDeniedException) {
-            return new StorageException("You don't have permission to " + action + ".", e);
+    private static StorageException failure(String action, IOException cause) {
+        if (cause instanceof AccessDeniedException) {
+            return new StorageException("You don't have permission to " + action + ".", cause);
         }
-        if (e instanceof NoSuchFileException) {
-            return new StorageException("Could not " + action + ": it no longer exists.", e);
+        if (cause instanceof NoSuchFileException) {
+            return new StorageException("Could not " + action + ": it no longer exists.", cause);
         }
-        return new StorageException("Could not " + action + ".", e);
+        return new StorageException("Could not " + action + ".", cause);
     }
 
     // ---- status ---------------------------------------------------------------------------

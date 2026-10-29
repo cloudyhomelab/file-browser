@@ -150,8 +150,8 @@ final class LzipInputStream extends InputStream {
         }
 
         @Override
-        public long skip(long n) throws IOException {
-            final var skipped = super.skip(n);
+        public long skip(long bytes) throws IOException {
+            final var skipped = super.skip(bytes);
             count += skipped;
             return skipped;
         }

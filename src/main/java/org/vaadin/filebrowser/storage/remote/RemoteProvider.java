@@ -145,8 +145,8 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
     }
 
     /** By default the server's own reason is left out; it may be in another language or leak paths. */
-    protected StorageException failure(String action, IOException e) {
-        return new StorageException("Could not " + action + ".", e);
+    protected StorageException failure(String action, IOException cause) {
+        return new StorageException("Could not " + action + ".", cause);
     }
 
     // ---- paths ----------------------------------------------------------------------------
