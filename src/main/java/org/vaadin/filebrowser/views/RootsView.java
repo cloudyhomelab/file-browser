@@ -22,6 +22,7 @@ import org.vaadin.filebrowser.ui.Toasts;
 import org.vaadin.filebrowser.ui.Ui;
 import org.vaadin.filebrowser.ui.dialog.AddRootDialog;
 import org.vaadin.filebrowser.ui.dialog.RemoveRootDialog;
+import org.vaadin.filebrowser.ui.dialog.RootSettingsDialog;
 
 import jakarta.annotation.security.PermitAll;
 
@@ -154,7 +155,7 @@ public class RootsView extends Div {
         final SerializableConsumer<FsRoot> onEdit = AddRootDialog.canEdit(workspace, root.type())
                 ? this::openEditDialog : null;
         final SerializableConsumer<MenuPosition> onMenu = currentUser.isAdmin()
-                ? pos -> rootMenu.open(root, pos, onEdit, this::openRemoveDialog)
+                ? pos -> rootMenu.open(root, pos, onEdit, this::openSettingsDialog, this::openRemoveDialog)
                 : null;
         return new DriveCard(root, kind,
                 () -> UI.getCurrent().navigate(BrowserView.class, rootParams),
@@ -166,6 +167,15 @@ public class RootsView extends Div {
         final var dialog = AddRootDialog.edit(workspace, root, edited -> {
             workspace.updateRoot(root, edited.name(), edited.access());
             Toasts.show("Saved “" + edited.name() + "”", "check");
+            render();
+        });
+        dialog.open();
+    }
+
+    private void openSettingsDialog(FsRoot root) {
+        final var dialog = new RootSettingsDialog(root, options -> {
+            workspace.updateOptions(root, options);
+            Toasts.show("Saved settings for “" + root.name() + "”", "check");
             render();
         });
         dialog.open();
