@@ -22,6 +22,16 @@
         <Bug pattern="HES_EXECUTOR_NEVER_SHUTDOWN"/>
     </Match>
 
+    <!--session objects that hold app-wide services; sessions are never serialized. Remove with #76-->
+    <Match>
+        <Or>
+            <Class name="org.vaadin.filebrowser.service.Workspace"/>
+            <Class name="org.vaadin.filebrowser.service.CurrentUser"/>
+            <Class name="org.vaadin.filebrowser.service.UploadQueue"/>
+        </Or>
+        <Bug pattern="SE_BAD_FIELD"/>
+    </Match>
+
     <Match>
         <Or>
             <Bug pattern="ACEM_ABSTRACT_CLASS_EMPTY_METHODS"/>
