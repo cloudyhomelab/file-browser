@@ -9,6 +9,9 @@ import java.util.zip.CRC32;
 
 import org.tukaani.xz.LZMAInputStream;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+
 /**
  * Decompresses lzip ({@code .lz}), which neither Commons Compress nor XZ for Java reads, using XZ for
  * Java's LZMA decoder for the data. A file is one or more members, each a header, an LZMA stream
@@ -85,7 +88,7 @@ final class LzipInputStream extends InputStream {
         if (log < MIN_DICT_LOG || log > MAX_DICT_LOG) {
             throw new IOException("Invalid lzip dictionary size.");
         }
-        final var dictSize = (1 << log) - ((1 << log) / 16) * (coded >>> 5);
+        final var dictSize = (1 << log) - (1 << log) / 16 * (coded >>> 5);
         if (dictSize > MAX_DICT_SIZE) {
             throw new IOException("lzip dictionary too large.");
         }
@@ -123,8 +126,9 @@ final class LzipInputStream extends InputStream {
     }
 
     /** Counts what the decoder takes, for the trailer's member size; it reads only what it needs. */
-    private static final class Counting extends FilterInputStream {
+    static final class Counting extends FilterInputStream {
 
+        @Getter(AccessLevel.PACKAGE)
         private long count;
 
         Counting(InputStream in) {
@@ -150,8 +154,8 @@ final class LzipInputStream extends InputStream {
         }
 
         @Override
-        public long skip(long n) throws IOException {
-            final var skipped = super.skip(n);
+        public long skip(long bytes) throws IOException {
+            final var skipped = super.skip(bytes);
             count += skipped;
             return skipped;
         }

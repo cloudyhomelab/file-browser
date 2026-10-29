@@ -1,5 +1,7 @@
 package org.vaadin.filebrowser.ui;
 
+import java.util.Locale;
+
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.function.SerializableRunnable;
@@ -19,7 +21,7 @@ public class EmptyState extends Composite<Div> {
 
     private EmptyState(Kind kind, String reason, SerializableRunnable onUpload) {
         final var div = getContent();
-        div.addClassNames("fb-empty", "fb-empty--" + kind.name().toLowerCase().replace('_', '-'));
+        div.addClassNames("fb-empty", "fb-empty--" + kind.name().toLowerCase(Locale.ROOT).replace('_', '-'));
         final String icon;
         final String title;
         final String text;

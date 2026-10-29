@@ -61,6 +61,8 @@ public class SecretBox {
         }
     }
 
+    // the decoder's message can quote a character of the secret key, so it is not kept as the cause
+    @SuppressWarnings("PMD.PreserveStackTrace")
     private static SecretKeySpec parse(String base64Key) {
         final byte[] bytes;
         try {
@@ -112,7 +114,7 @@ public class SecretBox {
             return new String(plain, StandardCharsets.UTF_8);
         } catch (GeneralSecurityException e) {
             // another key than the one it was stored with, or a value moved from another context
-            throw new StorageException("Stored credentials can't be read with the server's secret key.");
+            throw new StorageException("Stored credentials can't be read with the server's secret key.", e);
         }
     }
 

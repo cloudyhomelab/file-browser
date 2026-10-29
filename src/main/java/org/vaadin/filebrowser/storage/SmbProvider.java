@@ -45,6 +45,9 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     private static final Set<Long> NO_SERVER_COPY = Set.of(NtStatus.STATUS_NOT_SUPPORTED.getValue(),
             INVALID_DEVICE_REQUEST);
 
+    private final SmbConfig config;
+    private final Connection connection;
+
     /**
      * Where and how to sign in.
      *
@@ -64,9 +67,6 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     public record Session(SMBClient client, com.hierynomus.smbj.connection.Connection connection,
                           com.hierynomus.smbj.session.Session session, DiskShare share) {
     }
-
-    private final SmbConfig config;
-    private final Connection connection;
 
     /** @param config speaks only SMB 3, with signing required */
     public SmbProvider(SmbConfig config, Connection connection, Function<String, String> typeForName) {
@@ -163,20 +163,20 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     private static void closeQuietly(SMBClient client) {
         try {
             client.close();
-        } catch (RuntimeException e) {
+        } catch (RuntimeException ignored) {
             // nothing more to do with it
         }
     }
 
     @Override
-    protected StorageException failure(String action, IOException e) {
-        if (e instanceof SmbRefusal refusal && refusal.status == NtStatus.STATUS_ACCESS_DENIED) {
-            return new StorageException("You don't have permission to " + action + ".", e);
+    protected StorageException failure(String action, IOException cause) {
+        if (cause instanceof SmbRefusal refusal && refusal.status == NtStatus.STATUS_ACCESS_DENIED) {
+            return new StorageException("You don't have permission to " + action + ".", cause);
         }
-        if (e instanceof SmbRefusal refusal && MISSING.contains(refusal.status)) {
-            return new StorageException("Could not " + action + ": it no longer exists.", e);
+        if (cause instanceof SmbRefusal refusal && MISSING.contains(refusal.status)) {
+            return new StorageException("Could not " + action + ": it no longer exists.", cause);
         }
-        return super.failure(action, e);
+        return super.failure(action, cause);
     }
 
     // ---- primitives -----------------------------------------------------------------------
@@ -202,7 +202,7 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
 
     /** The server path as smbj takes it: relative to the share, with backslashes. */
     private static String smb(String path) {
-        return path.equals("/") ? "" : path.substring(1).replace('/', '\\');
+        return "/".equals(path) ? "" : path.substring(1).replace('/', '\\');
     }
 
     @Override
@@ -210,7 +210,7 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
         final var out = new ArrayList<Node>();
         for (final var entry : smb(() -> session.share().list(smb(folder)))) {
             final var name = entry.getFileName();
-            if (!name.equals(".") && !name.equals("..")) {
+            if (!".".equals(name) && !"..".equals(name)) {
                 out.add(node(name, entry.getFileAttributes(), entry.getEndOfFile(), entry.getLastWriteTime()));
             }
         }
@@ -260,7 +260,7 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     private static void rename(Session session, String from, String to, boolean replace) throws IOException {
         final var access = EnumSet.of(AccessMask.DELETE, AccessMask.FILE_READ_ATTRIBUTES);
         smb(() -> {
-            try (final var entry = session.share().open(smb(from), access, null, SMB2ShareAccess.ALL,
+            try (var entry = session.share().open(smb(from), access, null, SMB2ShareAccess.ALL,
                     SMB2CreateDisposition.FILE_OPEN, null)) {
                 entry.rename(smb(to), replace);
             }
@@ -307,8 +307,8 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     protected boolean copyOnServer(Session session, String from, String to) throws IOException {
         try {
             smb(() -> {
-                try (final var source = openFile(session, from, AccessMask.GENERIC_READ, SMB2CreateDisposition.FILE_OPEN);
-                     final var target = openFile(session, to, AccessMask.GENERIC_ALL, SMB2CreateDisposition.FILE_CREATE)) {
+                try (var source = openFile(session, from, AccessMask.GENERIC_READ, SMB2CreateDisposition.FILE_OPEN);
+                     var target = openFile(session, to, AccessMask.GENERIC_ALL, SMB2CreateDisposition.FILE_CREATE)) {
                     source.remoteCopyTo(target);
                 } catch (Buffer.BufferException e) {
                     throw new IOException("The server's copy reply can't be read.", e);
@@ -332,9 +332,9 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     }
 
     /** A status the server sent back; the session stays usable. */
-    private static IOException refusal(SMBApiException e) {
-        final var refusal = new SmbRefusal(e);
-        refusal.initCause(e);
+    private static IOException refusal(SMBApiException cause) {
+        final var refusal = new SmbRefusal(cause);
+        refusal.initCause(cause);
         return refusal;
     }
 
@@ -343,10 +343,10 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
         private final NtStatus status;
         private final long code;
 
-        SmbRefusal(SMBApiException e) {
-            super(e.getMessage());
-            this.status = e.getStatus();
-            this.code = e.getStatusCode();
+        SmbRefusal(SMBApiException cause) {
+            super(cause.getMessage());
+            this.status = cause.getStatus();
+            this.code = cause.getStatusCode();
         }
     }
 
@@ -380,8 +380,8 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
         }
 
         @Override
-        public long skip(long n) {
-            final var skipped = Math.max(0, n);
+        public long skip(long count) {
+            final var skipped = Math.max(0, count);
             position += skipped;
             return skipped;
         }
@@ -404,8 +404,8 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
         }
 
         @Override
-        public void write(int b) throws IOException {
-            out.write(b);
+        public void write(int value) throws IOException {
+            out.write(value);
         }
 
         @Override

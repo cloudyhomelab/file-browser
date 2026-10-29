@@ -35,18 +35,18 @@ public class FtpForm extends RootForm {
         signIn = new SignInBox(context, this::field);
         trust = new ServerTrust(context, FtpStorageType.CERTIFICATE, "certificate");
         final var settings = editing() ? context.editing().settings() : Map.<String, String>of();
-        anonymous = new Switch("Anonymous sign-in", FtpStorageType.anonymous(settings), on -> context.onChange().run());
+        anonymous = new Switch("Anonymous sign-in", FtpStorageType.isAnonymous(settings), on -> context.onChange().run());
         final var securityText = Ui.span("", "Security");
         final var securityLabel = Ui.div("fb-form-label", securityText);
         final var securityGroup = Ui.div("", securityLabel, securityPicker, securityHint);
         add(securityGroup);
-        signIn.fields(anonymous, signIn.user(), signIn.password());
+        signIn.fields(anonymous, signIn.getUser(), signIn.getPassword());
         add(signIn, trust);
         if (editing()) {
-            security = FtpStorageType.security(settings);
+            security = FtpStorageType.securityOf(settings);
             anonymous.locked();
-            signIn.lock(signIn.user(), FtpStorageType.USER);
-            signIn.lock(signIn.password(), FtpStorageType.PASSWORD);
+            signIn.lock(signIn.getUser(), FtpStorageType.USER);
+            signIn.lock(signIn.getPassword(), FtpStorageType.PASSWORD);
         }
     }
 
@@ -85,8 +85,8 @@ public class FtpForm extends RootForm {
         }
         securityHint.getElement().getClassList().set("fb-field-error-text", security == Security.NONE);
         final var named = !anonymous.isOn();
-        signIn.user().setVisible(named);
-        signIn.password().setVisible(named);
+        signIn.getUser().setVisible(named);
+        signIn.getPassword().setVisible(named);
         final var note = anonymous.isOn() ? "Signs in as “anonymous”; nothing is stored."
                 : SignInBox.STORED;
         signIn.update(signIn.started(), credentialsProblem(), note);
@@ -96,10 +96,10 @@ public class FtpForm extends RootForm {
         if (anonymous.isOn()) {
             return null;
         }
-        if (SignInBox.blank(signIn.user())) {
+        if (SignInBox.blank(signIn.getUser())) {
             return "Enter the user name to sign in with.";
         }
-        if (SignInBox.blank(signIn.password())) {
+        if (SignInBox.blank(signIn.getPassword())) {
             return "Enter the password.";
         }
         return null;
@@ -126,7 +126,7 @@ public class FtpForm extends RootForm {
         if (anonymous.isOn()) {
             return Map.of();
         }
-        return Map.of(FtpStorageType.USER, signIn.user().getValue().trim(), FtpStorageType.PASSWORD,
-                signIn.password().getValue());
+        return Map.of(FtpStorageType.USER, signIn.getUser().getValue().trim(), FtpStorageType.PASSWORD,
+                signIn.getPassword().getValue());
     }
 }

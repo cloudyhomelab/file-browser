@@ -23,6 +23,8 @@ import java.util.function.Function;
 
 import org.vaadin.filebrowser.data.Capacity;
 
+import lombok.Getter;
+
 /**
  * A folder on the server's file system, including OS-mounted NFS and SMB shares. Every path is
  * resolved inside the root: {@code ..} segments and symlinks that lead outside it are refused.
@@ -117,7 +119,7 @@ public class LocalDiskProvider implements StorageProvider {
         final var dir = existingFolder(folder);
         final var realRoot = realRoot();
         final var out = new ArrayList<StorageEntry>();
-        try (final var children = Files.list(dir)) {
+        try (var children = Files.list(dir)) {
             for (final var child : (Iterable<Path>) children::iterator) {
                 if (escapes(child, realRoot) || isPartialUpload(child)) {
                     continue;
@@ -142,7 +144,11 @@ public class LocalDiskProvider implements StorageProvider {
     }
 
     private static boolean isPartialUpload(Path path) {
-        final var name = path.getFileName().toString();
+        final var fileName = path.getFileName();
+        if (fileName == null) {
+            return false;
+        }
+        final var name = fileName.toString();
         return name.startsWith(PARTIAL_PREFIX) && name.endsWith(PARTIAL_SUFFIX);
     }
 
@@ -162,7 +168,8 @@ public class LocalDiskProvider implements StorageProvider {
         } catch (IOException e) {
             return Optional.empty();
         }
-        final var name = absolute.getFileName() == null ? "" : absolute.getFileName().toString();
+        final var fileName = absolute.getFileName();
+        final var name = fileName == null ? "" : fileName.toString();
         final var folder = attributes.isDirectory();
         final var type = folder ? StorageEntry.FOLDER_TYPE : typeForName.apply(name);
         final var size = folder ? null : attributes.size();
@@ -173,7 +180,7 @@ public class LocalDiskProvider implements StorageProvider {
     }
 
     private static Integer countChildren(Path dir) {
-        try (final var children = Files.list(dir)) {
+        try (var children = Files.list(dir)) {
             return (int) children.count();
         } catch (IOException | UncheckedIOException e) {
             return null;
@@ -373,6 +380,7 @@ public class LocalDiskProvider implements StorageProvider {
 
     private static final class LocalWrite implements WriteHandle {
 
+        @Getter
         private final OutputStream stream;
         private final Path partial;
         private final Path target;
@@ -386,11 +394,6 @@ public class LocalDiskProvider implements StorageProvider {
             this.target = target;
             this.replace = replace;
             this.name = name;
-        }
-
-        @Override
-        public OutputStream stream() {
-            return stream;
         }
 
         @Override
@@ -436,14 +439,14 @@ public class LocalDiskProvider implements StorageProvider {
         return segments.isEmpty() ? List.of() : segments.subList(0, segments.size() - 1);
     }
 
-    private static StorageException failure(String action, IOException e) {
-        if (e instanceof AccessDeniedException) {
-            return new StorageException("You don't have permission to " + action + ".", e);
+    private static StorageException failure(String action, IOException cause) {
+        if (cause instanceof AccessDeniedException) {
+            return new StorageException("You don't have permission to " + action + ".", cause);
         }
-        if (e instanceof NoSuchFileException) {
-            return new StorageException("Could not " + action + ": it no longer exists.", e);
+        if (cause instanceof NoSuchFileException) {
+            return new StorageException("Could not " + action + ": it no longer exists.", cause);
         }
-        return new StorageException("Could not " + action + ".", e);
+        return new StorageException("Could not " + action + ".", cause);
     }
 
     // ---- status ---------------------------------------------------------------------------

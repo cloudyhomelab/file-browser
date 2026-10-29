@@ -1,5 +1,7 @@
 package org.vaadin.filebrowser.views;
 
+import java.util.Locale;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.vaadin.filebrowser.config.FileBrowserProperties;
@@ -52,7 +54,7 @@ public class SignInView extends Div implements BeforeEnterObserver {
         for (final var registration : SecurityConfig.registrations(repository)) {
             final var id = registration.getRegistrationId();
             final var provider = properties.provider(id);
-            final var iconName = provider.icon().name().toLowerCase().replace('_', '-');
+            final var iconName = provider.icon().name().toLowerCase(Locale.ROOT).replace('_', '-');
             final var logo = new Image("oidc/" + iconName + ".svg", "");
             logo.setClassName("fb-provider-logo");
             final var label = Ui.span("", "Continue with " + provider.label());

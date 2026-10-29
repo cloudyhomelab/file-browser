@@ -12,6 +12,8 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.server.streams.UploadHandler;
 
+import lombok.Setter;
+
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -22,12 +24,6 @@ import tools.jackson.databind.json.JsonMapper;
  * {@code fb-drag-over} class.
  */
 public class FileDropArea extends Div {
-
-    private record DroppedFile(String id, String name, long size) {
-    }
-
-    private record UploadJob(String taskId, String clientId) {
-    }
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
@@ -78,16 +74,21 @@ public class FileDropArea extends Div {
 
     private final Catalog catalog;
     private final boolean pickOnClick;
+    @Setter
     private SerializableConsumer<List<IncomingFile>> onFiles = files -> { };
+    /** Called with a task id whose file is no longer in the browser (e.g. after a reload). */
+    @Setter
     private SerializableConsumer<String> onUploadLost = taskId -> { };
+
+    private record DroppedFile(String id, String name, long size) {
+    }
+
+    private record UploadJob(String taskId, String clientId) {
+    }
 
     public FileDropArea(Catalog catalog, boolean pickOnClick) {
         this.catalog = catalog;
         this.pickOnClick = pickOnClick;
-    }
-
-    public void onFiles(SerializableConsumer<List<IncomingFile>> handler) {
-        this.onFiles = handler;
     }
 
     /** Where {@link #upload} sends file contents; the handler reads the task id from the {@code task} parameter. */
@@ -95,16 +96,11 @@ public class FileDropArea extends Div {
         getElement().setAttribute("fb-upload-url", handler);
     }
 
-    /** Called with a task id whose file is no longer in the browser (e.g. after a reload). */
-    public void onUploadLost(SerializableConsumer<String> handler) {
-        this.onUploadLost = handler;
-    }
-
     public void upload(List<UploadTask> tasks) {
         // files from web links are downloaded by the server; only the browser's own files are sent from here
         final var jobs = tasks.stream()
-                .filter(t -> t.clientId() != null)
-                .map(t -> new UploadJob(t.id(), t.clientId()))
+                .filter(t -> t.getClientId() != null)
+                .map(t -> new UploadJob(t.getId(), t.getClientId()))
                 .toList();
         final var json = JSON.writeValueAsString(jobs);
         getElement().executeJs("this.__fbUpload(JSON.parse($0))", json);
@@ -120,6 +116,8 @@ public class FileDropArea extends Div {
         getElement().executeJs(INSTALL_SCRIPT, pickOnClick);
     }
 
+    // called from the browser
+    @SuppressWarnings("PMD.UnusedPrivateMethod")
     @ClientCallable
     private void filesDropped(String json) {
         final var listType = new TypeReference<List<DroppedFile>>() { };
@@ -135,6 +133,8 @@ public class FileDropArea extends Div {
         }
     }
 
+    // called from the browser
+    @SuppressWarnings("PMD.UnusedPrivateMethod")
     @ClientCallable
     private void uploadLost(String taskId) {
         onUploadLost.accept(taskId);

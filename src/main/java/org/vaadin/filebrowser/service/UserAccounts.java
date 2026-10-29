@@ -16,11 +16,11 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class UserAccounts {
 
-    public record Account(String email, String name, String lastProvider, Instant firstSignIn, Instant lastSignIn) {
-    }
-
     private final JdbcClient jdbc;
     private final Clock clock;
+
+    public record Account(String email, String name, String lastProvider, Instant firstSignIn, Instant lastSignIn) {
+    }
 
     @Autowired
     public UserAccounts(JdbcClient jdbc) {
@@ -52,15 +52,15 @@ public class UserAccounts {
     public Optional<Account> find(String email) {
         return jdbc.sql("SELECT * FROM user_account WHERE email = :email")
                 .param("email", normalize(email))
-                .query(UserAccounts::map)
+                .query((rs, row) -> map(rs))
                 .optional();
     }
 
     public List<Account> all() {
-        return jdbc.sql("SELECT * FROM user_account ORDER BY email").query(UserAccounts::map).list();
+        return jdbc.sql("SELECT * FROM user_account ORDER BY email").query((rs, row) -> map(rs)).list();
     }
 
-    private static Account map(ResultSet rs, int row) throws SQLException {
+    private static Account map(ResultSet rs) throws SQLException {
         final var first = Instant.parse(rs.getString("first_sign_in"));
         final var last = Instant.parse(rs.getString("last_sign_in"));
         return new Account(rs.getString("email"), rs.getString("name"), rs.getString("last_provider"), first, last);

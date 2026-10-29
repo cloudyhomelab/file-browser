@@ -9,6 +9,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.net.UnknownHostException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.function.Predicate;
@@ -49,14 +50,14 @@ public class LinkFetcher implements AutoCloseable {
     private static final Timeout STALL_TIMEOUT = Timeout.ofSeconds(30);
     private static final Pattern FILENAME_STAR = Pattern.compile("filename\\*\\s*=\\s*([^']*)'[^']*'([^;]+)",
             Pattern.CASE_INSENSITIVE);
-    private static final Pattern FILENAME = Pattern.compile("filename\\s*=\\s*(\"([^\"]*)\"|[^;]+)",
+    private static final Pattern FILENAME_PARAM = Pattern.compile("filename\\s*=\\s*(\"([^\"]*)\"|[^;]+)",
             Pattern.CASE_INSENSITIVE);
+
+    private final CloseableHttpClient client;
 
     /** What a link offers, read from its headers. */
     public record LinkInfo(String url, String name, Long size) implements Serializable {
     }
-
-    private final CloseableHttpClient client;
 
     @Autowired
     public LinkFetcher(FileBrowserProperties properties) {
@@ -64,6 +65,8 @@ public class LinkFetcher implements AutoCloseable {
     }
 
     /** @param dns resolves host names before {@code allowed} judges the answers */
+    // the client owns the connection manager and closes it in close()
+    @SuppressWarnings("PMD.CloseResource")
     LinkFetcher(Predicate<InetAddress> allowed, DnsResolver dns) {
         final var connections = PoolingHttpClientConnectionManagerBuilder.create()
                 .setDnsResolver(new CheckingResolver(dns, allowed))
@@ -103,7 +106,7 @@ public class LinkFetcher implements AutoCloseable {
 
     /** Reads the name and size a link offers, without downloading it. */
     public LinkInfo inspect(String url) {
-        try (final var opened = open(url)) {
+        try (var opened = open(url)) {
             return new LinkInfo(url, fileName(opened.response(), opened.uri()), size(opened.response()));
         } catch (IOException e) {
             throw new StorageException(REFUSED, e);
@@ -111,6 +114,8 @@ public class LinkFetcher implements AutoCloseable {
     }
 
     /** The link's content, at most {@code maxBytes}; closing the stream ends the download. */
+    // the entity's content goes back to the caller; Opened.close() releases it
+    @SuppressWarnings("PMD.CloseResource")
     public InputStream fetch(String url, long maxBytes) {
         final Opened opened;
         try {
@@ -128,9 +133,12 @@ public class LinkFetcher implements AutoCloseable {
                 throw new StorageException(REFUSED);
             }
             return new LimitedStream(entity.getContent(), maxBytes, opened);
+        } catch (StorageException e) {
+            opened.close();
+            throw e;
         } catch (IOException | RuntimeException e) {
             opened.close();
-            throw e instanceof StorageException s ? s : new StorageException(REFUSED, e);
+            throw new StorageException(REFUSED, e);
         }
     }
 
@@ -145,7 +153,7 @@ public class LinkFetcher implements AutoCloseable {
             request.cancel();
             try {
                 response.close();
-            } catch (IOException e) {
+            } catch (IOException ignored) {
                 // the connection is dropped either way
             }
         }
@@ -179,7 +187,7 @@ public class LinkFetcher implements AutoCloseable {
             throw new IOException("invalid link", e);
         }
         final var scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-        if (!scheme.equals("http") && !scheme.equals("https") || uri.getHost() == null || uri.getUserInfo() != null) {
+        if (!"http".equals(scheme) && !"https".equals(scheme) || uri.getHost() == null || uri.getUserInfo() != null) {
             throw new IOException("unsupported link");
         }
         return uri;
@@ -205,14 +213,16 @@ public class LinkFetcher implements AutoCloseable {
     static String dispositionName(String header) {
         final var star = FILENAME_STAR.matcher(header);
         if (star.find()) {
-            final var charset = star.group(1).isBlank() ? "UTF-8" : star.group(1).trim();
+            final var charsetName = star.group(1).trim();
             try {
+                final var charset = charsetName.isEmpty() ? StandardCharsets.UTF_8 : Charset.forName(charsetName);
                 return validOr(URLDecoder.decode(star.group(2).trim().replace("+", "%2B"), charset), null);
-            } catch (IllegalArgumentException | java.io.UnsupportedEncodingException e) {
+            } catch (IllegalArgumentException e) {
+                // also an unknown or malformed charset name
                 return null;
             }
         }
-        final var plain = FILENAME.matcher(header);
+        final var plain = FILENAME_PARAM.matcher(header);
         if (plain.find()) {
             final var value = plain.group(2) != null ? plain.group(2) : plain.group(1).trim();
             return validOr(value, null);
@@ -247,7 +257,7 @@ public class LinkFetcher implements AutoCloseable {
 
         private final long maxBytes;
         private final Opened opened;
-        private long read;
+        private long bytesRead;
 
         LimitedStream(InputStream in, long maxBytes, Opened opened) {
             super(in);
@@ -257,25 +267,25 @@ public class LinkFetcher implements AutoCloseable {
 
         @Override
         public int read() throws IOException {
-            final var b = super.read();
-            if (b >= 0) {
-                count(1);
+            final var value = super.read();
+            if (value >= 0) {
+                countBytes(1);
             }
-            return b;
+            return value;
         }
 
         @Override
         public int read(byte[] buffer, int offset, int length) throws IOException {
-            final var n = super.read(buffer, offset, length);
-            if (n > 0) {
-                count(n);
+            final var count = super.read(buffer, offset, length);
+            if (count > 0) {
+                countBytes(count);
             }
-            return n;
+            return count;
         }
 
-        private void count(int n) throws IOException {
-            read += n;
-            if (read > maxBytes) {
+        private void countBytes(int bytes) throws IOException {
+            bytesRead += bytes;
+            if (bytesRead > maxBytes) {
                 throw new TooLargeException();
             }
         }

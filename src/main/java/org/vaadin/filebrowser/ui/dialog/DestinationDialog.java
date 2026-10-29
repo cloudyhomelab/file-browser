@@ -220,7 +220,10 @@ public class DestinationDialog extends FbDialog {
         final var leaf = subfolders != null && subfolders.isEmpty();
         final var folderIcon = new Icon("folder");
         final var row = row(path, depth, folderIcon, path.getLast(), sameFileSystem() && movedFolderKeys.contains(pathKey));
-        if (!leaf) {
+        if (leaf) {
+            final var noCaret = Ui.span("fb-caret fb-caret--none", "");
+            row.addComponentAsFirst(noCaret);
+        } else {
             final var caretIcon = new Icon("angle-right");
             final var caret = Ui.button("fb-caret" + (open ? " fb-caret--open" : ""), () -> {
                 if (!expanded.remove(pathKey)) {
@@ -230,9 +233,6 @@ public class DestinationDialog extends FbDialog {
             }, caretIcon);
             caret.getElement().setAttribute("aria-label", open ? "Collapse" : "Expand");
             row.addComponentAsFirst(caret);
-        } else {
-            final var noCaret = Ui.span("fb-caret fb-caret--none", "");
-            row.addComponentAsFirst(noCaret);
         }
         picker.add(row);
         if (subfolders != null) {

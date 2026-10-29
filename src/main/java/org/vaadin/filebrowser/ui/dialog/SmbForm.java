@@ -33,12 +33,12 @@ public class SmbForm extends RootForm {
         final var securityLabel = Ui.div("fb-form-label", securityText);
         final var securityGroup = Ui.div("", securityLabel, requireEncryption, securityHint);
         add(securityGroup);
-        signIn.fields(signIn.user(), signIn.password(), domain);
+        signIn.fields(signIn.getUser(), signIn.getPassword(), domain);
         add(signIn);
         if (editing()) {
             requireEncryption.locked();
-            signIn.lock(signIn.user(), SmbStorageType.USER);
-            signIn.lock(signIn.password(), SmbStorageType.PASSWORD);
+            signIn.lock(signIn.getUser(), SmbStorageType.USER);
+            signIn.lock(signIn.getPassword(), SmbStorageType.PASSWORD);
             signIn.lock(domain, SmbStorageType.DOMAIN);
         }
     }
@@ -58,10 +58,10 @@ public class SmbForm extends RootForm {
     }
 
     private String credentialsProblem() {
-        if (SignInBox.blank(signIn.user())) {
+        if (SignInBox.blank(signIn.getUser())) {
             return "Enter the user name to sign in with.";
         }
-        if (SignInBox.blank(signIn.password())) {
+        if (SignInBox.blank(signIn.getPassword())) {
             return "Enter the password.";
         }
         return null;
@@ -80,8 +80,8 @@ public class SmbForm extends RootForm {
     @Override
     public Map<String, String> secrets() {
         final var secrets = new LinkedHashMap<String, String>();
-        secrets.put(SmbStorageType.USER, signIn.user().getValue().trim());
-        secrets.put(SmbStorageType.PASSWORD, signIn.password().getValue());
+        secrets.put(SmbStorageType.USER, signIn.getUser().getValue().trim());
+        secrets.put(SmbStorageType.PASSWORD, signIn.getPassword().getValue());
         if (!SignInBox.blank(domain)) {
             secrets.put(SmbStorageType.DOMAIN, domain.getValue().trim());
         }

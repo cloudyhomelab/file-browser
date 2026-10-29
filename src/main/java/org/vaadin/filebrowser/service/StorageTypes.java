@@ -25,14 +25,14 @@ public class StorageTypes {
 
     public StorageTypes(List<StorageType> types, Catalog catalog) {
         this.catalog = catalog;
-        this.types = types.stream().collect(Collectors.toUnmodifiableMap(StorageType::key, Function.identity()));
+        this.types = types.stream().collect(Collectors.toUnmodifiableMap(StorageType::getKey, Function.identity()));
         for (final var type : types) {
-            final var info = catalog.rootType(type.key());
+            final var info = catalog.rootType(type.getKey());
             if (info == null) {
-                throw missing(type, "data/root-types.json", type.key());
+                throw missing(type, "data/root-types.json", type.getKey());
             }
             if (info.checkTimeout() == null || info.checkFailed() == null) {
-                throw missing(type, "data/root-types.json", "checkTimeout and checkFailed of " + type.key());
+                throw missing(type, "data/root-types.json", "checkTimeout and checkFailed of " + type.getKey());
             }
             for (final var kind : type.kinds()) {
                 if (catalog.kind(kind) == null) {
@@ -43,7 +43,7 @@ public class StorageTypes {
     }
 
     private static IllegalStateException missing(StorageType type, String file, String entry) {
-        return new IllegalStateException("Storage type " + type.key() + " needs \"" + entry + "\" in " + file);
+        return new IllegalStateException("Storage type " + type.getKey() + " needs \"" + entry + "\" in " + file);
     }
 
     public StorageType get(String key) {

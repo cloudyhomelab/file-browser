@@ -16,6 +16,6 @@ public enum Viewer {
         if (mediaType.startsWith("audio/")) {
             return AUDIO;
         }
-        return mediaType.equals(PDF_TYPE) ? PDF : TEXT;
+        return PDF_TYPE.equals(mediaType) ? PDF : TEXT;
     }
 }

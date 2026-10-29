@@ -15,6 +15,8 @@ public record RootTypeInfo(String displayName, String endpointLabel, String endp
                            String checkTimeout, String checkFailed, Map<String, String> form)
         implements Serializable {
 
+    // PMD reads a compact constructor's reassigned parameters as unused
+    @SuppressWarnings("PMD.UnusedAssignment")
     public RootTypeInfo {
         form = form == null ? Map.of() : Map.copyOf(form);
     }

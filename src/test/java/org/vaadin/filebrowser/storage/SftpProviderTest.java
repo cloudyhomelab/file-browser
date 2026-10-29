@@ -65,7 +65,7 @@ class SftpProviderTest extends RemoteProviderContract {
             untrusted.list("");
             throw new AssertionError("an unpinned host key was trusted");
         } catch (UntrustedServerException e) {
-            hostKey = e.fingerprint();
+            hostKey = e.getFingerprint();
         }
         assertThat(hostKey).matches("[a-z0-9-]+ SHA256:\\S+");
     }

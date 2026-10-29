@@ -25,7 +25,7 @@ public class S3StorageType implements StorageType {
     }
 
     @Override
-    public String key() {
+    public String getKey() {
         return KEY;
     }
 

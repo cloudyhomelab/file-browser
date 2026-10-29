@@ -42,16 +42,21 @@ record ByteRange(long start, long end) {
         }
         final var firstText = spec.substring(0, dash);
         final var lastText = spec.substring(dash + 1);
-        final var last = number(lastText);
         if (firstText.isEmpty()) {
-            return last.map(suffix -> suffix(suffix, size)).orElseGet(Whole::new);
+            return number(lastText).map(suffix -> suffix(suffix, size)).orElseGet(Whole::new);
         }
+        return fromStart(firstText, lastText, size);
+    }
+
+    /** {@code first-last} or {@code first-}. */
+    private static Request fromStart(String firstText, String lastText, long size) {
         final var first = number(firstText);
+        final var last = number(lastText);
         if (first.isEmpty() || (!lastText.isEmpty() && last.isEmpty())) {
             return new Whole();
         }
-        final long start = first.get();
-        if (last.isPresent() && last.get() < start) {
+        final long start = first.orElseThrow();
+        if (last.isPresent() && last.orElseThrow() < start) {
             return new Whole();
         }
         if (start >= size) {
@@ -76,7 +81,7 @@ record ByteRange(long start, long end) {
             return Optional.empty();
         }
         try {
-            return Optional.of(Long.parseLong(digits));
+            return Optional.of(Long.valueOf(digits));
         } catch (NumberFormatException e) {
             // too many digits for a long: larger than any file, so the range runs to the end or starts past it
             return Optional.of(Long.MAX_VALUE);

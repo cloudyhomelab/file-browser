@@ -17,14 +17,14 @@ import com.vaadin.flow.function.SerializableRunnable;
 
 public class Sidebar extends Composite<Aside> {
 
+    private final FolderTree folderTree;
+    private final Div starredSlot = Ui.div("fb-sidebar-starred-slot");
+    private final SerializableRunnable onStarred;
+
     public record Callbacks(SerializableConsumer<List<String>> onNavigate, SerializableConsumer<FsRoot> onPickRoot,
                             SerializableRunnable onAllRoots, SerializableRunnable onStarred,
                             SerializableRunnable onLogout, SerializableBiConsumer<Located, List<String>> onDropInto) {
     }
-
-    private final FolderTree folderTree;
-    private final Div starredSlot = Ui.div("fb-sidebar-starred-slot");
-    private final SerializableRunnable onStarred;
 
     public Sidebar(FsRoot root, List<FsRoot> browsable, SubfolderLoader folders, Catalog catalog, CurrentUser.User user,
                    Callbacks callbacks) {

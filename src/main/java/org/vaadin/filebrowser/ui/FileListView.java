@@ -2,6 +2,7 @@ package org.vaadin.filebrowser.ui;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.vaadin.filebrowser.data.Catalog;
@@ -13,19 +14,20 @@ import org.vaadin.filebrowser.service.Workspace.Density;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.NativeButton;
+import com.vaadin.flow.component.html.Span;
 
 /** The design's table: sortable header, rows with hover-revealed checkbox, star and menu. */
 public class FileListView extends Composite<Div> {
 
     private final EntryHandler handler;
-    private final Map<Located, Div> rows = new LinkedHashMap<>();
+    private final Map<Located, Div> rows;
     private final DragMove.Targets dropTargets = new DragMove.Targets();
 
     public FileListView(List<Located> entries, EntryHandler handler, Density density, Catalog catalog) {
         this.handler = handler;
+        this.rows = LinkedHashMap.newLinkedHashMap(entries.size());
         final var table = getContent();
-        table.addClassNames("fb-table", "fb-table--" + density.name().toLowerCase());
+        table.addClassNames("fb-table", "fb-table--" + density.name().toLowerCase(Locale.ROOT));
         table.getElement().getClassList().set("fb-table--selectable", handler.selectable());
         table.getElement().setAttribute("role", "table");
 
@@ -71,9 +73,8 @@ public class FileListView extends Composite<Div> {
         final var down = Ui.span("fb-sort-down" + (active && !sort.ascending() ? " fb-sort--on" : ""));
         final var labelText = Ui.span("", label);
         final var arrows = Ui.span("fb-sort-arrows", up, down);
-        final NativeButton button = Ui.button("fb-col-head" + (active ? " fb-col-head--active" : "")
+        return Ui.button("fb-col-head" + (active ? " fb-col-head--active" : "")
                 + (key == SortKey.SIZE ? " fb-col-head--end" : ""), () -> handler.sortBy(key), labelText, arrows);
-        return button;
     }
 
     private static Div row(Located located, EntryHandler handler, Catalog catalog, DragMove.Targets dropTargets) {
@@ -91,17 +92,7 @@ public class FileListView extends Composite<Div> {
             row.add(checkCell);
         }
 
-        final var name = Ui.span("fb-row-name", entry.name());
-        final var names = Ui.span("fb-row-names", name);
-        if (located.elsewhere()) {
-            final var folderIcon = new Icon("folder");
-            final var locationText = Ui.span("fb-ellipsis", located.locationLabel());
-            final var location = Ui.span("fb-row-sub fb-row-loc", folderIcon, locationText);
-            names.add(location);
-        } else if (entry.folder()) {
-            final var itemCount = Ui.span("fb-row-sub", entry.childCount() == null ? "" : Formats.plural(entry.childCount(), "item"));
-            names.add(itemCount);
-        }
+        final var names = names(located);
         final var glyph = new FileGlyph(entry.type(), catalog);
         final var main = Ui.div("fb-row-main", glyph, names);
         row.add(main);
@@ -126,25 +117,24 @@ public class FileListView extends Composite<Div> {
         final var actions = Ui.span("fb-row-actions", star, dots);
         row.add(actions);
 
-        row.addClickListener(e -> {
-            if (entry.folder()) {
-                handler.open(located);
-            } else {
-                handler.selectRow(located);
-            }
-        });
-        row.addDoubleClickListener(e -> {
-            if (!entry.folder()) {
-                handler.open(located);
-            }
-        });
-        MenuPosition.onContextMenu(row, pos -> handler.contextMenu(located, pos));
-        if (handler.draggable()) {
-            DragMove.source(row, located, handler);
-            if (entry.folder()) {
-                dropTargets.add(row, dragged -> handler.dropOnto(dragged, located));
-            }
-        }
+        EntryListeners.listen(row, located, handler, dropTargets);
         return row;
+    }
+
+    /** The name, with where it is for a starred entry shown away from its folder, or a folder's item count. */
+    private static Span names(Located located) {
+        final var entry = located.entry();
+        final var name = Ui.span("fb-row-name", entry.name());
+        final var names = Ui.span("fb-row-names", name);
+        if (located.elsewhere()) {
+            final var folderIcon = new Icon("folder");
+            final var locationText = Ui.span("fb-ellipsis", located.locationLabel());
+            final var location = Ui.span("fb-row-sub fb-row-loc", folderIcon, locationText);
+            names.add(location);
+        } else if (entry.folder()) {
+            final var itemCount = Ui.span("fb-row-sub", entry.childCount() == null ? "" : Formats.plural(entry.childCount(), "item"));
+            names.add(itemCount);
+        }
+        return names;
     }
 }

@@ -4,6 +4,7 @@ import java.io.BufferedInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -11,9 +12,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarConstants;
 import org.apache.commons.compress.archivers.zip.ZipFile;
@@ -35,17 +38,30 @@ import org.vaadin.filebrowser.storage.StorageProvider;
  */
 public final class ArchiveExtractor {
 
-    /** Upper bounds for one archive. */
-    public record Limits(long maxBytes, int maxEntries) {
-    }
-
-    public record Result(int written, int skipped) {
-    }
-
     private static final int BUFFER_SIZE = 64 * 1024;
     /** Tar entry types that hold a plain file. */
     private static final Set<Byte> REGULAR_TAR_TYPES = Set.of(TarConstants.LF_NORMAL, TarConstants.LF_OLDNORM,
             TarConstants.LF_CONTIG);
+
+    private final StorageProvider provider;
+    private final String target;
+    private final ExtractOptions.Clash clash;
+    private final Limits limits;
+    private final List<String> createdFolders = new ArrayList<>();
+    private final List<String> writtenFiles = new ArrayList<>();
+    private final Set<String> knownFolders = new HashSet<>();
+    private final Map<String, Set<String>> namesIn = new HashMap<>();
+    private long bytes;
+    private int entries;
+    private int written;
+    private int skipped;
+
+    /** Upper bounds for one archive. */
+    public record Limits(long maxBytes, int maxEntries) implements Serializable {
+    }
+
+    public record Result(int written, int skipped) {
+    }
 
     /** One entry as read from any of the formats. */
     private interface Entry {
@@ -65,19 +81,6 @@ public final class ArchiveExtractor {
 
         void accept(Entry entry) throws IOException;
     }
-
-    private final StorageProvider provider;
-    private final String target;
-    private final ExtractOptions.Clash clash;
-    private final Limits limits;
-    private final List<String> createdFolders = new ArrayList<>();
-    private final List<String> writtenFiles = new ArrayList<>();
-    private final Set<String> knownFolders = new HashSet<>();
-    private final Map<String, Set<String>> namesIn = new HashMap<>();
-    private long bytes;
-    private int entries;
-    private int written;
-    private int skipped;
 
     private ArchiveExtractor(StorageProvider provider, String target, ExtractOptions.Clash clash, Limits limits) {
         this.provider = provider;
@@ -118,17 +121,17 @@ public final class ArchiveExtractor {
             case ZIP -> readZip(archive);
             case SEVEN_Z -> readSevenZ(archive);
             case TAR, TAR_GZ, TAR_BZ2, TAR_XZ, TAR_LZ -> {
-                try (final var tar = new TarArchiveInputStream(decompress(archive, format))) {
+                try (var tar = new TarArchiveInputStream(decompress(archive, format))) {
                     readTar(tar);
                 }
             }
             case GZ, BZ2, XZ, LZ -> {
-                try (final var in = decompress(archive, format)) {
+                try (var in = decompress(archive, format)) {
                     accept(new Entry() {
-                        public String name() { return singleName; }
-                        public boolean directory() { return false; }
-                        public boolean regular() { return true; }
-                        public InputStream open() { return new Unclosable(in); }
+                        @Override public String name() { return singleName; }
+                        @Override public boolean directory() { return false; }
+                        @Override public boolean regular() { return true; }
+                        @Override public InputStream open() { return new Unclosable(in); }
                     });
                 }
             }
@@ -141,22 +144,22 @@ public final class ArchiveExtractor {
             case TAR -> raw;
             case TAR_GZ, GZ -> GzipCompressorInputStream.builder().setInputStream(raw).setDecompressConcatenated(true).get();
             case TAR_BZ2, BZ2 -> new BZip2CompressorInputStream(raw, true);
-            case TAR_XZ, XZ -> new XZCompressorInputStream(raw, true);
+            case TAR_XZ, XZ -> XZCompressorInputStream.builder().setInputStream(raw).setDecompressConcatenated(true).get();
             case TAR_LZ, LZ -> new LzipInputStream(raw);
             default -> throw new IllegalArgumentException(format.name());
         };
     }
 
     private void readZip(Path archive) throws IOException {
-        try (final var zip = ZipFile.builder().setPath(archive).get()) {
+        try (var zip = ZipFile.builder().setPath(archive).get()) {
             final var all = zip.getEntries();
             while (all.hasMoreElements()) {
                 final var entry = all.nextElement();
                 accept(new Entry() {
-                    public String name() { return entry.getName(); }
-                    public boolean directory() { return entry.isDirectory(); }
-                    public boolean regular() { return !entry.isUnixSymlink(); }
-                    public InputStream open() throws IOException { return zip.getInputStream(entry); }
+                    @Override public String name() { return entry.getName(); }
+                    @Override public boolean directory() { return entry.isDirectory(); }
+                    @Override public boolean regular() { return !entry.isUnixSymlink(); }
+                    @Override public InputStream open() throws IOException { return zip.getInputStream(entry); }
                 });
             }
         }
@@ -166,24 +169,28 @@ public final class ArchiveExtractor {
         for (var entry = tar.getNextEntry(); entry != null; entry = tar.getNextEntry()) {
             final var current = entry;
             accept(new Entry() {
-                public String name() { return current.getName(); }
-                public boolean directory() { return current.isDirectory(); }
-                // isFile() also says yes to links and devices, so the entry type is checked directly
-                public boolean regular() { return current.isDirectory() || REGULAR_TAR_TYPES.contains(current.getLinkFlag()); }
-                public InputStream open() { return new Unclosable(tar); }
+                @Override public String name() { return current.getName(); }
+                @Override public boolean directory() { return current.isDirectory(); }
+                @Override public boolean regular() { return isRegularTarEntry(current); }
+                @Override public InputStream open() { return new Unclosable(tar); }
             });
         }
     }
 
+    // isFile() also says yes to links and devices, so the entry type is checked directly
+    private static boolean isRegularTarEntry(TarArchiveEntry entry) {
+        return entry.isDirectory() || REGULAR_TAR_TYPES.contains(entry.getLinkFlag());
+    }
+
     private void readSevenZ(Path archive) throws IOException {
-        try (final var sevenZ = SevenZFile.builder().setPath(archive).get()) {
+        try (var sevenZ = SevenZFile.builder().setPath(archive).get()) {
             for (var entry = sevenZ.getNextEntry(); entry != null; entry = sevenZ.getNextEntry()) {
                 final var current = entry;
                 accept(new Entry() {
-                    public String name() { return current.getName(); }
-                    public boolean directory() { return current.isDirectory(); }
-                    public boolean regular() { return !current.isAntiItem(); }
-                    public InputStream open() throws IOException { return sevenZ.getInputStream(current); }
+                    @Override public String name() { return current.getName(); }
+                    @Override public boolean directory() { return current.isDirectory(); }
+                    @Override public boolean regular() { return !current.isAntiItem(); }
+                    @Override public InputStream open() throws IOException { return sevenZ.getInputStream(current); }
                 });
             }
         }
@@ -192,14 +199,16 @@ public final class ArchiveExtractor {
     // ---- writing ------------------------------------------------------------------------------
 
     private void accept(Entry entry) throws IOException {
-        if (++entries > limits.maxEntries()) {
+        entries++;
+        if (entries > limits.maxEntries()) {
             throw new LimitException("has more than " + limits.maxEntries() + " entries.");
         }
-        final var segments = segments(entry.name());
-        if (segments == null || !entry.regular()) {
+        final var placed = segments(entry.name());
+        if (placed.isEmpty() || !entry.regular()) {
             skipped++;
             return;
         }
+        final var segments = placed.orElseThrow();
         if (entry.directory()) {
             ensureFolder(segments);
             return;
@@ -212,24 +221,24 @@ public final class ArchiveExtractor {
         writeFile(parent, segments.getLast(), entry);
     }
 
-    /** The entry's path as safe segments, or null when it can't be placed inside the target folder. */
-    static List<String> segments(String name) {
+    /** The entry's path as safe segments; empty when it can't be placed inside the target folder. */
+    static Optional<List<String>> segments(String name) {
         if (name == null) {
-            return null;
+            return Optional.empty();
         }
         final var out = new ArrayList<String>();
         for (final var part : name.replace('\\', '/').split("/")) {
-            if (part.isEmpty() || part.equals(".")) {
+            if (part.isEmpty() || ".".equals(part)) {
                 continue;
             }
             try {
                 StoragePaths.requireValidName(part);
             } catch (StorageException e) {
-                return null;
+                return Optional.empty();
             }
             out.add(part);
         }
-        return out.isEmpty() ? null : out;
+        return out.isEmpty() ? Optional.empty() : Optional.of(out);
     }
 
     /** Creates the folders on the way down as needed; null when a file is in the way. */
@@ -237,9 +246,10 @@ public final class ArchiveExtractor {
         var path = target;
         for (final var segment : segments) {
             final var child = StoragePaths.child(path, segment);
-            if (!knownFolders.contains(child)) {
+            if (knownFolders.add(child)) {
                 final var existing = provider.stat(child);
-                if (existing.isPresent() && !existing.get().folder()) {
+                if (existing.isPresent() && !existing.orElseThrow().folder()) {
+                    knownFolders.remove(child);
                     return null;
                 }
                 if (existing.isEmpty()) {
@@ -247,7 +257,6 @@ public final class ArchiveExtractor {
                     createdFolders.add(child);
                     names(path).add(segment);
                 }
-                knownFolders.add(child);
             }
             path = child;
         }
@@ -268,7 +277,7 @@ public final class ArchiveExtractor {
         var replace = false;
         if (names.contains(name)) {
             final var existing = provider.stat(StoragePaths.child(folder, name));
-            if (existing.isPresent() && existing.get().folder() || clash == ExtractOptions.Clash.SKIP) {
+            if (existing.isPresent() && existing.orElseThrow().folder() || clash == ExtractOptions.Clash.SKIP) {
                 skipped++;
                 return;
             }
@@ -279,15 +288,14 @@ public final class ArchiveExtractor {
             }
         }
         final var path = StoragePaths.child(folder, finalName);
-        try (final var write = provider.openWrite(folder, finalName, replace); final var in = entry.open()) {
+        try (var write = provider.openWrite(folder, finalName, replace); var in = entry.open()) {
             final var buffer = new byte[BUFFER_SIZE];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
+            for (var read = in.read(buffer); read != -1; read = in.read(buffer)) {
                 bytes += read;
                 if (bytes > limits.maxBytes()) {
                     throw new LimitException("expands to more than the extraction limit.");
                 }
-                write.stream().write(buffer, 0, read);
+                write.getStream().write(buffer, 0, read);
             }
             write.commit();
         }
@@ -303,14 +311,14 @@ public final class ArchiveExtractor {
         for (final var file : writtenFiles) {
             try {
                 provider.delete(file);
-            } catch (StorageException e) {
+            } catch (StorageException ignored) {
                 // best effort; the error being reported matters more
             }
         }
         for (final var folder : createdFolders.reversed()) {
             try {
                 provider.delete(folder);
-            } catch (StorageException e) {
+            } catch (StorageException ignored) {
                 // as above
             }
         }
@@ -333,6 +341,7 @@ public final class ArchiveExtractor {
 
         @Override
         public void close() {
+            // the archive stream stays open for the next entry
         }
     }
 }

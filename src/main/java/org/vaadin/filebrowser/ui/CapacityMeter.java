@@ -1,5 +1,9 @@
 package org.vaadin.filebrowser.ui;
 
+import java.util.Locale;
+import java.util.Objects;
+
+import org.vaadin.filebrowser.data.Capacity;
 import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.KindInfo;
@@ -15,24 +19,45 @@ public class CapacityMeter extends Composite<Div> {
 
     public CapacityMeter(FsRoot root, KindInfo kind, Style style) {
         final var div = getContent();
-        div.addClassNames("fb-capacity", "fb-capacity--" + style.name().toLowerCase(), kind.tintClass());
+        div.addClassNames("fb-capacity", "fb-capacity--" + style.name().toLowerCase(Locale.ROOT), kind.tintClass());
         final var cap = root.capacity();
 
         if (cap == null) {
-            div.addClassName("fb-capacity--none");
-            final var reason = root.online() ? null : root.status().reason();
-            final var icon = new Icon(root.online() ? "note" : "warn");
-            final var note = reason != null ? reason
-                    : !root.online() ? "Unavailable"
-                    : kind.usageNote() != null ? kind.usageNote()
-                    : "Usage unavailable";
-            final var text = new Span(note);
-            div.getElement().getClassList().set("fb-capacity--reason", reason != null);
-            div.add(icon, text);
+            showNoUsage(root, kind);
             return;
         }
-
         final var pct = cap.percentUsed();
+        final var line = usageLine(cap, style);
+        if (pct != null) {
+            final var percent = Ui.span("fb-capacity-pct", pct + "%");
+            line.add(percent);
+        }
+        final var bar = Ui.div("fb-capacity-bar");
+        if (pct != null) {
+            final var fill = Ui.div("fb-capacity-fill");
+            fill.getStyle().setWidth(pct + "%");
+            bar.add(fill);
+        } else {
+            bar.addClassName("fb-capacity-bar--striped");
+        }
+        div.add(line, bar);
+    }
+
+    /** Why there is no meter: the file system is offline, or its kind doesn't report usage. */
+    private void showNoUsage(FsRoot root, KindInfo kind) {
+        final var div = getContent();
+        div.addClassName("fb-capacity--none");
+        final var reason = root.online() ? null : root.status().reason();
+        final var icon = new Icon(root.online() ? "note" : "warn");
+        final var note = reason != null ? reason
+                : root.online() ? Objects.requireNonNullElse(kind.usageNote(), "Usage unavailable")
+                : "Unavailable";
+        final var text = new Span(note);
+        div.getElement().getClassList().set("fb-capacity--reason", reason != null);
+        div.add(icon, text);
+    }
+
+    private static Div usageLine(Capacity cap, Style style) {
         final var line = Ui.div("fb-capacity-line");
         final var usedText = Formats.gigabytes(cap.used());
         if (style == Style.CARD) {
@@ -46,19 +71,6 @@ public class CapacityMeter extends Composite<Div> {
             final var usage = new Span(usedText + total);
             line.add(usage);
         }
-        if (pct != null) {
-            final var percent = Ui.span("fb-capacity-pct", pct + "%");
-            line.add(percent);
-        }
-
-        final var bar = Ui.div("fb-capacity-bar");
-        if (pct != null) {
-            final var fill = Ui.div("fb-capacity-fill");
-            fill.getStyle().setWidth(pct + "%");
-            bar.add(fill);
-        } else {
-            bar.addClassName("fb-capacity-bar--striped");
-        }
-        div.add(line, bar);
+        return line;
     }
 }

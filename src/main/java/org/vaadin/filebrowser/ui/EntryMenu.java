@@ -17,10 +17,10 @@ public class EntryMenu extends Div {
     private static final int ASSUMED_MENU_HEIGHT = 320;
     private static final int ASSUMED_MENU_WIDTH = 220;
 
+    private final Div menu = Ui.div("fb-menu fb-entry-menu");
+
     private record Item(EntryAction action, String label, String icon, boolean danger) {
     }
-
-    private final Div menu = Ui.div("fb-menu fb-entry-menu");
 
     public EntryMenu() {
         setClassName("fb-entry-menu-layer");
@@ -34,36 +34,7 @@ public class EntryMenu extends Div {
     /** @param canPreview whether a file offers Preview; its file system may not allow opening files */
     public void open(Located located, MenuPosition pos, boolean starredMode, boolean starred, boolean readOnly,
                      boolean canPreview, SerializableBiConsumer<EntryAction, Located> onAction) {
-        final var folder = located.entry().folder();
-        final var items = new ArrayList<Item>();
-        final var star = new Item(EntryAction.STAR, starred ? "Remove from starred" : "Add to starred",
-                starred ? "star" : "star-outline", false);
-        if (starredMode) {
-            final var open = folder ? new Item(EntryAction.OPEN, "Go to folder", "folder", false)
-                    : new Item(EntryAction.OPEN, "Go to file", "arrow-right", false);
-            final var download = new Item(EntryAction.DOWNLOAD, "Download", "download", false);
-            items.add(open);
-            items.add(download);
-            items.add(null);
-            items.add(star);
-        } else {
-            final var open = folder ? new Item(EntryAction.OPEN, "Open", "folder", false)
-                    : new Item(EntryAction.OPEN, "Preview", "eye", false);
-            final var download = new Item(EntryAction.DOWNLOAD, "Download", "download", false);
-            final var rename = new Item(EntryAction.RENAME, "Rename", "edit", false);
-            final var move = new Item(EntryAction.MOVE, "Move to…", "move", false);
-            final var copy = new Item(EntryAction.COPY, "Copy", "copy", false);
-            final var delete = new Item(EntryAction.DELETE, "Delete", "trash", true);
-            if (folder || canPreview) {
-                items.add(open);
-            }
-            items.add(download);
-            items.add(null);
-            items.addAll(List.of(rename, move, copy, star));
-            items.add(null);
-            items.add(delete);
-        }
-
+        final var items = items(located.entry().folder(), starredMode, starred, canPreview);
         menu.removeAll();
         for (final var item : items) {
             if (item == null) {
@@ -81,13 +52,45 @@ public class EntryMenu extends Div {
             button.setEnabled(!disabled);
             menu.add(button);
         }
-        final var top = Math.max(0, Math.min(pos.y(), pos.viewportHeight() - ASSUMED_MENU_HEIGHT));
-        final var left = Math.max(0, Math.min(pos.x(), pos.viewportWidth() - ASSUMED_MENU_WIDTH));
+        final var top = Math.max(0, Math.min(pos.clientY(), pos.viewportHeight() - ASSUMED_MENU_HEIGHT));
+        final var left = Math.max(0, Math.min(pos.clientX(), pos.viewportWidth() - ASSUMED_MENU_WIDTH));
         menu.getStyle().setTop(top + "px").setLeft(left + "px");
         setVisible(true);
     }
 
     public void close() {
         setVisible(false);
+    }
+
+    /** The menu's items in order; null stands for a separator. */
+    private static List<Item> items(boolean folder, boolean starredMode, boolean starred, boolean canPreview) {
+        final var items = new ArrayList<Item>();
+        final var star = new Item(EntryAction.STAR, starred ? "Remove from starred" : "Add to starred",
+                starred ? "star" : "star-outline", false);
+        final var download = new Item(EntryAction.DOWNLOAD, "Download", "download", false);
+        if (starredMode) {
+            final var open = folder ? new Item(EntryAction.OPEN, "Go to folder", "folder", false)
+                    : new Item(EntryAction.OPEN, "Go to file", "arrow-right", false);
+            items.add(open);
+            items.add(download);
+            items.add(null);
+            items.add(star);
+            return items;
+        }
+        final var open = folder ? new Item(EntryAction.OPEN, "Open", "folder", false)
+                : new Item(EntryAction.OPEN, "Preview", "eye", false);
+        final var rename = new Item(EntryAction.RENAME, "Rename", "edit", false);
+        final var move = new Item(EntryAction.MOVE, "Move to…", "move", false);
+        final var copy = new Item(EntryAction.COPY, "Copy", "copy", false);
+        final var delete = new Item(EntryAction.DELETE, "Delete", "trash", true);
+        if (folder || canPreview) {
+            items.add(open);
+        }
+        items.add(download);
+        items.add(null);
+        items.addAll(List.of(rename, move, copy, star));
+        items.add(null);
+        items.add(delete);
+        return items;
     }
 }

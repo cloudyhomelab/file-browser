@@ -51,8 +51,7 @@ public class FileGridView extends Composite<Div> {
         final var actions = Ui.span("fb-card-actions", star, dots);
         card.add(actions);
 
-        final var sub = located.elsewhere() ? located.locationLabel()
-                : entry.folder() ? (entry.childCount() == null ? "" : Formats.plural(entry.childCount(), "item")) : Formats.size(entry.size());
+        final var sub = subtitle(located);
         final var tile = new FileTile(entry, catalog);
         final var tileFrame = Ui.span("fb-card-tile", tile);
         final var name = Ui.span("fb-card-name", entry.name());
@@ -60,25 +59,19 @@ public class FileGridView extends Composite<Div> {
         final var text = Ui.div("fb-card-text", name, subLine);
         card.add(tileFrame, text);
 
-        card.addClickListener(e -> {
-            if (entry.folder()) {
-                handler.open(located);
-            } else {
-                handler.selectRow(located);
-            }
-        });
-        card.addDoubleClickListener(e -> {
-            if (!entry.folder()) {
-                handler.open(located);
-            }
-        });
-        MenuPosition.onContextMenu(card, pos -> handler.contextMenu(located, pos));
-        if (handler.draggable()) {
-            DragMove.source(card, located, handler);
-            if (entry.folder()) {
-                dropTargets.add(card, dragged -> handler.dropOnto(dragged, located));
-            }
-        }
+        EntryListeners.listen(card, located, handler, dropTargets);
         return card;
+    }
+
+    /** Where the entry is, for a starred one shown away from its folder; otherwise its size or item count. */
+    private static String subtitle(Located located) {
+        final var entry = located.entry();
+        if (located.elsewhere()) {
+            return located.locationLabel();
+        }
+        if (!entry.folder()) {
+            return Formats.size(entry.size());
+        }
+        return entry.childCount() == null ? "" : Formats.plural(entry.childCount(), "item");
     }
 }

@@ -19,7 +19,10 @@ public class DatabaseConfig {
     @Bean
     public DataSource dataSource(FileBrowserProperties properties) throws IOException {
         final var file = properties.databasePath().toAbsolutePath();
-        Files.createDirectories(file.getParent());
+        final var folder = file.getParent();
+        if (folder != null) {
+            Files.createDirectories(folder);
+        }
 
         final var config = new SQLiteConfig();
         config.enforceForeignKeys(true);

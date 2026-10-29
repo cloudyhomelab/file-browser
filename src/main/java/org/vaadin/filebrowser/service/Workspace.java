@@ -30,11 +30,15 @@ import org.vaadin.filebrowser.storage.VerifiedCopy;
 import com.vaadin.flow.spring.annotation.SpringComponent;
 import com.vaadin.flow.spring.annotation.VaadinSessionScope;
 
+import lombok.Getter;
+
 /**
  * The signed-in user's view of the shared file systems (from {@link FileSystemRegistry}): file
  * operations through {@link StorageService}, the user's starred items and view preferences (saved
  * through {@link UserData}), uploads and transfers. Lives for the Vaadin session.
  */
+// holds app-wide services; sessions are never serialized. Both go with #76
+@SuppressWarnings({"PMD.NonSerializableClass", "PMD.TooManyMethods"})
 @SpringComponent
 @VaadinSessionScope
 public class Workspace implements Serializable {
@@ -45,7 +49,7 @@ public class Workspace implements Serializable {
 
     public enum ConflictChoice { REPLACE, KEEP_BOTH, SKIP }
 
-
+    @Getter
     private final Catalog catalog;
     private final FileSystemRegistry registry;
     private final StorageService storage;
@@ -53,15 +57,21 @@ public class Workspace implements Serializable {
     private final LinkFetcher links;
     // transfers move stars from their worker thread
     private final Set<String> starred = ConcurrentHashMap.newKeySet();
+    @Getter
     private final UploadQueue uploads;
+    @Getter
     private final TransferQueue transfers = new TransferQueue(new TransferWork());
     private final UserData userData;
     private final CurrentUser currentUser;
     private final String email;
 
+    @Getter
     private Layout layout = UserData.Preferences.DEFAULT.layout();
+    @Getter
     private Density density = UserData.Preferences.DEFAULT.density();
+    @Getter
     private Sort sort = UserData.Preferences.DEFAULT.sort();
+    @Getter
     private boolean groupByType = UserData.Preferences.DEFAULT.groupByType();
 
     public Workspace(Catalog catalog, FileSystemRegistry registry, StorageService storage, RootSecrets secrets,
@@ -84,10 +94,6 @@ public class Workspace implements Serializable {
             sort = preferences.sort();
             groupByType = preferences.groupByType();
         }
-    }
-
-    public Catalog catalog() {
-        return catalog;
     }
 
     // ---- roots ----------------------------------------------------------------------------
@@ -130,7 +136,7 @@ public class Workspace implements Serializable {
             throw new AccessDeniedException("Only admins can add file systems");
         }
         if (!config.secrets().isEmpty() && !secrets.canStore()) {
-            return StorageService.Check.problem("Set FILEBROWSER_SECRET_KEY_FILE on the server to store credentials.");
+            return StorageService.Check.failed("Set FILEBROWSER_SECRET_KEY_FILE on the server to store credentials.");
         }
         return storage.check(type, config);
     }
@@ -176,13 +182,9 @@ public class Workspace implements Serializable {
 
     // ---- reading --------------------------------------------------------------------------
 
-    private StorageProvider provider(FsRoot root) {
+    /** The provider behind a file system, e.g. for streaming downloads outside the UI thread. */
+    public StorageProvider provider(FsRoot root) {
         return storage.provider(root);
-    }
-
-    /** The provider behind a file system, for streaming downloads outside the UI thread. */
-    public StorageProvider storage(FsRoot root) {
-        return provider(root);
     }
 
     public List<StorageEntry> list(FsRoot root, List<String> folder) {
@@ -195,7 +197,7 @@ public class Workspace implements Serializable {
             if (folder.isEmpty()) {
                 return provider(root).healthy();
             }
-            return provider(root).stat(StoragePaths.join(folder)).map(StorageEntry::folder).orElse(false);
+            return provider(root).stat(StoragePaths.join(folder)).map(StorageEntry::folder).orElse(Boolean.FALSE);
         } catch (StorageException e) {
             return false;
         }
@@ -255,9 +257,9 @@ public class Workspace implements Serializable {
                 userData.dropStars(root.id(), path);
                 continue;
             }
-            final var location = entry.get().parent();
+            final var location = entry.orElseThrow().parent();
             final var label = String.join(" / ", Stream.concat(Stream.of(root.name()), location.stream()).toList());
-            final var located = new Located(entry.get(), root.id(), location, label);
+            final var located = new Located(entry.orElseThrow(), root.id(), location, label);
             out.add(located);
         }
         return sort.apply(out);
@@ -388,10 +390,6 @@ public class Workspace implements Serializable {
                 .toList();
     }
 
-    public TransferQueue transfers() {
-        return transfers;
-    }
-
     /** A file system a transfer starts on must still be registered, unlocked and online, and writable if asked. */
     private void requireReady(FsRoot root, boolean writable) {
         final var now = current(root);
@@ -419,9 +417,9 @@ public class Workspace implements Serializable {
         @Override
         public void check(TransferTask task) {
             final var within = !task.betweenFileSystems();
-            requireReady(task.sourceRoot(), task.kind() == TransferTask.Kind.MOVE || within);
+            requireReady(task.getSourceRoot(), task.getKind() == TransferTask.Kind.MOVE || within);
             if (!within) {
-                requireReady(task.destinationRoot(), true);
+                requireReady(task.getDestinationRoot(), true);
             }
         }
 
@@ -430,39 +428,39 @@ public class Workspace implements Serializable {
             if (!task.betweenFileSystems()) {
                 return;
             }
-            task.status("Preparing…");
-            final var provider = provider(current(task.sourceRoot()));
-            task.bytesTotal(task.items().stream().mapToLong(i -> size(provider, i.entry())).sum());
+            task.setStatus("Preparing…");
+            final var provider = provider(current(task.getSourceRoot()));
+            task.setBytesTotal(task.getItems().stream().mapToLong(i -> size(provider, i.entry())).sum());
         }
 
         @Override
         public void run(TransferTask task, TransferTask.Item item, CopyProgress progress) {
-            final var root = task.sourceRoot();
+            final var root = task.getSourceRoot();
             if (task.betweenFileSystems()) {
                 transferAcross(task, item, progress);
             } else if (item.duplicate()) {
                 duplicate(root, item.entry(), progress);
-            } else if (task.kind() == TransferTask.Kind.MOVE) {
-                move(root, item.entry(), task.destination(), item.name(), item.replace());
+            } else if (task.getKind() == TransferTask.Kind.MOVE) {
+                move(root, item.entry(), task.getDestination(), item.name(), item.replace());
             } else {
-                copy(root, item.entry(), task.destination(), item.name(), item.replace(), progress);
+                copy(root, item.entry(), task.getDestination(), item.name(), item.replace(), progress);
             }
         }
     }
 
     /** A verified copy to another file system; for a move, then the originals that were verified. */
     private void transferAcross(TransferTask task, TransferTask.Item item, CopyProgress progress) {
-        final var sourceRoot = task.sourceRoot();
-        final var targetRoot = task.destinationRoot();
+        final var sourceRoot = task.getSourceRoot();
+        final var targetRoot = task.getDestinationRoot();
         final var from = provider(current(sourceRoot));
         final var to = writable(targetRoot);
-        final var folder = StoragePaths.join(task.destination());
+        final var folder = StoragePaths.join(task.getDestination());
         final var target = StoragePaths.child(folder, item.name());
         final var result = VerifiedCopy.copy(from, item.entry().path(), to, folder, item.name(), item.replace(), progress);
         if (item.replace()) {
             dropStars(targetRoot.id(), target);
         }
-        if (task.kind() == TransferTask.Kind.MOVE) {
+        if (task.getKind() == TransferTask.Kind.MOVE) {
             removeOriginals(task, item, from, target, result);
         }
     }
@@ -477,7 +475,7 @@ public class Workspace implements Serializable {
             throw new StorageException("“" + item.entry().name() + "” was copied, but the original couldn't be removed.", e);
         }
         final var top = item.entry().path();
-        outcome.deleted().forEach(path -> moveStarAcross(task.sourceRoot(), path, task.destinationRoot(),
+        outcome.deleted().forEach(path -> moveStarAcross(task.getSourceRoot(), path, task.getDestinationRoot(),
                 target + path.substring(top.length())));
         outcome.changed().forEach(name -> task.note("“" + name + "” changed during the move; the original was kept."));
         if (outcome.added() > 0) {
@@ -488,7 +486,7 @@ public class Workspace implements Serializable {
     private void replaceFile(FsRoot root, StorageProvider provider, StorageEntry entry, String path, String name) {
         final var existing = provider.stat(path);
         if (existing.isPresent()) {
-            if (entry.folder() || existing.get().folder()) {
+            if (entry.folder() || existing.orElseThrow().folder()) {
                 throw new StorageException("“" + name + "” can't be replaced: only a file replaces a file.");
             }
             provider.delete(path);
@@ -527,11 +525,11 @@ public class Workspace implements Serializable {
         final var dot = name.lastIndexOf('.');
         final var base = dot > 0 ? name.substring(0, dot) : name;
         final var ext = dot > 0 ? name.substring(dot) : "";
-        int n = 1;
+        int number = 1;
         String candidate;
         do {
-            candidate = base + " (" + n + ")" + ext;
-            n++;
+            candidate = base + " (" + number + ")" + ext;
+            number++;
         } while (taken.contains(candidate));
         return candidate;
     }
@@ -550,8 +548,8 @@ public class Workspace implements Serializable {
         }
         final var tasks = uploads.enqueue(now, folder, planned);
         tasks.stream()
-                .filter(t -> t.url() != null)
-                .forEach(t -> Thread.ofVirtual().name("link-upload-" + t.id()).start(() -> uploads.download(t, links, maxBytes)));
+                .filter(t -> t.getUrl() != null)
+                .forEach(t -> Thread.ofVirtual().name("link-upload-" + t.getId()).start(() -> uploads.download(t, links, maxBytes)));
         return tasks;
     }
 
@@ -568,23 +566,11 @@ public class Workspace implements Serializable {
         return new StorageException("Uploads from web links are turned off for “" + root.name() + "”.");
     }
 
-    public UploadQueue uploads() {
-        return uploads;
-    }
-
     // ---- view preferences -----------------------------------------------------------------
-
-    public Layout layout() {
-        return layout;
-    }
 
     public void setLayout(Layout layout) {
         this.layout = layout;
         savePreferences();
-    }
-
-    public Density density() {
-        return density;
     }
 
     public void setDensity(Density density) {
@@ -592,18 +578,9 @@ public class Workspace implements Serializable {
         savePreferences();
     }
 
-    public Sort sort() {
-        return sort;
-    }
-
     public void setSort(Sort sort) {
         this.sort = sort;
         savePreferences();
-    }
-
-    /** Whether the file systems page shows one section per storage type. */
-    public boolean groupByType() {
-        return groupByType;
     }
 
     public void setGroupByType(boolean groupByType) {

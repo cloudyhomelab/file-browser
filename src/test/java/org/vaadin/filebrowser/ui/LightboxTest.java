@@ -26,7 +26,7 @@ class LightboxTest {
     @Test
     void stepsThroughFilesOnlyInTheOrderGiven() {
         final var entries = List.of(file("c.png"), folder("Folder"), file("b.zip"), file("a;b.png"), file("a.txt"));
-        assertThat(Lightbox.files(entries)).extracting(StorageEntry::name)
+        assertThat(Lightbox.viewable(entries)).extracting(StorageEntry::name)
                 .containsExactly("c.png", "b.zip", "a;b.png", "a.txt");
     }
 

@@ -1,5 +1,6 @@
 package org.vaadin.filebrowser.ui;
 
+import java.io.Serializable;
 import java.util.List;
 
 import org.vaadin.filebrowser.data.AutoRefresh;
@@ -26,6 +27,12 @@ import com.vaadin.flow.function.SerializableRunnable;
  */
 public class Toolbar extends Composite<Div> {
 
+    private static final int SEARCH_DEBOUNCE_MS = 250;
+
+    private final TextField search = new TextField();
+    private final Div actions = Ui.div("fb-toolbar-actions");
+    private final Callbacks callbacks;
+
     public record State(Sort sort, AutoRefresh autoRefresh, Density density, Layout layout, boolean readOnly,
                         Component bulkSlot) {
     }
@@ -33,14 +40,8 @@ public class Toolbar extends Composite<Div> {
     public record Callbacks(SerializableConsumer<String> onQuery, SerializableConsumer<SortKey> onSort,
                             SerializableConsumer<AutoRefresh> onAutoRefresh, SerializableRunnable onToggleDensity,
                             SerializableConsumer<Layout> onLayout, SerializableRunnable onNewFolder,
-                            SerializableRunnable onUpload) {
+                            SerializableRunnable onUpload) implements Serializable {
     }
-
-    private static final int SEARCH_DEBOUNCE_MS = 250;
-
-    private final TextField search = new TextField();
-    private final Div actions = Ui.div("fb-toolbar-actions");
-    private final Callbacks callbacks;
 
     public Toolbar(Callbacks callbacks) {
         this.callbacks = callbacks;
@@ -75,8 +76,8 @@ public class Toolbar extends Composite<Div> {
         final var densityToggle = Ui.iconButton(dense ? "list" : "menu", dense ? "Comfortable rows" : "Dense rows",
                 callbacks.onToggleDensity());
         actions.add(densityToggle);
-        final var listOption = Segmented.Option.icon(Layout.LIST, "list", "List");
-        final var gridOption = Segmented.Option.icon(Layout.GRID, "grid", "Grid");
+        final var listOption = Segmented.Option.iconOnly(Layout.LIST, "list", "List");
+        final var gridOption = Segmented.Option.iconOnly(Layout.GRID, "grid", "Grid");
         final var layoutToggle = new Segmented<>("fb-seg--view", List.of(listOption, gridOption), state.layout(),
                 callbacks.onLayout());
         actions.add(layoutToggle);
@@ -93,7 +94,7 @@ public class Toolbar extends Composite<Div> {
         final var trigger = new NativeButton();
         trigger.setClassName("fb-ghost-btn");
         final var sortIcon = new Icon("sort");
-        final var label = Ui.span("", sort.key().label());
+        final var label = Ui.span("", sort.key().getLabel());
         final var direction = new Icon(sort.ascending() ? "angle-up" : "angle-down");
         trigger.add(sortIcon, label, direction);
         trigger.getElement().setAttribute("aria-label", "Sort by");
@@ -104,7 +105,7 @@ public class Toolbar extends Composite<Div> {
         popover.addThemeVariants(PopoverVariant.NO_PADDING);
         final var menu = Ui.div("fb-menu fb-sort-menu");
         for (final var key : SortKey.values()) {
-            final var keyLabel = Ui.span("fb-grow", key.label());
+            final var keyLabel = Ui.span("fb-grow", key.getLabel());
             final var item = Ui.button("fb-menu-item", () -> {
                 popover.close();
                 callbacks.onSort().accept(key);
@@ -124,9 +125,9 @@ public class Toolbar extends Composite<Div> {
         final var trigger = new NativeButton();
         trigger.setClassName("fb-ghost-btn" + (current.on() ? " fb-ghost-btn--on" : ""));
         final var refreshIcon = new Icon("refresh");
-        final var label = Ui.span("", current.label());
+        final var label = Ui.span("", current.getLabel());
         trigger.add(refreshIcon, label);
-        trigger.getElement().setAttribute("aria-label", "Auto refresh: " + current.label());
+        trigger.getElement().setAttribute("aria-label", "Auto refresh: " + current.getLabel());
         trigger.getElement().setAttribute("title", "Auto refresh");
 
         final var popover = new Popover();
@@ -137,7 +138,7 @@ public class Toolbar extends Composite<Div> {
         final var heading = Ui.div("fb-menu-heading", Ui.span("", "Auto refresh"));
         menu.add(heading);
         for (final var option : AutoRefresh.values()) {
-            final var optionLabel = Ui.span("fb-grow", option == AutoRefresh.OFF ? "Off" : "Every " + option.label());
+            final var optionLabel = Ui.span("fb-grow", option == AutoRefresh.OFF ? "Off" : "Every " + option.getLabel());
             final var item = Ui.button("fb-menu-item", () -> {
                 popover.close();
                 callbacks.onAutoRefresh().accept(option);

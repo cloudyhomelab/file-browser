@@ -50,6 +50,9 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     private static final AttributeRepository.AttributeKey<AtomicReference<String>> SEEN =
             new AttributeRepository.AttributeKey<>();
 
+    private final SshClient client;
+    private final Connection connection;
+
     /**
      * How to sign in: a password, or a private key with an optional passphrase.
      *
@@ -67,9 +70,6 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     /** One SSH connection and the SFTP channel on it. */
     public record Session(ClientSession ssh, SftpClient sftp) {
     }
-
-    private final SshClient client;
-    private final Connection connection;
 
     /** @param client started, with {@link #verifier()} as its server key verifier */
     public SftpProvider(SshClient client, Connection connection, Function<String, String> typeForName) {
@@ -142,18 +142,18 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     }
 
     /** Tells a host key that isn't trusted from a refused sign-in. */
-    private static StorageException signInFailure(String seen, String pinned, IOException e) {
+    private static StorageException signInFailure(String seen, String pinned, IOException cause) {
         if (seen != null && pinned.isEmpty()) {
             return new UntrustedServerException(seen);
         }
         if (seen != null && !seen.equals(pinned)) {
             return new StorageException("The server's host key changed. If that is expected, remove this "
-                    + "file system and add it again.", e);
+                    + "file system and add it again.", cause);
         }
         if (seen == null) {
-            return new StorageException("The server didn't complete the connection.", e);
+            return new StorageException("The server didn't complete the connection.", cause);
         }
-        return new StorageException("The server refused the user name or credentials.", e);
+        return new StorageException("The server refused the user name or credentials.", cause);
     }
 
     @Override
@@ -165,7 +165,7 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     protected void disconnect(Session session) {
         try {
             session.sftp().close();
-        } catch (IOException e) {
+        } catch (IOException ignored) {
             // the session closes it as well
         }
         closeQuietly(session.ssh());
@@ -174,20 +174,20 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     private static void closeQuietly(ClientSession ssh) {
         try {
             ssh.close();
-        } catch (IOException e) {
+        } catch (IOException ignored) {
             // nothing more to do with it
         }
     }
 
     @Override
-    protected StorageException failure(String action, IOException e) {
-        if (e instanceof SftpRefusal refusal && refusal.status == SftpConstants.SSH_FX_PERMISSION_DENIED) {
-            return new StorageException("You don't have permission to " + action + ".", e);
+    protected StorageException failure(String action, IOException cause) {
+        if (cause instanceof SftpRefusal refusal && refusal.status == SftpConstants.SSH_FX_PERMISSION_DENIED) {
+            return new StorageException("You don't have permission to " + action + ".", cause);
         }
-        if (e instanceof SftpRefusal refusal && refusal.status == SftpConstants.SSH_FX_NO_SUCH_FILE) {
-            return new StorageException("Could not " + action + ": it no longer exists.", e);
+        if (cause instanceof SftpRefusal refusal && refusal.status == SftpConstants.SSH_FX_NO_SUCH_FILE) {
+            return new StorageException("Could not " + action + ": it no longer exists.", cause);
         }
-        return super.failure(action, e);
+        return super.failure(action, cause);
     }
 
     // ---- primitives -----------------------------------------------------------------------
@@ -198,13 +198,13 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
         try {
             for (final var entry : session.sftp().readDir(folder)) {
                 final var name = entry.getFilename();
-                if (name.equals(".") || name.equals("..")) {
+                if (".".equals(name) || "..".equals(name)) {
                     continue;
                 }
-                var attributes = entry.getAttributes();
+                final var attributes = entry.getAttributes();
                 if (attributes.isSymbolicLink()) {
                     // shown as what it points to; a broken link is left out
-                    final var target = statNode(session, folder.equals("/") ? "/" + name : folder + "/" + name);
+                    final var target = statNode(session, "/".equals(folder) ? "/" + name : folder + "/" + name);
                     if (target != null) {
                         out.add(new Node(name, target.folder(), target.size(), target.modified()));
                     }
@@ -318,8 +318,8 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
                 return true;
             }
             if (offered.contains(SftpConstants.EXT_COPY_DATA)) {
-                try (final var source = sftp.open(from, SftpClient.OpenMode.Read);
-                     final var target = sftp.open(to, SftpClient.OpenMode.Write, SftpClient.OpenMode.Create,
+                try (var source = sftp.open(from, SftpClient.OpenMode.Read);
+                     var target = sftp.open(to, SftpClient.OpenMode.Write, SftpClient.OpenMode.Create,
                              SftpClient.OpenMode.Exclusive)) {
                     sftp.getExtension(CopyDataExtension.class).copyData(source, 0, COPY_TO_END, target, 0);
                 }
@@ -332,9 +332,9 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     }
 
     /** A status the server sent back; the session stays usable. */
-    private static IOException refusal(SftpException e) {
-        final var refusal = new SftpRefusal(e);
-        refusal.initCause(e);
+    private static IOException refusal(SftpException cause) {
+        final var refusal = new SftpRefusal(cause);
+        refusal.initCause(cause);
         return refusal;
     }
 
@@ -342,9 +342,9 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
 
         private final int status;
 
-        SftpRefusal(SftpException e) {
-            super(e.getMessage());
-            this.status = e.getStatus();
+        SftpRefusal(SftpException cause) {
+            super(cause.getMessage());
+            this.status = cause.getStatus();
         }
     }
 

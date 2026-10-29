@@ -34,6 +34,8 @@ public class FolderPickerDialog extends FbDialog {
     private final Div status = Ui.div("fb-move-status");
     private final Button choose;
     private List<String> chosen = List.of();
+    /** Set while rendering, scrolled into view once the tree is built. */
+    @SuppressWarnings("PMD.SingularField")
     private Div chosenRow;
 
     /** @param start the path typed so far; the tree opens down to it */
@@ -134,7 +136,10 @@ public class FolderPickerDialog extends FbDialog {
         final var leaf = subfolders != null && subfolders.isEmpty();
         final var folderIcon = new Icon("folder");
         final var row = row(path, depth, folderIcon, path.getLast());
-        if (!leaf) {
+        if (leaf) {
+            final var noCaret = Ui.span("fb-caret fb-caret--none", "");
+            row.addComponentAsFirst(noCaret);
+        } else {
             final var caretIcon = new Icon("angle-right");
             final var caret = Ui.button("fb-caret" + (open ? " fb-caret--open" : ""), () -> {
                 if (!expanded.remove(pathKey)) {
@@ -144,9 +149,6 @@ public class FolderPickerDialog extends FbDialog {
             }, caretIcon);
             caret.getElement().setAttribute("aria-label", open ? "Collapse" : "Expand");
             row.addComponentAsFirst(caret);
-        } else {
-            final var noCaret = Ui.span("fb-caret fb-caret--none", "");
-            row.addComponentAsFirst(noCaret);
         }
         picker.add(row);
         if (subfolders != null) {

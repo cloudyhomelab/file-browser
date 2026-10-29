@@ -124,7 +124,7 @@ abstract class RemoteProviderContract {
 
     protected static void write(StorageProvider p, String folder, String name, String content) throws IOException {
         try (final var handle = p.openWrite(folder, name, false)) {
-            handle.stream().write(content.getBytes(StandardCharsets.UTF_8));
+            handle.getStream().write(content.getBytes(StandardCharsets.UTF_8));
             handle.commit();
         }
     }
@@ -219,8 +219,8 @@ abstract class RemoteProviderContract {
     @Test
     void writesBecomeVisibleOnlyOnCommitAndAbortedOnesLeaveNothing() throws Exception {
         try (final var handle = provider.openWrite("", "draft.txt", false)) {
-            handle.stream().write("draft".getBytes(StandardCharsets.UTF_8));
-            handle.stream().flush();
+            handle.getStream().write("draft".getBytes(StandardCharsets.UTF_8));
+            handle.getStream().flush();
             assertThat(provider.list("")).extracting(StorageEntry::name).doesNotContain("draft.txt");
             handle.commit();
         }
@@ -228,7 +228,7 @@ abstract class RemoteProviderContract {
 
         final var big = new byte[3 * 1024 * 1024 + 7];
         try (final var handle = provider.openWrite("", "big.bin", false)) {
-            handle.stream().write(big);
+            handle.getStream().write(big);
             handle.abort();
         }
         assertThat(provider.stat("big.bin")).isEmpty();
@@ -240,7 +240,7 @@ abstract class RemoteProviderContract {
         assertThatThrownBy(() -> provider.openWrite("", "notes.txt", false)).hasMessageContaining("already exists");
         assertThatThrownBy(() -> provider.openWrite("", "Projects", true)).hasMessageContaining("folder");
         try (final var handle = provider.openWrite("", "notes.txt", true)) {
-            handle.stream().write("new notes".getBytes(StandardCharsets.UTF_8));
+            handle.getStream().write("new notes".getBytes(StandardCharsets.UTF_8));
             handle.commit();
         }
         assertThat(read(provider, "notes.txt")).isEqualTo("new notes");

@@ -104,13 +104,13 @@ class TransferQueueTest {
         final var first = enqueue(queue, TransferTask.Kind.MOVE, "a", "b");
         final var second = enqueue(queue, TransferTask.Kind.COPY, "c");
         await(work.blocked);
-        assertThat(second.state()).isEqualTo(TransferTask.State.QUEUED);
+        assertThat(second.getState()).isEqualTo(TransferTask.State.QUEUED);
         work.release.countDown();
         finish(second);
 
         assertThat(work.ran).containsExactly("a", "b", "c");
-        assertThat(first.message()).isEqualTo("Moved 2 items to “Inbox”");
-        assertThat(second.message()).isEqualTo("Copied “c” to “Inbox”");
+        assertThat(first.getMessage()).isEqualTo("Moved 2 items to “Inbox”");
+        assertThat(second.getMessage()).isEqualTo("Copied “c” to “Inbox”");
         assertThat(queue.takeFinished()).containsExactly(first, second);
         assertThat(queue.takeFinished()).isEmpty();
     }
@@ -124,7 +124,7 @@ class TransferQueueTest {
 
             @Override
             public void prepare(TransferTask task) {
-                task.bytesTotal(20);
+                task.setBytesTotal(20L);
             }
 
             @Override
@@ -139,9 +139,9 @@ class TransferQueueTest {
         final var task = enqueue(queue, TransferTask.Kind.MOVE, "a");
         finish(task);
 
-        assertThat(task.status()).isEqualTo("Verifying “a”…");
+        assertThat(task.getStatus()).isEqualTo("Verifying “a”…");
         assertThat(task.progress()).isEqualTo(50);
-        assertThat(task.message()).isEqualTo("Moved “a” to “Inbox”. “a” changed during the move; the original was kept.");
+        assertThat(task.getMessage()).isEqualTo("Moved “a” to “Inbox”. “a” changed during the move; the original was kept.");
     }
 
     @Test
@@ -153,9 +153,9 @@ class TransferQueueTest {
         final var task = enqueue(queue, TransferTask.Kind.MOVE, "a", "b", "c", "d", "e");
         finish(task);
 
-        assertThat(task.state()).isEqualTo(TransferTask.State.FAILED);
+        assertThat(task.getState()).isEqualTo(TransferTask.State.FAILED);
         assertThat(work.ran).containsExactly("a", "b");
-        assertThat(task.message()).isEqualTo("Moved 2 of 5 items to “Inbox”. “c” already exists in the destination."
+        assertThat(task.getMessage()).isEqualTo("Moved 2 of 5 items to “Inbox”. “c” already exists in the destination."
                 + " 2 other items were not moved.");
     }
 
@@ -169,7 +169,7 @@ class TransferQueueTest {
         finish(task);
 
         assertThat(work.ran).isEmpty();
-        assertThat(task.message()).isEqualTo("“Share” is read only. Nothing was copied.");
+        assertThat(task.getMessage()).isEqualTo("“Share” is read only. Nothing was copied.");
     }
 
     @Test
@@ -182,12 +182,12 @@ class TransferQueueTest {
         final var waiting = enqueue(queue, TransferTask.Kind.COPY, "b");
         await(work.blocked);
         queue.cancel(waiting);
-        assertThat(waiting.state()).isEqualTo(TransferTask.State.CANCELLED);
+        assertThat(waiting.getState()).isEqualTo(TransferTask.State.CANCELLED);
         work.release.countDown();
         finish(running);
 
         assertThat(work.ran).containsExactly("a");
-        assertThat(waiting.message()).isEqualTo("Cancelled; nothing was copied.");
+        assertThat(waiting.getMessage()).isEqualTo("Cancelled; nothing was copied.");
     }
 
     @Test
@@ -203,8 +203,8 @@ class TransferQueueTest {
         finish(task);
 
         assertThat(work.ran).containsExactly("a", "b");
-        assertThat(task.state()).isEqualTo(TransferTask.State.CANCELLED);
-        assertThat(task.message()).isEqualTo("Copied 2 of 4 items to “Inbox”; 2 were cancelled.");
+        assertThat(task.getState()).isEqualTo(TransferTask.State.CANCELLED);
+        assertThat(task.getMessage()).isEqualTo("Copied 2 of 4 items to “Inbox”; 2 were cancelled.");
     }
 
     @Test
@@ -222,7 +222,7 @@ class TransferQueueTest {
         finish(task);
 
         assertThat(work.ran).containsExactly("a");
-        assertThat(task.message()).isEqualTo("Copied 1 of 3 items to “Inbox”; 2 were cancelled.");
+        assertThat(task.getMessage()).isEqualTo("Copied 1 of 3 items to “Inbox”; 2 were cancelled.");
     }
 
     @Test
@@ -234,7 +234,7 @@ class TransferQueueTest {
         final var task = enqueue(queue, TransferTask.Kind.MOVE, "a", "b");
         await(work.blocked);
         assertThat(task.progress()).isNull();
-        assertThat(task.itemsDone()).isEqualTo(1);
+        assertThat(task.getItemsDone()).isEqualTo(1);
         work.release.countDown();
         finish(task);
     }

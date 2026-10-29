@@ -33,6 +33,8 @@ import org.vaadin.filebrowser.storage.StorageProvider;
 import org.vaadin.filebrowser.storage.StorageType;
 import org.vaadin.filebrowser.storage.UntrustedServerException;
 
+import jakarta.annotation.PreDestroy;
+
 /** Hands out the storage provider for each configured file system and reports its status. */
 @Service
 public class StorageService {
@@ -43,6 +45,16 @@ public class StorageService {
     private static final Duration STATUS_TIMEOUT = Duration.ofSeconds(2);
     /** Checking a file system before adding it may reach a remote region, so it gets longer than a status read. */
     private static final Duration CHECK_TIMEOUT = Duration.ofSeconds(10);
+
+    /** The kind shown for a file system whose type the app no longer knows. */
+    private static final String UNSUPPORTED_KIND = "unsupported";
+
+    private final StorageTypes types;
+    private final Function<String, Map<String, String>> secrets;
+    private final Clock clock = Clock.systemUTC();
+    private final Map<String, StorageProvider> providers = new ConcurrentHashMap<>();
+    private final Map<String, CachedStatus> statuses = new ConcurrentHashMap<>();
+    private final ExecutorService probes = Executors.newVirtualThreadPerTaskExecutor();
 
     /** What the server sees at a path that is about to be registered. */
     public record PathProbe(boolean exists, boolean directory, boolean readable, boolean writable)
@@ -64,20 +76,10 @@ public class StorageService {
 
         public static final Check OK = new Check(null, null);
 
-        public static Check problem(String problem) {
+        public static Check failed(String problem) {
             return problem == null ? OK : new Check(problem, null);
         }
     }
-
-    /** The kind shown for a file system whose type the app no longer knows. */
-    private static final String UNSUPPORTED_KIND = "unsupported";
-
-    private final StorageTypes types;
-    private final Function<String, Map<String, String>> secrets;
-    private final Clock clock = Clock.systemUTC();
-    private final Map<String, StorageProvider> providers = new ConcurrentHashMap<>();
-    private final Map<String, CachedStatus> statuses = new ConcurrentHashMap<>();
-    private final ExecutorService probes = Executors.newVirtualThreadPerTaskExecutor();
 
     @Autowired
     public StorageService(StorageTypes types, RootSecrets secrets) {
@@ -100,12 +102,14 @@ public class StorageService {
     }
 
     /** Drops the cached provider and status of a file system that was removed. */
+    // closed explicitly: only some providers are closeable
+    @SuppressWarnings("PMD.CloseResource")
     public void forget(FsRoot root) {
         final var key = cacheKey(root);
         if (providers.remove(key) instanceof AutoCloseable closeable) {
             try {
                 closeable.close();
-            } catch (Exception e) {
+            } catch (Exception ignored) {
                 // the file system is gone either way
             }
         }
@@ -159,7 +163,12 @@ public class StorageService {
         return types.find(root.type())
                 .map(type -> new RootStatus(null, false, type.kindKey(root.settings(), mount),
                         type.detail(root.settings(), mount), reason))
-                .orElse(new RootStatus(null, false, UNSUPPORTED_KIND, ""));
+                .orElseGet(() -> new RootStatus(null, false, UNSUPPORTED_KIND, ""));
+    }
+
+    @PreDestroy
+    void stop() {
+        probes.shutdownNow();
     }
 
     public PathProbe probe(String path) {
@@ -182,16 +191,21 @@ public class StorageService {
         return withTimeout(() -> readServerFolders(path), List.of());
     }
 
+    private static String name(Path path) {
+        final var fileName = path.getFileName();
+        return fileName == null ? "" : fileName.toString();
+    }
+
     private static List<String> readServerFolders(String path) {
         final var folder = Path.of(path);
         if (!folder.isAbsolute() || !Files.isDirectory(folder) || !Files.isReadable(folder)) {
             return List.of();
         }
-        try (final var children = Files.list(folder)) {
+        try (var children = Files.list(folder)) {
             return children
-                    .filter(child -> !child.getFileName().toString().startsWith("."))
+                    .filter(child -> !name(child).startsWith("."))
                     .filter(child -> Files.isDirectory(child) && Files.isReadable(child))
-                    .map(child -> child.getFileName().toString())
+                    .map(StorageService::name)
                     .sorted(String.CASE_INSENSITIVE_ORDER)
                     .toList();
         } catch (IOException | UncheckedIOException e) {
@@ -205,28 +219,30 @@ public class StorageService {
         try {
             type = types.get(typeKey);
         } catch (StorageException e) {
-            return Check.problem(e.getMessage());
+            return Check.failed(e.getMessage());
         }
         final var info = types.info(typeKey);
-        return withTimeout(() -> readCheck(type, info, config), Check.problem(info.checkTimeout()), CHECK_TIMEOUT);
+        return withTimeout(() -> readCheck(type, info, config), Check.failed(info.checkTimeout()), CHECK_TIMEOUT);
     }
 
+    // closed explicitly: only some providers are closeable
+    @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
     private Check readCheck(StorageType type, RootTypeInfo info, StorageConfig config) {
         StorageProvider provider = null;
         try {
             provider = type.open(config);
-            return Check.problem(type.problem(provider));
+            return Check.failed(type.problem(provider));
         } catch (UntrustedServerException e) {
-            return new Check(e.getMessage(), e.fingerprint());
+            return new Check(e.getMessage(), e.getFingerprint());
         } catch (StorageException e) {
-            return Check.problem(e.getMessage());
+            return Check.failed(e.getMessage());
         } catch (RuntimeException e) {
-            return Check.problem(info.checkFailed());
+            return Check.failed(info.checkFailed());
         } finally {
             if (provider instanceof AutoCloseable closeable) {
                 try {
                     closeable.close();
-                } catch (Exception e) {
+                } catch (Exception ignored) {
                     // it was only opened for the check
                 }
             }

@@ -32,6 +32,8 @@ import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
+import lombok.Getter;
+
 /**
  * An S3 bucket, or a folder ("prefix") inside one, as a file system. Folders are key prefixes; an
  * empty folder exists as a zero-byte {@code name/} marker. Moves and renames copy then delete, so
@@ -46,6 +48,10 @@ public class S3Provider implements StorageProvider, AutoCloseable {
     private static final String SCHEME = "s3://";
     private static final int NOT_FOUND = 404;
     private static final int FORBIDDEN = 403;
+
+    private final Location location;
+    private final S3Client client;
+    private final Function<String, String> typeForName;
 
     /** Where a file system lives: {@code s3://bucket} or {@code s3://bucket/some/prefix}. */
     public record Location(String bucket, String prefix) {
@@ -75,10 +81,6 @@ public class S3Provider implements StorageProvider, AutoCloseable {
     public record Connection(String endpoint, String region, URI endpointUrl, String accessKey, String secretKey) {
     }
 
-    private final Location location;
-    private final S3Client client;
-    private final Function<String, String> typeForName;
-
     public S3Provider(Connection connection, Function<String, String> typeForName) {
         this.location = Location.parse(connection.endpoint());
         if (location == null) {
@@ -94,7 +96,7 @@ public class S3Provider implements StorageProvider, AutoCloseable {
         if (connection.endpointUrl() != null) {
             // S3-compatible stores: bucket in the path, and only the checksums S3 itself requires
             builder.endpointOverride(connection.endpointUrl())
-                    .forcePathStyle(true)
+                    .forcePathStyle(Boolean.TRUE)
                     .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
         }
         this.client = builder.build();
@@ -361,7 +363,7 @@ public class S3Provider implements StorageProvider, AutoCloseable {
                     .toList();
             try {
                 final var result = client.deleteObjects(r -> r.bucket(location.bucket())
-                        .delete(Delete.builder().objects(batch).quiet(true).build()));
+                        .delete(Delete.builder().objects(batch).quiet(Boolean.TRUE).build()));
                 if (result.hasErrors() && !result.errors().isEmpty()) {
                     throw new StorageException("Could not " + what + ": " + result.errors().size()
                             + " items could not be deleted.");
@@ -431,10 +433,11 @@ public class S3Provider implements StorageProvider, AutoCloseable {
         private String uploadId;
         private boolean done;
 
+        @Getter
         private final OutputStream stream = new OutputStream() {
             @Override
-            public void write(int b) throws IOException {
-                buffer.write(b);
+            public void write(int value) throws IOException {
+                buffer.write(value);
                 flushFullParts();
             }
 
@@ -449,11 +452,6 @@ public class S3Provider implements StorageProvider, AutoCloseable {
             this.path = path;
             this.name = name;
             this.replace = replace;
-        }
-
-        @Override
-        public OutputStream stream() {
-            return stream;
         }
 
         private void flushFullParts() throws IOException {
@@ -510,7 +508,7 @@ public class S3Provider implements StorageProvider, AutoCloseable {
             if (uploadId != null) {
                 try {
                     client.abortMultipartUpload(r -> r.bucket(location.bucket()).key(key(path)).uploadId(uploadId));
-                } catch (SdkException e) {
+                } catch (SdkException ignored) {
                     // the store expires abandoned uploads; nothing was made visible
                 }
             }
@@ -546,14 +544,14 @@ public class S3Provider implements StorageProvider, AutoCloseable {
         client.close();
     }
 
-    private static StorageException failure(String action, SdkException e) {
-        if (e instanceof S3Exception s3 && s3.statusCode() == FORBIDDEN) {
-            return new StorageException("You don't have permission to " + action + ".", e);
+    private static StorageException failure(String action, SdkException cause) {
+        if (cause instanceof S3Exception s3 && s3.statusCode() == FORBIDDEN) {
+            return new StorageException("You don't have permission to " + action + ".", cause);
         }
-        if (e instanceof S3Exception s3 && s3.statusCode() == NOT_FOUND) {
-            return new StorageException("Could not " + action + ": it no longer exists.", e);
+        if (cause instanceof S3Exception s3 && s3.statusCode() == NOT_FOUND) {
+            return new StorageException("Could not " + action + ": it no longer exists.", cause);
         }
-        return new StorageException("Could not " + action + ".", e);
+        return new StorageException("Could not " + action + ".", cause);
     }
 
     /**
@@ -572,16 +570,16 @@ public class S3Provider implements StorageProvider, AutoCloseable {
 
         @Override
         public int read() throws IOException {
-            final var b = super.read();
-            ended |= b < 0;
-            return b;
+            final var value = super.read();
+            ended |= value < 0;
+            return value;
         }
 
         @Override
         public int read(byte[] bytes, int offset, int length) throws IOException {
-            final var n = super.read(bytes, offset, length);
-            ended |= n < 0;
-            return n;
+            final var count = super.read(bytes, offset, length);
+            ended |= count < 0;
+            return count;
         }
 
         @Override

@@ -13,14 +13,16 @@ import com.vaadin.flow.spring.annotation.SpringComponent;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 
 /** The signed-in user, as described by the OIDC provider they signed in with. */
+// holds app-wide services; sessions are never serialized. Remove with #76
+@SuppressWarnings("PMD.NonSerializableClass")
 @SpringComponent
 public class CurrentUser implements Serializable {
 
-    public record User(String email, String name, String providerLabel, boolean admin) implements Serializable {
-    }
-
     private final AuthenticationContext authenticationContext;
     private final FileBrowserProperties properties;
+
+    public record User(String email, String name, String providerLabel, boolean admin) implements Serializable {
+    }
 
     public CurrentUser(AuthenticationContext authenticationContext, FileBrowserProperties properties) {
         this.authenticationContext = authenticationContext;
@@ -40,7 +42,7 @@ public class CurrentUser implements Serializable {
     }
 
     public boolean isAdmin() {
-        return get().map(User::admin).orElse(false);
+        return get().map(User::admin).orElse(Boolean.FALSE);
     }
 
     public void signOut() {

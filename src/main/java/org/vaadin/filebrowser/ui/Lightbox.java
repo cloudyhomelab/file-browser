@@ -10,6 +10,7 @@ import org.vaadin.filebrowser.web.FileUrls;
 import com.vaadin.componentfactory.pdfviewer.PdfViewer;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Key;
+import com.vaadin.flow.component.ModalityMode;
 import com.vaadin.flow.component.Shortcuts;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Anchor;
@@ -37,18 +38,18 @@ public class Lightbox extends Dialog {
     private final Span name = Ui.span("fb-lightbox-name", "");
     private final Span position = Ui.span("fb-lightbox-position", "");
     private final Anchor newTab = new Anchor();
-    private final NativeButton previous;
-    private final NativeButton next;
+    private final NativeButton previousButton;
+    private final NativeButton nextButton;
     private final Div stage = Ui.div("fb-lightbox-stage");
     private int index;
 
     /** The files among {@code entries}, in the order given; folders don't open here. */
-    public static List<StorageEntry> files(List<StorageEntry> entries) {
+    public static List<StorageEntry> viewable(List<StorageEntry> entries) {
         return entries.stream().filter(e -> !e.folder()).toList();
     }
 
     /**
-     * @param files   the files that can be stepped through, as {@link #files} gives them
+     * @param files   the files that can be stepped through, as {@link #viewable} gives them
      * @param onShown called with each file as it is shown, the first included
      */
     public Lightbox(Catalog catalog, String rootId, List<StorageEntry> files, StorageEntry start,
@@ -59,7 +60,7 @@ public class Lightbox extends Dialog {
         this.onShown = onShown;
         this.onDownload = onDownload;
         addClassName("fb-lightbox");
-        setModal(true);
+        setModality(ModalityMode.STRICT);
         setDraggable(false);
         setResizable(false);
         setCloseOnOutsideClick(true);
@@ -77,11 +78,11 @@ public class Lightbox extends Dialog {
         final var actions = Ui.div("fb-lightbox-actions", download, newTab, close);
         final var head = Ui.div("fb-lightbox-head", title, actions);
 
-        previous = Ui.iconButton("angle-left", "Previous", this::previous);
-        previous.addClassName("fb-lightbox-step");
-        next = Ui.iconButton("angle-right", "Next", this::next);
-        next.addClassName("fb-lightbox-step");
-        final var body = Ui.div("fb-lightbox-body", previous, stage, next);
+        previousButton = Ui.iconButton("angle-left", "Previous", this::previous);
+        previousButton.addClassName("fb-lightbox-step");
+        nextButton = Ui.iconButton("angle-right", "Next", this::next);
+        nextButton.addClassName("fb-lightbox-step");
+        final var body = Ui.div("fb-lightbox-body", previousButton, stage, nextButton);
         add(head, body);
 
         Shortcuts.addShortcutListener(this, this::previous, Key.ARROW_LEFT).listenOn(this);
@@ -117,16 +118,16 @@ public class Lightbox extends Dialog {
         position.setText((index + 1) + " of " + files.size());
         newTab.setHref(url);
         newTab.setVisible(reachable && viewer.isPresent());
-        previous.setEnabled(index > 0);
-        next.setEnabled(index < files.size() - 1);
+        previousButton.setEnabled(index > 0);
+        nextButton.setEnabled(index < files.size() - 1);
         stage.removeAll();
         if (viewer.isEmpty()) {
             showUnavailable(file, "Files of this type can't be previewed.");
-        } else if (!reachable) {
-            showUnavailable(file, "Names with %, ; or \\ in them, or in a folder above them, can't be previewed.");
-        } else {
-            final var view = view(viewer.get(), file, url);
+        } else if (reachable) {
+            final var view = view(viewer.orElseThrow(), file, url);
             stage.add(view);
+        } else {
+            showUnavailable(file, "Names with %, ; or \\ in them, or in a folder above them, can't be previewed.");
         }
         onShown.accept(file);
     }

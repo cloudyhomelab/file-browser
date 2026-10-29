@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -42,8 +43,14 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration REPLY_TIMEOUT = Duration.ofSeconds(30);
     private static final String ANONYMOUS_USER = "anonymous";
+    private static final String ROOT = "/";
     /** Some servers want an e-mail-like password for anonymous sign-in. */
     private static final String ANONYMOUS_PASSWORD = "file-browser@";
+
+    /** Replies to {@code REST} from a server that doesn't support it: unknown command, bad argument, not implemented. */
+    private static final Set<Integer> REST_NOT_SUPPORTED = Set.of(500, 501, 502, 504);
+
+    private final Connection connection;
 
     /** How the connection is protected; the names are what the {@code security} setting stores. */
     public enum Security {
@@ -55,7 +62,7 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         NONE;
 
         public String key() {
-            return name().toLowerCase();
+            return name().toLowerCase(Locale.ROOT);
         }
 
         /** @return null for an unknown value */
@@ -81,11 +88,6 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
     public record Session(FTPClient ftp, boolean machineListing) {
     }
 
-    /** Replies to {@code REST} from a server that doesn't support it: unknown command, bad argument, not implemented. */
-    private static final Set<Integer> REST_NOT_SUPPORTED = Set.of(500, 501, 502, 504);
-
-    private final Connection connection;
-
     public FtpProvider(Connection connection, Function<String, String> typeForName) {
         super(connection.location(), typeForName);
         this.connection = connection;
@@ -102,34 +104,42 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         ftp.setDataTimeout(REPLY_TIMEOUT);
         ftp.setAutodetectUTF8(true);
         try {
-            try {
-                ftp.connect(location.host(), location.port());
-            } catch (SSLException e) {
-                throw trustFailure(seen.get(), e);
-            } catch (IOException e) {
-                throw new StorageException("Could not reach " + location.host() + ":" + location.port() + ".", e);
-            }
-            if (!FTPReply.isPositiveCompletion(ftp.getReplyCode())) {
-                throw new StorageException("The server refused the connection.");
-            }
-            if (ftp instanceof FTPSClient ftps) {
-                // data connections are encrypted as well
-                ftps.execPBSZ(0);
-                ftps.execPROT("P");
-            }
-            final var anonymous = connection.user() == null;
-            final var user = anonymous ? ANONYMOUS_USER : connection.user();
-            final var password = anonymous ? ANONYMOUS_PASSWORD : connection.password();
-            if (!ftp.login(user, password == null ? "" : password)) {
-                throw new StorageException(anonymous ? "The server doesn't allow anonymous sign-in."
-                        : "The server refused the user name or password.");
-            }
+            open(ftp, seen);
+            signIn(ftp);
             ftp.enterLocalPassiveMode();
             ftp.setFileType(FTP.BINARY_FILE_TYPE);
             return new Session(ftp, ftp.hasFeature("MLST"));
         } catch (IOException | RuntimeException e) {
-            disconnect(ftp);
+            quit(ftp);
             throw e;
+        }
+    }
+
+    private void open(FTPClient ftp, AtomicReference<String> seen) throws IOException {
+        try {
+            ftp.connect(location.host(), location.port());
+        } catch (SSLException e) {
+            throw trustFailure(seen.get(), e);
+        } catch (IOException e) {
+            throw new StorageException("Could not reach " + location.host() + ":" + location.port() + ".", e);
+        }
+        if (!FTPReply.isPositiveCompletion(ftp.getReplyCode())) {
+            throw new StorageException("The server refused the connection.");
+        }
+        if (ftp instanceof FTPSClient ftps) {
+            // data connections are encrypted as well
+            ftps.execPBSZ(0);
+            ftps.execPROT("P");
+        }
+    }
+
+    private void signIn(FTPClient ftp) throws IOException {
+        final var anonymous = connection.user() == null;
+        final var user = anonymous ? ANONYMOUS_USER : connection.user();
+        final var password = anonymous ? ANONYMOUS_PASSWORD : connection.password();
+        if (!ftp.login(user, password == null ? "" : password)) {
+            throw new StorageException(anonymous ? "The server doesn't allow anonymous sign-in."
+                    : "The server refused the user name or password.");
         }
     }
 
@@ -143,15 +153,15 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         return ftps;
     }
 
-    private StorageException trustFailure(String seen, SSLException e) {
+    private StorageException trustFailure(String seen, SSLException cause) {
         if (seen != null && connection.certificate() == null) {
             return new UntrustedServerException(seen);
         }
         if (seen != null && !seen.equals(connection.certificate())) {
             return new StorageException("The server's certificate changed. If that is expected, remove this "
-                    + "file system and add it again.", e);
+                    + "file system and add it again.", cause);
         }
-        return new StorageException("Could not set up a secure connection with the server.", e);
+        return new StorageException("Could not set up a secure connection with the server.", cause);
     }
 
     /**
@@ -257,21 +267,21 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
 
     @Override
     protected void disconnect(Session session) {
-        disconnect(session.ftp());
+        quit(session.ftp());
     }
 
-    private static void disconnect(FTPClient ftp) {
+    private static void quit(FTPClient ftp) {
         if (!ftp.isConnected()) {
             return;
         }
         try {
             ftp.logout();
-        } catch (IOException e) {
+        } catch (IOException ignored) {
             // closed below either way
         }
         try {
             ftp.disconnect();
-        } catch (IOException e) {
+        } catch (IOException ignored) {
             // nothing more to do with it
         }
     }
@@ -309,7 +319,7 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         }
         final var out = new ArrayList<Node>();
         for (final var file : files) {
-            if (file == null || file.getName() == null || file.getName().equals(".") || file.getName().equals("..")) {
+            if (file == null || file.getName() == null || ".".equals(file.getName()) || "..".equals(file.getName())) {
                 continue;
             }
             out.add(node(file.getName(), file));
@@ -334,11 +344,16 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         if (ftp.changeWorkingDirectory(path)) {
             return new Node(name, true, null, null);
         }
-        if (path.equals("/")) {
+        if (ROOT.equals(path)) {
             throw refusal(ftp);
         }
+        return statInParent(ftp, path, name);
+    }
+
+    /** Finds a file in its parent's listing, for servers without MLST. */
+    private static Node statInParent(FTPClient ftp, String path, String name) throws IOException {
         final var slash = path.lastIndexOf('/');
-        final var parent = slash == 0 ? "/" : path.substring(0, slash);
+        final var parent = slash == 0 ? ROOT : path.substring(0, slash);
         if (!ftp.changeWorkingDirectory(parent)) {
             return null;
         }
@@ -411,16 +426,16 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
 
             @Override
             public int read() throws IOException {
-                final var b = super.read();
-                ended |= b < 0;
-                return b;
+                final var value = super.read();
+                ended |= value < 0;
+                return value;
             }
 
             @Override
             public int read(byte[] bytes, int offset, int length) throws IOException {
-                final var n = super.read(bytes, offset, length);
-                ended |= n < 0;
-                return n;
+                final var count = super.read(bytes, offset, length);
+                ended |= count < 0;
+                return count;
             }
 
             @Override

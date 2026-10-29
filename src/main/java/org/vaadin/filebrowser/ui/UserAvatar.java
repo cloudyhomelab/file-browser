@@ -1,5 +1,7 @@
 package org.vaadin.filebrowser.ui;
 
+import java.util.Locale;
+
 import org.vaadin.filebrowser.data.Formats;
 
 import com.vaadin.flow.component.html.Span;
@@ -10,21 +12,23 @@ public class UserAvatar extends Span {
     private static final int PALETTE_SIZE = 8;
     private static final int HASH_MULTIPLIER = 31;
 
+    // the constants name CSS modifier classes, e.g. fb-avatar--m
+    @SuppressWarnings("PMD.ShortVariable")
     public enum Size { XS, S, M, L, XL }
 
     public UserAvatar(String name, Size size) {
         final var colorClass = "fb-avatar-c" + colorIndex(name);
-        addClassNames("fb-avatar", "fb-avatar--" + size.name().toLowerCase(), colorClass);
+        addClassNames("fb-avatar", "fb-avatar--" + size.name().toLowerCase(Locale.ROOT), colorClass);
         final var initials = Formats.initials(name);
         setText(initials);
         getElement().setAttribute("title", name == null ? "" : name);
     }
 
     private static int colorIndex(String name) {
-        long h = 0;
+        long hash = 0;
         for (final var c : (name == null ? "" : name).toCharArray()) {
-            h = (h * HASH_MULTIPLIER + c) & 0xffffffffL;
+            hash = (hash * HASH_MULTIPLIER + c) & 0xffffffffL;
         }
-        return (int) (h % PALETTE_SIZE);
+        return (int) (hash % PALETTE_SIZE);
     }
 }

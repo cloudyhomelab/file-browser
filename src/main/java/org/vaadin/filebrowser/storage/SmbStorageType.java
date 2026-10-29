@@ -39,18 +39,18 @@ public class SmbStorageType implements StorageType {
             .withSoTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .build();
 
+    private final Catalog catalog;
+
     /** Where an endpoint points: the share, and the folder in it. */
     public record Location(RemoteLocation folder, String share) {
     }
-
-    private final Catalog catalog;
 
     public SmbStorageType(Catalog catalog) {
         this.catalog = catalog;
     }
 
     @Override
-    public String key() {
+    public String getKey() {
         return KEY;
     }
 
@@ -75,7 +75,7 @@ public class SmbStorageType implements StorageType {
     /** @return null when {@code endpoint} names no share */
     public static Location parse(String endpoint) {
         final var server = RemoteLocation.parse(endpoint, SCHEME, DEFAULT_PORT);
-        if (server == null || server.folder().equals("/")) {
+        if (server == null || "/".equals(server.folder())) {
             return null;
         }
         final var path = server.folder().substring(1);

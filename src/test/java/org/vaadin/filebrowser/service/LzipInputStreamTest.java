@@ -68,4 +68,14 @@ class LzipInputStreamTest {
         huge[5] = 29;
         assertThatThrownBy(() -> decode(huge)).isInstanceOf(IOException.class).hasMessageContaining("dictionary");
     }
+
+    @Test
+    void countsSkippedBytesAsWellAsReadOnes() throws IOException {
+        try (final var counting = new LzipInputStream.Counting(new ByteArrayInputStream(bytes("0123456789")))) {
+            counting.read();
+            counting.read(new byte[3], 0, 3);
+            assertThat(counting.skip(4)).isEqualTo(4);
+            assertThat(counting.getCount()).isEqualTo(8);
+        }
+    }
 }

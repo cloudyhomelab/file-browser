@@ -2,6 +2,7 @@ package org.vaadin.filebrowser.ui.dialog;
 
 import java.net.URI;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.vaadin.filebrowser.storage.S3Provider;
@@ -26,7 +27,6 @@ public class S3Form extends RootForm {
     private static final String DEFAULT_REGION = "defaultRegion";
 
     private final TextField endpointUrl = new TextField("Endpoint URL (optional)");
-    private final Div credentials = Ui.div("fb-addroot-creds");
     private final TextField keyId = new TextField("Access key ID");
     private final PasswordField secret = new PasswordField("Secret access key");
     private final Div credentialsHint = Ui.div("fb-addroot-creds-hint");
@@ -51,7 +51,7 @@ public class S3Form extends RootForm {
             endpointUrl.setReadOnly(true);
             endpointUrl.setPlaceholder("AWS");
         }
-        for (final TextFieldBase<?, String> field : new TextFieldBase[]{endpointUrl, keyId, secret, region}) {
+        for (final var field : List.<TextFieldBase<?, String>>of(endpointUrl, keyId, secret, region)) {
             field(field);
         }
 
@@ -59,12 +59,12 @@ public class S3Form extends RootForm {
         final var credsLabel = new Span("Credentials");
         final var credsOptional = Ui.span("fb-muted-regular", "(optional)");
         final var credsTitle = Ui.div("fb-addroot-creds-title", lockIcon, credsLabel, credsOptional);
-        credentials.add(credsTitle, keyId, secret, credentialsHint);
+        final var credentials = Ui.div("fb-addroot-creds", credsTitle, keyId, secret, credentialsHint);
         add(endpointUrl, credentials, region);
         if (editing()) {
             // shown as stored; keys never are
             final var stored = context.workspace().secretNames(context.editing());
-            for (final var key : new TextFieldBase[]{keyId, secret}) {
+            for (final var key : List.<TextFieldBase<?, String>>of(keyId, secret)) {
                 key.setReadOnly(true);
                 key.setPlaceholder(stored.contains(S3StorageType.ACCESS_KEY) ? "Stored encrypted" : "None, a public bucket");
             }
@@ -126,8 +126,8 @@ public class S3Form extends RootForm {
     }
 
     private boolean credentialsIncomplete() {
-        final var hasKey = !keyId.getValue().trim().isEmpty();
-        final var hasSecret = !secret.getValue().trim().isEmpty();
+        final var hasKey = !keyId.getValue().isBlank();
+        final var hasSecret = !secret.getValue().isBlank();
         return hasKey != hasSecret;
     }
 }

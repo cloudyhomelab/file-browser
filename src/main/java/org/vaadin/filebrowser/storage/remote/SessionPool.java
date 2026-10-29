@@ -23,12 +23,6 @@ import org.vaadin.filebrowser.storage.StorageException;
  */
 public final class SessionPool<S> implements AutoCloseable {
 
-    /** Opens a session, signed in and ready. */
-    @FunctionalInterface
-    public interface Opener<S> {
-        S open() throws IOException;
-    }
-
     public static final int MAX_SESSIONS = 4;
     private static final Duration IDLE_LIMIT = Duration.ofSeconds(60);
     /** Servers drop quiet connections without telling, so one unused this long is checked first. */
@@ -36,9 +30,6 @@ public final class SessionPool<S> implements AutoCloseable {
     private static final Duration WAIT_LIMIT = Duration.ofSeconds(30);
     private static final ScheduledExecutorService SWEEPER = Executors.newSingleThreadScheduledExecutor(
             Thread.ofPlatform().daemon().name("remote-session-sweeper").factory());
-
-    private record Idle<S>(S session, Instant since) {
-    }
 
     private final Opener<S> opener;
     private final Predicate<S> alive;
@@ -48,6 +39,15 @@ public final class SessionPool<S> implements AutoCloseable {
     private final Deque<Idle<S>> idle = new ArrayDeque<>();
     private final ScheduledFuture<?> sweep;
     private boolean closed;
+
+    /** Opens a session, signed in and ready. */
+    @FunctionalInterface
+    public interface Opener<S> {
+        S open() throws IOException;
+    }
+
+    private record Idle<S>(S session, Instant since) {
+    }
 
     /**
      * @param alive  whether a session still works; may talk to the server

@@ -2,10 +2,10 @@ package org.vaadin.filebrowser.storage;
 
 import java.io.OutputStream;
 
-/** A file being written: data goes to {@link #stream()}, and only {@link #commit()} makes it visible. */
+/** A file being written: data goes to {@link #getStream()}, and only {@link #commit()} makes it visible. */
 public interface WriteHandle extends AutoCloseable {
 
-    OutputStream stream();
+    OutputStream getStream();
 
     /** Puts the written file in place, replacing an existing one only if the write was opened with replace. */
     void commit();

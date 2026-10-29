@@ -24,6 +24,8 @@ import org.vaadin.filebrowser.storage.StorageProvider;
 import org.vaadin.filebrowser.storage.VerifiedCopy;
 import org.vaadin.filebrowser.storage.WriteHandle;
 
+import lombok.Getter;
+
 /**
  * A folder on a server reached over a file-transfer protocol. Subclasses provide the protocol's
  * primitive commands on a session; this class turns them into file-system operations with the
@@ -35,6 +37,10 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
 
     private static final String PARTIAL_PREFIX = ".";
     private static final String PARTIAL_SUFFIX = ".uploading";
+
+    protected final RemoteLocation location;
+    private final Function<String, String> typeForName;
+    private final SessionPool<S> pool;
 
     /** What the server says about one file or folder. */
     public record Node(String name, boolean folder, Long size, Instant modified) {
@@ -51,10 +57,6 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
     protected interface Work<S, T> {
         T run(S session) throws IOException;
     }
-
-    protected final RemoteLocation location;
-    private final Function<String, String> typeForName;
-    private final SessionPool<S> pool;
 
     protected RemoteProvider(RemoteLocation location, Function<String, String> typeForName) {
         this.location = location;
@@ -122,17 +124,14 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
 
     /** Runs {@code work} on a pooled session. */
     protected <T> T call(String action, Work<S, T> work) {
-        final S session;
-        try {
-            session = pool.borrow();
-        } catch (IOException e) {
-            throw failure(action, e);
-        }
+        final var session = borrow(action);
         var broken = false;
         try {
             return work.run(session);
+        } catch (Refusal e) {
+            throw failure(action, e);
         } catch (IOException e) {
-            broken = !(e instanceof Refusal);
+            broken = true;
             throw failure(action, e);
         } catch (RuntimeException e) {
             broken = true;
@@ -142,9 +141,17 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
         }
     }
 
+    private S borrow(String action) {
+        try {
+            return pool.borrow();
+        } catch (IOException e) {
+            throw failure(action, e);
+        }
+    }
+
     /** By default the server's own reason is left out; it may be in another language or leak paths. */
-    protected StorageException failure(String action, IOException e) {
-        return new StorageException("Could not " + action + ".", e);
+    protected StorageException failure(String action, IOException cause) {
+        return new StorageException("Could not " + action + ".", cause);
     }
 
     // ---- paths ----------------------------------------------------------------------------
@@ -223,14 +230,11 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
         return open(path, offset, length);
     }
 
+    // the stream goes back to the caller, who closes it
+    @SuppressWarnings("PMD.CloseResource")
     private InputStream open(String path, long offset, long length) {
         final var action = "read “" + nameOf(path) + "”";
-        final S session;
-        try {
-            session = pool.borrow();
-        } catch (IOException e) {
-            throw failure(action, e);
-        }
+        final var session = borrow(action);
         try {
             final var node = statNode(session, remote(path));
             if (node == null || node.folder()) {
@@ -239,8 +243,11 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
             final var in = readStream(session, remote(path), offset);
             final var limited = length == Long.MAX_VALUE ? in : new LimitedInputStream(in, length);
             return new SessionInputStream(limited, session);
+        } catch (Refusal e) {
+            pool.release(session, false);
+            throw failure(action, e);
         } catch (IOException e) {
-            pool.release(session, !(e instanceof Refusal));
+            pool.release(session, true);
             throw failure(action, e);
         } catch (RuntimeException e) {
             pool.release(session, false);
@@ -406,7 +413,7 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
     private void removeQuietly(String path) {
         try {
             delete(path);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException ignored) {
             // the copy failed already; that is what gets reported
         }
     }
@@ -424,10 +431,10 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
             }
             try {
                 deleteEmptyFolder(session, remote(path));
-                return true;
+                return Boolean.TRUE;
             } catch (Refusal e) {
                 if (!listNodes(session, remote(path)).isEmpty()) {
-                    return false;
+                    return Boolean.FALSE;
                 }
                 throw e;
             }
@@ -455,36 +462,40 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
             return;
         }
         for (final var child : listNodes(session, path)) {
-            deleteNode(session, path.equals("/") ? "/" + child.name() : path + "/" + child.name(), child.folder());
+            deleteNode(session, "/".equals(path) ? "/" + child.name() : path + "/" + child.name(), child.folder());
         }
         deleteEmptyFolder(session, path);
+    }
+
+    /** The folder exists, and {@code path} is free or a file that may be replaced. */
+    private void requireWritable(S session, String folder, String path, boolean replace) throws IOException {
+        requireFolder(session, folder);
+        final var existing = statNode(session, remote(path));
+        final var name = nameOf(path);
+        if (existing != null && existing.folder()) {
+            throw new StorageException("A folder named “" + name + "” already exists here.");
+        }
+        if (existing != null && !replace) {
+            throw new StorageException("“" + name + "” already exists here.");
+        }
     }
 
     @Override
     public WriteHandle openWrite(String folder, String name, boolean replace) {
         StoragePaths.requireValidName(name);
         final var action = "save “" + name + "”";
-        final S session;
+        final var session = borrow(action);
         try {
-            session = pool.borrow();
-        } catch (IOException e) {
-            throw failure(action, e);
-        }
-        try {
-            requireFolder(session, folder);
             final var path = StoragePaths.child(folder, name);
-            final var existing = statNode(session, remote(path));
-            if (existing != null && existing.folder()) {
-                throw new StorageException("A folder named “" + name + "” already exists here.");
-            }
-            if (existing != null && !replace) {
-                throw new StorageException("“" + name + "” already exists here.");
-            }
+            requireWritable(session, folder, path, replace);
             final var partial = StoragePaths.child(folder, PARTIAL_PREFIX + name + "." + UUID.randomUUID() + PARTIAL_SUFFIX);
             final var stream = writeStream(session, remote(partial));
             return new RemoteWrite(session, stream, partial, path, replace, name);
+        } catch (Refusal e) {
+            pool.release(session, false);
+            throw failure(action, e);
         } catch (IOException e) {
-            pool.release(session, !(e instanceof Refusal));
+            pool.release(session, true);
             throw failure(action, e);
         } catch (RuntimeException e) {
             pool.release(session, false);
@@ -499,6 +510,7 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
         /** The protocol's stream: closing it ends the transfer. */
         private final OutputStream transfer;
         /** What callers write to; closing it leaves ending the transfer to commit or abort. */
+        @Getter
         private final OutputStream stream;
         private final String partial;
         private final String target;
@@ -527,11 +539,6 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
         }
 
         @Override
-        public OutputStream stream() {
-            return stream;
-        }
-
-        @Override
         public void commit() {
             if (done) {
                 return;
@@ -551,10 +558,14 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
                     renameNode(session, remote(partial), remote(target));
                 }
                 broken = false;
-            } catch (IOException e) {
-                broken = !(e instanceof Refusal);
+            } catch (Refusal e) {
                 done = true;
-                pool.release(session, broken);
+                pool.release(session, false);
+                removeQuietly(partial);
+                throw new StorageException("“" + name + "” could not be saved.", e);
+            } catch (IOException e) {
+                done = true;
+                pool.release(session, true);
                 removeQuietly(partial);
                 throw new StorageException("“" + name + "” could not be saved.", e);
             } catch (RuntimeException e) {
@@ -577,7 +588,7 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
                 transfer.close();
                 deleteFile(session, remote(partial));
                 broken = false;
-            } catch (IOException | RuntimeException e) {
+            } catch (IOException | RuntimeException ignored) {
                 // a leftover partial file is hidden from listings
             } finally {
                 pool.release(session, broken);

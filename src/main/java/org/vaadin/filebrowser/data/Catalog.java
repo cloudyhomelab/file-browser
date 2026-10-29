@@ -5,7 +5,6 @@ import java.io.Serializable;
 import java.io.UncheckedIOException;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -14,6 +13,7 @@ import java.util.Optional;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
+import lombok.Getter;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
@@ -26,28 +26,31 @@ public class Catalog implements Serializable {
     private static final String DEFAULT_SIGN_IN_ERROR = "default";
     private static final String LOCAL_KIND = "disk";
 
+    private final Map<String, RootTypeInfo> rootTypes;
+    private final Map<String, FileTypeInfo> fileTypes;
+    private final Map<String, String> signInErrors;
+    private final MountKinds mountKinds;
+    /** By name suffix, e.g. {@code .tar.gz}. */
+    private final List<Map.Entry<String, ArchiveFormat>> archiveFormats;
+    /** Media type by lower-case extension, for files that may be shown in the page. */
+    private final Map<String, String> viewTypes;
+    /** What a new file system starts with. */
+    @Getter
+    private final RootOptions rootOptions;
+
     /** @param tints the colours kinds may use; each has a {@code fb-tint-*} class in styles.css */
     record MountKinds(List<String> tints, Map<String, String> storeTypes, Map<String, KindInfo> kinds)
             implements Serializable {
     }
 
-    private final Map<String, RootTypeInfo> rootTypes;
-    private final Map<String, FileTypeInfo> fileTypes;
-    private final Map<String, String> signInErrors;
-    private final MountKinds mountKinds;
-    private final Map<String, ArchiveFormat> archiveFormats;
-    /** Media type by lower-case extension, for files that may be shown in the page. */
-    private final Map<String, String> viewTypes;
-    private final RootOptions rootOptions;
-
     public Catalog() {
         final var mapper = JsonMapper.builder()
                 .disable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
                 .build();
-        this.rootTypes = read(mapper, "data/root-types.json", new TypeReference<LinkedHashMap<String, RootTypeInfo>>() { });
-        this.fileTypes = read(mapper, "data/file-types.json", new TypeReference<LinkedHashMap<String, FileTypeInfo>>() { });
-        this.signInErrors = read(mapper, "data/sign-in-errors.json", new TypeReference<Map<String, String>>() { });
-        this.mountKinds = read(mapper, "data/mount-kinds.json", new TypeReference<MountKinds>() { });
+        this.rootTypes = read(mapper, "data/root-types.json", new TypeReference<>() { });
+        this.fileTypes = read(mapper, "data/file-types.json", new TypeReference<>() { });
+        this.signInErrors = read(mapper, "data/sign-in-errors.json", new TypeReference<>() { });
+        this.mountKinds = read(mapper, "data/mount-kinds.json", new TypeReference<>() { });
         mountKinds.storeTypes().values().stream()
                 .filter(kind -> !mountKinds.kinds().containsKey(kind))
                 .findFirst()
@@ -60,7 +63,9 @@ public class Catalog implements Serializable {
                         + mountKinds.tints() + " for kind " + key);
             }
         });
-        this.archiveFormats = read(mapper, "data/archive-formats.json", new TypeReference<Map<String, ArchiveFormat>>() { });
+        final var formatsBySuffix = read(mapper, "data/archive-formats.json",
+                new TypeReference<Map<String, ArchiveFormat>>() { });
+        this.archiveFormats = List.copyOf(formatsBySuffix.entrySet());
         final var extensionsByViewType = read(mapper, "data/view-types.json",
                 new TypeReference<Map<String, List<String>>>() { });
         this.viewTypes = byExtension(extensionsByViewType);
@@ -68,12 +73,7 @@ public class Catalog implements Serializable {
                 .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
                 .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
                 .build();
-        this.rootOptions = read(strict, "data/root-options.json", new TypeReference<RootOptions>() { });
-    }
-
-    /** What a new file system starts with. */
-    public RootOptions rootOptions() {
-        return rootOptions;
+        this.rootOptions = read(strict, "data/root-options.json", new TypeReference<>() { });
     }
 
     private static Map<String, String> byExtension(Map<String, List<String>> extensionsByType) {
@@ -87,7 +87,7 @@ public class Catalog implements Serializable {
     }
 
     private static <T> T read(JsonMapper mapper, String path, TypeReference<T> type) {
-        try (final var in = new ClassPathResource(path).getInputStream()) {
+        try (var in = new ClassPathResource(path).getInputStream()) {
             return mapper.readValue(in, type);
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot read " + path, e);
@@ -111,7 +111,7 @@ public class Catalog implements Serializable {
     /** The archive format a name's suffix says, longest suffix first ({@code .tar.gz} before {@code .gz}). */
     public Optional<ArchiveFormat.Match> archiveFormat(String fileName) {
         final var lower = fileName.toLowerCase(Locale.ROOT);
-        return archiveFormats.entrySet().stream()
+        return archiveFormats.stream()
                 .filter(e -> lower.endsWith(e.getKey()) && lower.length() > e.getKey().length())
                 .max(Map.Entry.comparingByKey(Comparator.comparingInt(String::length)))
                 .map(e -> new ArchiveFormat.Match(e.getValue(), fileName.substring(0, fileName.length() - e.getKey().length())));

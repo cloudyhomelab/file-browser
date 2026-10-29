@@ -11,7 +11,7 @@ import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.function.SerializablePredicate;
 
 /** Single-field dialog used for "New folder" and "Rename". */
-public class NameDialog extends FbDialog {
+public final class NameDialog extends FbDialog {
 
     private final TextField field = new TextField();
 
@@ -26,7 +26,7 @@ public class NameDialog extends FbDialog {
         field.setValueChangeMode(ValueChangeMode.EAGER);
 
         final var confirm = Buttons.create(Buttons.Kind.PRIMARY, confirmText, null, () -> { });
-        final Predicate<String> ok = v -> !v.trim().isEmpty() && valid.test(v);
+        final Predicate<String> ok = v -> !v.isBlank() && valid.test(v);
         final Runnable submit = () -> {
             if (ok.test(field.getValue())) {
                 close();

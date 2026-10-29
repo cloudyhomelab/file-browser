@@ -9,6 +9,7 @@ public interface CopyProgress {
     CopyProgress NONE = new CopyProgress() {
         @Override
         public void copied(long bytes) {
+            // reports nowhere
         }
 
         @Override
@@ -22,12 +23,14 @@ public interface CopyProgress {
 
     /** {@code bytes} more of a copy were read back to verify it. */
     default void verified(long bytes) {
+        // listeners that only count copied bytes ignore it
     }
 
     enum Phase { COPYING, VERIFYING }
 
     /** A streamed file named {@code name} enters {@code phase}. */
     default void phase(String name, Phase phase) {
+        // listeners that show no phases ignore it
     }
 
     boolean cancelled();

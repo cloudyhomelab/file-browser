@@ -24,9 +24,14 @@ import org.vaadin.filebrowser.storage.StorageProvider;
  * The session's uploads. Bytes arrive on upload request threads (outside the Vaadin session lock),
  * so everything here is safe to call from any thread.
  */
+// holds app-wide services; sessions are never serialized. Remove with #76
+@SuppressWarnings("PMD.NonSerializableClass")
 public class UploadQueue implements Serializable {
 
     private static final int BUFFER_SIZE = 64 * 1024;
+
+    private final StorageService storage;
+    private final List<UploadTask> tasks = new CopyOnWriteArrayList<>();
 
     /**
      * @param finalName  the name the file is stored under (for an extracted archive: if kept)
@@ -49,9 +54,6 @@ public class UploadQueue implements Serializable {
     public record Extraction(ArchiveFormat format, String singleName, String folderName, boolean keepArchive,
                              ExtractOptions.Clash clash, ArchiveExtractor.Limits limits) implements Serializable {
     }
-
-    private final StorageService storage;
-    private final List<UploadTask> tasks = new CopyOnWriteArrayList<>();
 
     public UploadQueue(StorageService storage) {
         this.storage = storage;
@@ -84,7 +86,7 @@ public class UploadQueue implements Serializable {
     public void clear() {
         tasks.forEach(t -> {
             if (!t.finished()) {
-                t.state(UploadTask.State.CANCELLED, "Cancelled");
+                t.transition(UploadTask.State.CANCELLED, "Cancelled");
             }
         });
         tasks.clear();
@@ -92,11 +94,8 @@ public class UploadQueue implements Serializable {
 
     /** The browser no longer has the file (e.g. the page was reloaded before the upload started). */
     public void lost(UploadTask task) {
-        synchronized (task) {
-            if (task.state() == UploadTask.State.QUEUED) {
-                task.state(UploadTask.State.FAILED, "“" + task.name() + "” is no longer available to upload.");
-            }
-        }
+        task.transition(UploadTask.State.QUEUED, UploadTask.State.FAILED,
+                "“" + task.getName() + "” is no longer available to upload.");
     }
 
     /** Finished uploads not yet reported to the user; each is returned once. UI thread only. */
@@ -105,7 +104,7 @@ public class UploadQueue implements Serializable {
     }
 
     private Optional<UploadTask> find(String id) {
-        return tasks.stream().filter(t -> t.id().equals(id)).findFirst();
+        return tasks.stream().filter(t -> t.getId().equals(id)).findFirst();
     }
 
     /**
@@ -114,41 +113,37 @@ public class UploadQueue implements Serializable {
      */
     public void receive(String taskId, InputStream in, long maxBytes) {
         final var task = find(taskId).orElseThrow(() -> new StorageException("Unknown upload."));
-        synchronized (task) {
-            if (task.state() != UploadTask.State.QUEUED) {
-                throw new StorageException("This upload was already handled.");
-            }
-            task.state(UploadTask.State.RECEIVING, null);
+        if (!task.transition(UploadTask.State.QUEUED, UploadTask.State.RECEIVING, null)) {
+            throw new StorageException("This upload was already handled.");
         }
-        final var provider = storage.provider(task.root());
-        final var folder = StoragePaths.join(task.folder());
-        if (task.extraction() != null) {
+        final var provider = storage.provider(task.getRoot());
+        final var folder = StoragePaths.join(task.getFolder());
+        if (task.getExtraction() != null) {
             receiveArchive(task, in, maxBytes, provider, folder);
             return;
         }
-        try (final var write = provider.openWrite(folder, task.name(), task.replace())) {
+        try (var write = provider.openWrite(folder, task.getName(), task.isReplace())) {
             final var buffer = new byte[BUFFER_SIZE];
             long total = 0;
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                if (task.state() == UploadTask.State.CANCELLED) {
+            for (var read = in.read(buffer); read != -1; read = in.read(buffer)) {
+                if (task.getState() == UploadTask.State.CANCELLED) {
                     return;
                 }
                 total += read;
                 if (total > maxBytes) {
-                    throw new StorageException("“" + task.name() + "” is larger than the upload limit.");
+                    throw new StorageException("“" + task.getName() + "” is larger than the upload limit.");
                 }
-                write.stream().write(buffer, 0, read);
-                task.received(total);
+                write.getStream().write(buffer, 0, read);
+                task.setReceived(total);
             }
             write.commit();
-            task.state(UploadTask.State.DONE, null);
+            task.transition(UploadTask.State.DONE, null);
         } catch (StorageException e) {
-            task.state(UploadTask.State.FAILED, e.getMessage());
+            task.transition(UploadTask.State.FAILED, e.getMessage());
         } catch (LinkFetcher.TooLargeException e) {
-            task.state(UploadTask.State.FAILED, "“" + task.name() + "” is larger than the upload limit.");
+            task.transition(UploadTask.State.FAILED, "“" + task.getName() + "” is larger than the upload limit.");
         } catch (IOException e) {
-            task.state(UploadTask.State.FAILED, "The upload of “" + task.name() + "” was interrupted.");
+            task.transition(UploadTask.State.FAILED, "The upload of “" + task.getName() + "” was interrupted.");
         }
     }
 
@@ -157,14 +152,14 @@ public class UploadQueue implements Serializable {
      * it), then extracted; the temp file is deleted whatever happens.
      */
     private void receiveArchive(UploadTask task, InputStream in, long maxBytes, StorageProvider provider, String folder) {
-        final var extraction = task.extraction();
+        final var extraction = task.getExtraction();
         Path temp = null;
         try {
             temp = Files.createTempFile("filebrowser-", ".upload");
             if (!copyToTemp(task, in, maxBytes, temp)) {
                 return;
             }
-            task.state(UploadTask.State.EXTRACTING, null);
+            task.transition(UploadTask.State.EXTRACTING, null);
             final var target = extraction.folderName() == null ? folder : StoragePaths.child(folder, extraction.folderName());
             if (extraction.folderName() != null) {
                 provider.createFolder(folder, extraction.folderName());
@@ -172,7 +167,7 @@ public class UploadQueue implements Serializable {
             final ArchiveExtractor.Result result;
             try {
                 result = ArchiveExtractor.extract(temp, extraction.format(), extraction.singleName(), provider, target,
-                        extraction.clash(), extraction.limits(), task.name());
+                        extraction.clash(), extraction.limits(), task.getName());
             } catch (StorageException e) {
                 if (extraction.folderName() != null) {
                     deleteQuietly(provider, target);
@@ -182,18 +177,18 @@ public class UploadQueue implements Serializable {
             if (extraction.keepArchive()) {
                 storeArchive(task, temp, provider, folder);
             }
-            task.summary(Formats.plural(result.written(), "file") + " extracted"
+            task.setSummary(Formats.plural(result.written(), "file") + " extracted"
                     + (result.skipped() > 0 ? ", " + result.skipped() + " skipped" : ""));
-            task.state(UploadTask.State.DONE, null);
+            task.transition(UploadTask.State.DONE, null);
         } catch (StorageException e) {
-            task.state(UploadTask.State.FAILED, e.getMessage());
+            task.transition(UploadTask.State.FAILED, e.getMessage());
         } catch (IOException e) {
-            task.state(UploadTask.State.FAILED, "The upload of “" + task.name() + "” was interrupted.");
+            task.transition(UploadTask.State.FAILED, "The upload of “" + task.getName() + "” was interrupted.");
         } finally {
             if (temp != null) {
                 try {
                     Files.deleteIfExists(temp);
-                } catch (IOException e) {
+                } catch (IOException ignored) {
                     // the OS cleans its temp folder eventually
                 }
             }
@@ -202,33 +197,32 @@ public class UploadQueue implements Serializable {
 
     /** @return false when the upload ended (cancelled or too large) before all of it arrived */
     private static boolean copyToTemp(UploadTask task, InputStream in, long maxBytes, Path temp) throws IOException {
-        try (final var out = Files.newOutputStream(temp)) {
+        try (var out = Files.newOutputStream(temp)) {
             final var buffer = new byte[BUFFER_SIZE];
             long total = 0;
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                if (task.state() == UploadTask.State.CANCELLED) {
+            for (var read = in.read(buffer); read != -1; read = in.read(buffer)) {
+                if (task.getState() == UploadTask.State.CANCELLED) {
                     return false;
                 }
                 total += read;
                 if (total > maxBytes) {
-                    task.state(UploadTask.State.FAILED, "“" + task.name() + "” is larger than the upload limit.");
+                    task.transition(UploadTask.State.FAILED, "“" + task.getName() + "” is larger than the upload limit.");
                     return false;
                 }
                 out.write(buffer, 0, read);
-                task.received(total);
+                task.setReceived(total);
             }
         } catch (LinkFetcher.TooLargeException e) {
-            task.state(UploadTask.State.FAILED, "“" + task.name() + "” is larger than the upload limit.");
+            task.transition(UploadTask.State.FAILED, "“" + task.getName() + "” is larger than the upload limit.");
             return false;
         }
         return true;
     }
 
     private static void storeArchive(UploadTask task, Path temp, StorageProvider provider, String folder) throws IOException {
-        try (final var write = provider.openWrite(folder, task.name(), task.replace());
-             final var in = Files.newInputStream(temp)) {
-            in.transferTo(write.stream());
+        try (var write = provider.openWrite(folder, task.getName(), task.isReplace());
+             var in = Files.newInputStream(temp)) {
+            in.transferTo(write.getStream());
             write.commit();
         }
     }
@@ -236,7 +230,7 @@ public class UploadQueue implements Serializable {
     private static void deleteQuietly(StorageProvider provider, String path) {
         try {
             provider.delete(path);
-        } catch (StorageException e) {
+        } catch (StorageException ignored) {
             // reporting the extraction error matters more
         }
     }
@@ -245,18 +239,14 @@ public class UploadQueue implements Serializable {
     public void download(UploadTask task, LinkFetcher links, long maxBytes) {
         final InputStream in;
         try {
-            in = links.fetch(task.url(), maxBytes);
+            in = links.fetch(task.getUrl(), maxBytes);
         } catch (StorageException e) {
-            synchronized (task) {
-                if (task.state() == UploadTask.State.QUEUED) {
-                    task.state(UploadTask.State.FAILED, e.getMessage());
-                }
-            }
+            task.transition(UploadTask.State.QUEUED, UploadTask.State.FAILED, e.getMessage());
             return;
         }
         try (in) {
-            receive(task.id(), in, maxBytes);
-        } catch (IOException e) {
+            receive(task.getId(), in, maxBytes);
+        } catch (IOException ignored) {
             // closing the download; the task's state is already settled
         }
     }

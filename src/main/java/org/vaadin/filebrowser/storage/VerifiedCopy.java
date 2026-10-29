@@ -44,7 +44,7 @@ public final class VerifiedCopy {
                 .orElseThrow(() -> new StorageException("“" + nameOf(path) + "” no longer exists."));
         final var target = StoragePaths.child(folder, name);
         final var existing = to.stat(target);
-        if (existing.isPresent() && (!replace || source.folder() || existing.get().folder())) {
+        if (existing.isPresent() && (!replace || source.folder() || existing.orElseThrow().folder())) {
             throw new StorageException(replace ? "“" + name + "” can't be replaced: only a file replaces a file."
                     : "“" + name + "” already exists in the destination.");
         }
@@ -85,14 +85,14 @@ public final class VerifiedCopy {
         try {
             final byte[] written;
             progress.phase(name, CopyProgress.Phase.COPYING);
-            try (final var in = from.openRead(path);
-                 final var write = to.openWrite(folder, temporaryName, false)) {
-                written = transfer(in, write.stream(), name, progress::copied, progress);
+            try (var in = from.openRead(path);
+                 var write = to.openWrite(folder, temporaryName, false)) {
+                written = transfer(in, write.getStream(), name, progress::copied, progress);
                 write.commit();
             }
             final byte[] readBack;
             progress.phase(name, CopyProgress.Phase.VERIFYING);
-            try (final var in = to.openRead(temporary)) {
+            try (var in = to.openRead(temporary)) {
                 readBack = transfer(in, OutputStream.nullOutputStream(), name, progress::verified, progress);
             }
             if (!Arrays.equals(written, readBack)) {
@@ -122,8 +122,7 @@ public final class VerifiedCopy {
                                    CopyProgress progress) throws IOException {
         final var digest = sha256();
         final var buffer = new byte[BUFFER_SIZE];
-        int read;
-        while ((read = in.read(buffer)) != -1) {
+        for (var read = in.read(buffer); read != -1; read = in.read(buffer)) {
             if (progress.cancelled()) {
                 throw new CopyCancelledException(name);
             }
@@ -147,12 +146,12 @@ public final class VerifiedCopy {
             if (provider.stat(path).isPresent()) {
                 provider.delete(path);
             }
-        } catch (StorageException e) {
+        } catch (StorageException ignored) {
             // the copy's own failure is what gets reported
         }
     }
 
     private static String nameOf(String path) {
-        return path.substring(path.lastIndexOf(StoragePaths.SEPARATOR) + 1);
+        return path.substring(path.lastIndexOf('/') + 1);
     }
 }

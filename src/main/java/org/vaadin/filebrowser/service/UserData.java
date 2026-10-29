@@ -15,13 +15,13 @@ import org.vaadin.filebrowser.storage.StoragePaths;
 @Repository
 public class UserData {
 
+    private final JdbcClient jdbc;
+
     public record Preferences(Workspace.Layout layout, Workspace.Density density, Sort sort, boolean groupByType) {
 
         public static final Preferences DEFAULT =
                 new Preferences(Workspace.Layout.GRID, Workspace.Density.DENSE, Sort.DEFAULT, false);
     }
-
-    private final JdbcClient jdbc;
 
     public UserData(JdbcClient jdbc) {
         this.jdbc = jdbc;
@@ -78,6 +78,7 @@ public class UserData {
     }
 
     /** Re-points every user's stars on exactly {@code path} to {@code newPath} on another file system. */
+    @SuppressWarnings("PMD.UseObjectForClearerAPI")
     public void moveStarAcross(String rootId, String path, String newRootId, String newPath) {
         jdbc.sql("""
                         UPDATE OR REPLACE starred_item
