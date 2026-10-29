@@ -169,7 +169,7 @@ class LocalDiskProviderTest {
     @Test
     void writesBecomeVisibleOnlyOnCommit() throws IOException {
         final var write = provider.openWrite("", "upload.txt", false);
-        write.stream().write("hello".getBytes(StandardCharsets.UTF_8));
+        write.getStream().write("hello".getBytes(StandardCharsets.UTF_8));
         assertThat(provider.list("")).extracting(StorageEntry::name).doesNotContain("upload.txt");
         write.commit();
         assertThat(read(provider, "upload.txt")).isEqualTo("hello");
@@ -181,7 +181,7 @@ class LocalDiskProviderTest {
     @Test
     void abortedWritesLeaveNothingBehind() throws IOException {
         final var write = provider.openWrite("", "upload.txt", false);
-        write.stream().write("partial".getBytes(StandardCharsets.UTF_8));
+        write.getStream().write("partial".getBytes(StandardCharsets.UTF_8));
         write.abort();
         try (final var files = Files.list(root)) {
             assertThat(files.map(p -> p.getFileName().toString())).containsExactlyInAnyOrder("Projects", "notes.txt");
@@ -192,7 +192,7 @@ class LocalDiskProviderTest {
     void replaceOverwritesAndPlainWriteRefusesAnExistingFile() throws IOException {
         assertThatThrownBy(() -> provider.openWrite("", "notes.txt", false)).isInstanceOf(StorageException.class);
         try (final var write = provider.openWrite("", "notes.txt", true)) {
-            write.stream().write("new".getBytes(StandardCharsets.UTF_8));
+            write.getStream().write("new".getBytes(StandardCharsets.UTF_8));
             write.commit();
         }
         assertThat(read(provider, "notes.txt")).isEqualTo("new");

@@ -34,7 +34,7 @@ public final class DragMove {
      */
     public static class Targets implements Serializable {
 
-        private final List<DropTarget<?>> targets = new ArrayList<>();
+        private final List<DropTarget<?>> dropTargets = new ArrayList<>();
 
         public void add(Component component, SerializableConsumer<Located> onDrop) {
             final var target = DropTarget.configure(component, false);
@@ -43,11 +43,11 @@ public final class DragMove {
                     .filter(Located.class::isInstance)
                     .map(Located.class::cast)
                     .ifPresent(onDrop));
-            targets.add(target);
+            dropTargets.add(target);
         }
 
         public void setActive(boolean on) {
-            targets.forEach(t -> t.setActive(on));
+            dropTargets.forEach(t -> t.setActive(on));
         }
     }
 }

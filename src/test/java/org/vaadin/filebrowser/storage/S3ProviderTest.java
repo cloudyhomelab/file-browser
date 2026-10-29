@@ -179,7 +179,7 @@ class S3ProviderTest {
     @Test
     void writesBecomeVisibleOnlyOnCommit() throws IOException {
         try (final var write = provider.openWrite("", "upload.txt", false)) {
-            write.stream().write("hello".getBytes(StandardCharsets.UTF_8));
+            write.getStream().write("hello".getBytes(StandardCharsets.UTF_8));
             assertThat(provider.stat("upload.txt")).isEmpty();
             write.commit();
         }
@@ -191,13 +191,13 @@ class S3ProviderTest {
         final var data = new byte[20 * 1024 * 1024];
         Arrays.fill(data, (byte) 'x');
         try (final var write = provider.openWrite("Projects", "big.bin", false)) {
-            write.stream().write(data);
+            write.getStream().write(data);
             write.commit();
         }
         assertThat(provider.stat("Projects/big.bin").orElseThrow().size()).isEqualTo((long) data.length);
 
         final var aborted = provider.openWrite("", "partial.bin", false);
-        aborted.stream().write(data);
+        aborted.getStream().write(data);
         aborted.abort();
         assertThat(provider.stat("partial.bin")).isEmpty();
     }
@@ -206,7 +206,7 @@ class S3ProviderTest {
     void replaceOverwritesAndPlainWriteRefusesAnExistingFile() throws IOException {
         assertThatThrownBy(() -> provider.openWrite("", "notes.txt", false)).isInstanceOf(StorageException.class);
         try (final var write = provider.openWrite("", "notes.txt", true)) {
-            write.stream().write("new".getBytes(StandardCharsets.UTF_8));
+            write.getStream().write("new".getBytes(StandardCharsets.UTF_8));
             write.commit();
         }
         assertThat(read(provider, "notes.txt")).isEqualTo("new");

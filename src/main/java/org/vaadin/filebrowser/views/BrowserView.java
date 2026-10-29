@@ -117,8 +117,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private String query = "";
     private List<StorageEntry> currentEntries = List.of();
     private String loadError;
-    private final Set<String> selected = new HashSet<>();
-    private String focused;
+    private final Set<String> selectedPaths = new HashSet<>();
+    private String focusedPath;
     private boolean starredView;
     /** Between a drag start and its end; drop targets are active and auto refresh waits meanwhile. */
     private boolean dragging;
@@ -139,12 +139,12 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var toolbarCallbacks = new Toolbar.Callbacks(this::onQuery, this::sortBy, this::setAutoRefresh,
                 this::toggleDensity, this::setLayout, this::newFolder, this::openUploadDialog);
         toolbar = new Toolbar(toolbarCallbacks);
-        dock = new UploadDock(workspace.catalog(), this::clearUploads, this::cancelTransfer);
+        dock = new UploadDock(workspace.getCatalog(), this::clearUploads, this::cancelTransfer);
 
-        main = new FileDropArea(workspace.catalog(), false);
+        main = new FileDropArea(workspace.getCatalog(), false);
         main.addClassName("fb-main");
-        main.onFiles(this::onFilesDropped);
-        final var queue = workspace.uploads();
+        main.setOnFiles(this::onFilesDropped);
+        final var queue = workspace.getUploads();
         final var maxBytes = maxUploadBytes;
         // runs on the upload request thread, outside the session lock: only touch the thread-safe queue here
         final UploadHandler uploadHandler = event -> {
@@ -152,7 +152,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             queue.receive(taskId, event.getInputStream(), maxBytes);
         };
         main.setUploadHandler(uploadHandler);
-        main.onUploadLost(this::uploadLost);
+        main.setOnUploadLost(this::uploadLost);
         final var uploadIcon = new Icon("upload");
         final var dropIcon = Ui.span("fb-drop-overlay-icon", uploadIcon);
         final var dropTitle = Ui.span("fb-drop-overlay-title", "Drop files to upload");
@@ -205,13 +205,13 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             final var browsable = workspace.browsableRoots();
             final var sidebarRoot = root;
             final var user = currentUser.get().orElse(null);
-            sidebar = new Sidebar(root, browsable, folder -> workspace.subfolders(sidebarRoot, folder), workspace.catalog(),
+            sidebar = new Sidebar(root, browsable, folder -> workspace.subfolders(sidebarRoot, folder), workspace.getCatalog(),
                     user, sidebarCallbacks);
             sidebarSlot.removeAll();
             sidebarSlot.add(sidebar);
         }
         resetView();
-        focused = event.getLocation().getQueryParameters().getSingleParameter(FOCUS_PARAM).orElse(null);
+        focusedPath = event.getLocation().getQueryParameters().getSingleParameter(FOCUS_PARAM).orElse(null);
         refresh();
     }
 
@@ -241,7 +241,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void toggleDensity() {
-        workspace.setDensity(workspace.density() == Density.DENSE ? Density.COMFORTABLE : Density.DENSE);
+        workspace.setDensity(workspace.getDensity() == Density.DENSE ? Density.COMFORTABLE : Density.DENSE);
         refresh();
     }
 
@@ -251,19 +251,19 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void clearUploads() {
-        workspace.uploads().clear();
-        workspace.transfers().clear();
+        workspace.getUploads().clear();
+        workspace.getTransfers().clear();
         main.cancelUploads();
         refresh();
     }
 
     private void cancelTransfer(TransferTask task) {
-        workspace.transfers().cancel(task);
+        workspace.getTransfers().cancel(task);
         showDock();
     }
 
     private void showDock() {
-        dock.show(workspace.uploads().all(), workspace.transfers().all());
+        dock.show(workspace.getUploads().all(), workspace.getTransfers().all());
     }
 
     private void backToRoots() {
@@ -275,8 +275,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void resetView() {
-        selected.clear();
-        focused = null;
+        selectedPaths.clear();
+        focusedPath = null;
         starredView = false;
         query = "";
         resetting = true;
@@ -319,14 +319,14 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                 .filter(e -> q.isEmpty() || e.name().toLowerCase(Locale.ROOT).contains(q))
                 .map(e -> Located.here(e, root.id()))
                 .toList();
-        return workspace.sort().apply(filtered);
+        return workspace.getSort().apply(filtered);
     }
 
     private StorageEntry focusedEntry() {
-        if (focused == null) {
+        if (focusedPath == null) {
             return null;
         }
-        return currentEntries.stream().filter(e -> e.path().equals(focused)).findFirst().orElse(null);
+        return currentEntries.stream().filter(e -> e.path().equals(focusedPath)).findFirst().orElse(null);
     }
 
     /** The folder an entry lives in: its own location for starred items. */
@@ -352,7 +352,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     /** A poll tick with auto refresh on: re-read, and render only if the folder changed. */
     private void autoRefreshTick() {
         if (dragging || !autoRefresh.on() || Duration.between(lastLoad, Instant.now()).plus(AUTO_REFRESH_SLACK)
-                .compareTo(autoRefresh.interval()) < 0) {
+                .compareTo(autoRefresh.getInterval()) < 0) {
             return;
         }
         loadFolder();
@@ -362,9 +362,9 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         }
         final var present = new HashSet<String>();
         entries.forEach(l -> present.add(l.entry().path()));
-        selected.retainAll(present);
-        if (focused != null && !present.contains(focused)) {
-            focused = null;
+        selectedPaths.retainAll(present);
+        if (focusedPath != null && !present.contains(focusedPath)) {
+            focusedPath = null;
         }
         render();
     }
@@ -380,17 +380,17 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         main.getElement().getClassList().set("fb-main--starred", starredView);
         toolbar.setVisible(!starredView);
         if (!starredView) {
-            final var bulk = selected.isEmpty() ? null
-                    : new HeaderBulkActions(selected.size(), readOnly(), a -> handleAction(a, null), this::clearSelection);
-            final var toolbarState = new Toolbar.State(workspace.sort(), autoRefresh, workspace.density(),
-                    workspace.layout(), readOnly(), bulk);
+            final var bulk = selectedPaths.isEmpty() ? null
+                    : new HeaderBulkActions(selectedPaths.size(), readOnly(), a -> handleAction(a, null), this::clearSelection);
+            final var toolbarState = new Toolbar.State(workspace.getSort(), autoRefresh, workspace.getDensity(),
+                    workspace.getLayout(), readOnly(), bulk);
             toolbar.render(toolbarState);
         }
         renderContent(entries);
         renderDetails();
         bulkSlot.removeAll();
-        if (!starredView && !selected.isEmpty()) {
-            final var bulkBar = new BulkBar(selected.size(), readOnly(), a -> handleAction(a, null), this::clearSelection);
+        if (!starredView && !selectedPaths.isEmpty()) {
+            final var bulkBar = new BulkBar(selectedPaths.size(), readOnly(), a -> handleAction(a, null), this::clearSelection);
             bulkSlot.add(bulkBar);
         }
         showDock();
@@ -422,7 +422,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         if (starredView) {
             final var listOption = Segmented.Option.iconOnly(Layout.LIST, "list", "List");
             final var gridOption = Segmented.Option.iconOnly(Layout.GRID, "grid", "Grid");
-            final var layoutToggle = new Segmented<>("fb-seg--view", List.of(listOption, gridOption), workspace.layout(),
+            final var layoutToggle = new Segmented<>("fb-seg--view", List.of(listOption, gridOption), workspace.getLayout(),
                     this::setLayout);
             titleRow.add(layoutToggle);
         }
@@ -430,7 +430,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private Div breadcrumb() {
         final var crumbs = Ui.div("fb-breadcrumb");
-        final var rootChip = RootChip.of(root, workspace.catalog(), RootChip.Size.XS);
+        final var rootChip = RootChip.of(root, workspace.getCatalog(), RootChip.Size.XS);
         final var rootName = Ui.span("", root.name());
         final var rootCrumb = Ui.button("fb-crumb fb-crumb--root", () -> navTo(List.of()), rootChip, rootName);
         crumbs.add(rootCrumb);
@@ -463,11 +463,11 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             content.add(emptyState);
             return;
         }
-        if (workspace.layout() == Layout.LIST) {
-            listView = new FileListView(entries, this, workspace.density(), workspace.catalog());
+        if (workspace.getLayout() == Layout.LIST) {
+            listView = new FileListView(entries, this, workspace.getDensity(), workspace.getCatalog());
             content.add(listView);
         } else {
-            gridView = new FileGridView(entries, this, workspace.catalog());
+            gridView = new FileGridView(entries, this, workspace.getCatalog());
             content.add(gridView);
         }
     }
@@ -478,14 +478,14 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         if (entry != null && !starredView) {
             final var located = Located.here(entry, root.id());
             final var starred = workspace.isStarred(root.id(), entry.path());
-            final var details = new DetailsPanel(entry, root, readOnly(), starred, workspace.catalog(),
+            final var details = new DetailsPanel(entry, root, readOnly(), starred, workspace.getCatalog(),
                     () -> setFocused(null), a -> handleAction(a, located));
             detailsSlot.add(details);
         }
     }
 
     private void setFocused(String id) {
-        focused = id;
+        focusedPath = id;
         if (listView != null) {
             listView.refreshFocus();
         }
@@ -501,12 +501,12 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     @Override
     public boolean selected(Located entry) {
-        return selected.contains(entry.entry().path());
+        return selectedPaths.contains(entry.entry().path());
     }
 
     @Override
     public boolean focused(Located entry) {
-        return entry.entry().path().equals(focused);
+        return entry.entry().path().equals(focusedPath);
     }
 
     @Override
@@ -516,17 +516,17 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     @Override
     public void toggleSelected(Located entry) {
-        if (!selected.remove(entry.entry().path())) {
-            selected.add(entry.entry().path());
+        if (!selectedPaths.remove(entry.entry().path())) {
+            selectedPaths.add(entry.entry().path());
         }
         refresh();
     }
 
     @Override
     public void toggleAll(boolean on) {
-        selected.clear();
+        selectedPaths.clear();
         if (on) {
-            displayEntries().forEach(e -> selected.add(e.entry().path()));
+            displayEntries().forEach(e -> selectedPaths.add(e.entry().path()));
         }
         refresh();
     }
@@ -560,8 +560,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return;
         }
         final var shown = displayEntries().stream().map(Located::entry).toList();
-        final var files = Lightbox.files(shown);
-        final var lightbox = new Lightbox(workspace.catalog(), root.id(), files, file, f -> setFocused(f.path()),
+        final var files = Lightbox.viewable(shown);
+        final var lightbox = new Lightbox(workspace.getCatalog(), root.id(), files, file, f -> setFocused(f.path()),
                 f -> download(List.of(Located.here(f, root.id()))));
         lightbox.open();
     }
@@ -595,7 +595,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             open(entry);
             return;
         }
-        setFocused(entry.entry().path().equals(focused) ? null : entry.entry().path());
+        setFocused(entry.entry().path().equals(focusedPath) ? null : entry.entry().path());
     }
 
     private void openStarred(Located entry) {
@@ -623,12 +623,12 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     @Override
     public Sort sort() {
-        return workspace.sort();
+        return workspace.getSort();
     }
 
     @Override
     public void sortBy(SortKey key) {
-        final var newSort = workspace.sort().toggle(key);
+        final var newSort = workspace.getSort().toggle(key);
         workspace.setSort(newSort);
         refresh();
     }
@@ -642,7 +642,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void clearSelection() {
-        selected.clear();
+        selectedPaths.clear();
         refresh();
     }
 
@@ -718,7 +718,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         }
         final var entries = targets.stream().map(Located::entry).toList();
         final var from = folderOf(targets.getFirst());
-        final var dialog = new DestinationDialog(mode, entries, root, fileSystems, workspace.catalog(),
+        final var dialog = new DestinationDialog(mode, entries, root, fileSystems, workspace.getCatalog(),
                 workspace::subfolders, from, (destRoot, dest) -> checkClashes(mode, targets, destRoot, dest, false));
         dialog.open();
     }
@@ -762,7 +762,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return;
         }
         final var purpose = mode == Mode.MOVE ? ConflictDialog.Purpose.MOVE : ConflictDialog.Purpose.COPY;
-        final var dialog = new ConflictDialog(purpose, workspace.catalog(), clashes, targets.size(),
+        final var dialog = new ConflictDialog(purpose, workspace.getCatalog(), clashes, targets.size(),
                 names, choices -> transfer(mode, targets, destRoot, dest, names, choices));
         dialog.open();
     }
@@ -826,7 +826,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             items.add(new TransferTask.Item(entry, finalName, choice == ConflictChoice.REPLACE, false));
         }
         if (mode == Mode.MOVE) {
-            selected.clear();
+            selectedPaths.clear();
         }
         if (items.isEmpty()) {
             refresh();
@@ -844,9 +844,9 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private void delete(List<Located> targets) {
         final var done = forEachTarget(targets, e -> workspace.delete(root, e));
-        selected.clear();
+        selectedPaths.clear();
         if (targets.stream().anyMatch(this::focused)) {
-            focused = null;
+            focusedPath = null;
         }
         if (done > 0) {
             final var deletedLabel = done == targets.size() ? label(targets) : Formats.plural(done, "item");
@@ -889,7 +889,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return;
         }
         final var now = workspace.current(root);
-        final var dialog = new UploadDialog(workspace.catalog(), now.options(), maxUploadBytes,
+        final var dialog = new UploadDialog(workspace.getCatalog(), now.options(), maxUploadBytes,
                 url -> workspace.inspectLink(now, url), this::startUploads);
         dialog.open();
     }
@@ -941,7 +941,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             resolveConflicts(files, destination, existing, Map.of());
             return;
         }
-        final var dialog = new ConflictDialog(ConflictDialog.Purpose.UPLOAD, workspace.catalog(), conflicts, files.size(),
+        final var dialog = new ConflictDialog(ConflictDialog.Purpose.UPLOAD, workspace.getCatalog(), conflicts, files.size(),
                 existing, choices -> resolveConflicts(files, destination, existing, choices));
         dialog.open();
     }
@@ -956,7 +956,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         if (f.extract() == null || !f.extract().newFolder()) {
             return null;
         }
-        return workspace.catalog().archiveFormat(f.name())
+        return workspace.getCatalog().archiveFormat(f.name())
                 .filter(m -> !m.format().singleFile())
                 .map(ArchiveFormat.Match::baseName)
                 .orElse(null);
@@ -982,7 +982,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                 }
                 taken.add(finalName);
             }
-            final var match = f.extract() == null ? null : workspace.catalog().archiveFormat(f.name()).orElse(null);
+            final var match = f.extract() == null ? null : workspace.getCatalog().archiveFormat(f.name()).orElse(null);
             if (match == null) {
                 if (store) {
                     planned.add(new Planned(f, finalName, replace));
@@ -1025,10 +1025,10 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void uploadLost(String taskId) {
-        workspace.uploads().all().stream()
-                .filter(t -> t.id().equals(taskId))
+        workspace.getUploads().all().stream()
+                .filter(t -> t.getId().equals(taskId))
                 .findFirst()
-                .ifPresent(workspace.uploads()::lost);
+                .ifPresent(workspace.getUploads()::lost);
     }
 
     @Override
@@ -1051,8 +1051,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     /** One timer for all: fast while uploads or transfers run, else at the auto refresh interval, else off. */
     private void updatePollInterval() {
-        final var interval = workspace.uploads().active() || workspace.transfers().pending() ? TASK_POLL_MS
-                : autoRefresh.on() ? (int) autoRefresh.interval().toMillis()
+        final var interval = workspace.getUploads().active() || workspace.getTransfers().pending() ? TASK_POLL_MS
+                : autoRefresh.on() ? (int) autoRefresh.getInterval().toMillis()
                 : -1;
         getUI().ifPresent(ui -> ui.setPollInterval(interval));
     }
@@ -1064,21 +1064,21 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void onTaskPoll() {
-        final var finished = workspace.uploads().takeFinished();
+        final var finished = workspace.getUploads().takeFinished();
         for (final var t : finished) {
-            switch (t.state()) {
-                case DONE -> Toasts.show(t.summary() != null ? "“" + t.name() + "”: " + t.summary()
-                        : (t.replace() ? "Replaced “" : "Uploaded “") + t.name() + "”", "check");
-                case FAILED -> Toasts.error(t.error());
+            switch (t.getState()) {
+                case DONE -> Toasts.show(t.getSummary() != null ? "“" + t.getName() + "”: " + t.getSummary()
+                        : (t.isReplace() ? "Replaced “" : "Uploaded “") + t.getName() + "”", "check");
+                case FAILED -> Toasts.error(t.getError());
                 default -> { }
             }
         }
-        final var transfersFinished = workspace.transfers().takeFinished();
+        final var transfersFinished = workspace.getTransfers().takeFinished();
         for (final var t : transfersFinished) {
-            switch (t.state()) {
-                case DONE -> Toasts.show(t.message(), t.kind() == TransferTask.Kind.MOVE ? "move" : "copy");
-                case FAILED -> Toasts.error(t.message());
-                case CANCELLED -> Toasts.show(t.message(), "cross");
+            switch (t.getState()) {
+                case DONE -> Toasts.show(t.getMessage(), t.getKind() == TransferTask.Kind.MOVE ? "move" : "copy");
+                case FAILED -> Toasts.error(t.getMessage());
+                case CANCELLED -> Toasts.show(t.getMessage(), "cross");
                 default -> { }
             }
         }
@@ -1097,7 +1097,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var entries = targets.stream().map(Located::entry).toList();
         final var single = entries.size() == 1 ? entries.getFirst() : null;
         final var zipBase = single != null ? single.name() : path.isEmpty() ? root.name() : path.getLast();
-        final var provider = workspace.storage(root);
+        final var provider = workspace.provider(root);
         final var handler = Downloads.of(provider, entries, zipBase + ".zip");
         // the link stays in place: removing it right after the click can unregister the download before the
         // browser's request for it arrives; the next download replaces its target instead

@@ -68,7 +68,7 @@ class UploadQueueTest {
     @Test
     void receivedFilesAreStoredAndReportedOnce() throws IOException {
         final var task = plan("hello.txt", 5, false);
-        queue.receive(task.id(), bytes("hello"), LIMIT);
+        queue.receive(task.getId(), bytes("hello"), LIMIT);
         assertThat(Files.readString(dir.resolve("hello.txt"))).isEqualTo("hello");
         assertThat(task.complete()).isTrue();
         assertThat(task.progress()).isEqualTo(100);
@@ -80,15 +80,15 @@ class UploadQueueTest {
     @Test
     void aTaskCanOnlyReceiveOnce() {
         final var task = plan("once.txt", 1, false);
-        queue.receive(task.id(), bytes("1"), LIMIT);
-        assertThatThrownBy(() -> queue.receive(task.id(), bytes("2"), LIMIT)).isInstanceOf(StorageException.class);
+        queue.receive(task.getId(), bytes("1"), LIMIT);
+        assertThatThrownBy(() -> queue.receive(task.getId(), bytes("2"), LIMIT)).isInstanceOf(StorageException.class);
     }
 
     @Test
     void uploadsOverTheLimitFailAndLeaveNothingBehind() throws IOException {
         final var task = plan("big.txt", 2, false);
-        queue.receive(task.id(), bytes("x".repeat((int) LIMIT + 1)), LIMIT);
-        assertThat(task.state()).isEqualTo(UploadTask.State.FAILED);
+        queue.receive(task.getId(), bytes("x".repeat((int) LIMIT + 1)), LIMIT);
+        assertThat(task.getState()).isEqualTo(UploadTask.State.FAILED);
         try (final var files = Files.list(dir)) {
             assertThat(files).isEmpty();
         }
@@ -98,10 +98,10 @@ class UploadQueueTest {
     void replaceOverwritesWhilePlainUploadsRefuseExistingNames() throws IOException {
         Files.writeString(dir.resolve("a.txt"), "old");
         final var plain = plan("a.txt", 3, false);
-        queue.receive(plain.id(), bytes("new"), LIMIT);
-        assertThat(plain.state()).isEqualTo(UploadTask.State.FAILED);
+        queue.receive(plain.getId(), bytes("new"), LIMIT);
+        assertThat(plain.getState()).isEqualTo(UploadTask.State.FAILED);
         final var replacing = plan("a.txt", 3, true);
-        queue.receive(replacing.id(), bytes("new"), LIMIT);
+        queue.receive(replacing.getId(), bytes("new"), LIMIT);
         assertThat(Files.readString(dir.resolve("a.txt"))).isEqualTo("new");
     }
 
@@ -158,8 +158,8 @@ class UploadQueueTest {
 
             assertThat(Files.readString(dir.resolve("note.txt"))).isEqualTo("from the web");
             assertThat(tasks.getFirst().complete()).isTrue();
-            assertThat(tasks.get(1).state()).isEqualTo(UploadTask.State.FAILED);
-            assertThat(tasks.get(1).error()).contains("larger than the upload limit");
+            assertThat(tasks.get(1).getState()).isEqualTo(UploadTask.State.FAILED);
+            assertThat(tasks.get(1).getError()).contains("larger than the upload limit");
             assertThat(dir.resolve("huge.bin")).doesNotExist();
         } finally {
             server.stop(0);
@@ -189,10 +189,10 @@ class UploadQueueTest {
         final var extraction = new UploadQueue.Extraction(ArchiveFormat.ZIP, null, "holiday", true,
                 ExtractOptions.Clash.KEEP_BOTH, new ArchiveExtractor.Limits(LIMIT, 100));
         final var task = planArchive("holiday.zip", zip.length, extraction);
-        queue.receive(task.id(), new ByteArrayInputStream(zip), LIMIT);
+        queue.receive(task.getId(), new ByteArrayInputStream(zip), LIMIT);
 
         assertThat(task.complete()).isTrue();
-        assertThat(task.summary()).isEqualTo("2 files extracted");
+        assertThat(task.getSummary()).isEqualTo("2 files extracted");
         assertThat(Files.readString(dir.resolve("holiday/photos/beach.jpg"))).isEqualTo("beach");
         assertThat(Files.readString(dir.resolve("holiday/readme.txt"))).isEqualTo("hi");
         assertThat(dir.resolve("holiday.zip")).exists();
@@ -205,7 +205,7 @@ class UploadQueueTest {
         final var extraction = new UploadQueue.Extraction(ArchiveFormat.ZIP, null, null, false,
                 ExtractOptions.Clash.KEEP_BOTH, new ArchiveExtractor.Limits(LIMIT, 100));
         final var task = planArchive("update.zip", zip.length, extraction);
-        queue.receive(task.id(), new ByteArrayInputStream(zip), LIMIT);
+        queue.receive(task.getId(), new ByteArrayInputStream(zip), LIMIT);
 
         assertThat(Files.readString(dir.resolve("readme.txt"))).isEqualTo("old");
         assertThat(Files.readString(dir.resolve("readme (1).txt"))).isEqualTo("new");
@@ -218,10 +218,10 @@ class UploadQueueTest {
         final var extraction = new UploadQueue.Extraction(ArchiveFormat.ZIP, null, "bomb", true,
                 ExtractOptions.Clash.KEEP_BOTH, new ArchiveExtractor.Limits(1024, 100));
         final var task = planArchive("bomb.zip", zip.length, extraction);
-        queue.receive(task.id(), new ByteArrayInputStream(zip), LIMIT);
+        queue.receive(task.getId(), new ByteArrayInputStream(zip), LIMIT);
 
-        assertThat(task.state()).isEqualTo(UploadTask.State.FAILED);
-        assertThat(task.error()).contains("extraction limit");
+        assertThat(task.getState()).isEqualTo(UploadTask.State.FAILED);
+        assertThat(task.getError()).contains("extraction limit");
         assertThat(dir.resolve("bomb")).doesNotExist();
         assertThat(dir.resolve("bomb.zip")).doesNotExist();
     }

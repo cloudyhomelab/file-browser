@@ -14,6 +14,9 @@ import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.textfield.TextFieldBase;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+
 /**
  * The sign-in details of a file system on a remote server, all stored as secrets. They go straight
  * to the server and are never shown again: when editing, each field only says whether it is set.
@@ -23,7 +26,9 @@ class SignInBox extends Div {
     /** The usual note under the fields while nothing is missing. */
     static final String STORED = "Stored encrypted and never shown again.";
 
+    @Getter(AccessLevel.PACKAGE)
     private final TextField user = new TextField("User name");
+    @Getter(AccessLevel.PACKAGE)
     private final PasswordField password = new PasswordField("Password");
     private final Div hint = Ui.div("fb-addroot-creds-hint");
     private final boolean editing;
@@ -45,14 +50,6 @@ class SignInBox extends Div {
         final var label = new Span("Sign-in");
         final var title = Ui.div("fb-addroot-creds-title", lockIcon, label);
         add(title);
-    }
-
-    TextField user() {
-        return user;
-    }
-
-    PasswordField password() {
-        return password;
     }
 
     /** Adds the fields, in order, above the hint. */

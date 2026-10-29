@@ -94,7 +94,7 @@ public class Toolbar extends Composite<Div> {
         final var trigger = new NativeButton();
         trigger.setClassName("fb-ghost-btn");
         final var sortIcon = new Icon("sort");
-        final var label = Ui.span("", sort.key().label());
+        final var label = Ui.span("", sort.key().getLabel());
         final var direction = new Icon(sort.ascending() ? "angle-up" : "angle-down");
         trigger.add(sortIcon, label, direction);
         trigger.getElement().setAttribute("aria-label", "Sort by");
@@ -105,7 +105,7 @@ public class Toolbar extends Composite<Div> {
         popover.addThemeVariants(PopoverVariant.NO_PADDING);
         final var menu = Ui.div("fb-menu fb-sort-menu");
         for (final var key : SortKey.values()) {
-            final var keyLabel = Ui.span("fb-grow", key.label());
+            final var keyLabel = Ui.span("fb-grow", key.getLabel());
             final var item = Ui.button("fb-menu-item", () -> {
                 popover.close();
                 callbacks.onSort().accept(key);
@@ -125,9 +125,9 @@ public class Toolbar extends Composite<Div> {
         final var trigger = new NativeButton();
         trigger.setClassName("fb-ghost-btn" + (current.on() ? " fb-ghost-btn--on" : ""));
         final var refreshIcon = new Icon("refresh");
-        final var label = Ui.span("", current.label());
+        final var label = Ui.span("", current.getLabel());
         trigger.add(refreshIcon, label);
-        trigger.getElement().setAttribute("aria-label", "Auto refresh: " + current.label());
+        trigger.getElement().setAttribute("aria-label", "Auto refresh: " + current.getLabel());
         trigger.getElement().setAttribute("title", "Auto refresh");
 
         final var popover = new Popover();
@@ -138,7 +138,7 @@ public class Toolbar extends Composite<Div> {
         final var heading = Ui.div("fb-menu-heading", Ui.span("", "Auto refresh"));
         menu.add(heading);
         for (final var option : AutoRefresh.values()) {
-            final var optionLabel = Ui.span("fb-grow", option == AutoRefresh.OFF ? "Off" : "Every " + option.label());
+            final var optionLabel = Ui.span("fb-grow", option == AutoRefresh.OFF ? "Off" : "Every " + option.getLabel());
             final var item = Ui.button("fb-menu-item", () -> {
                 popover.close();
                 callbacks.onAutoRefresh().accept(option);

@@ -24,6 +24,8 @@ import org.vaadin.filebrowser.storage.StorageProvider;
 import org.vaadin.filebrowser.storage.VerifiedCopy;
 import org.vaadin.filebrowser.storage.WriteHandle;
 
+import lombok.Getter;
+
 /**
  * A folder on a server reached over a file-transfer protocol. Subclasses provide the protocol's
  * primitive commands on a session; this class turns them into file-system operations with the
@@ -499,6 +501,7 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
         /** The protocol's stream: closing it ends the transfer. */
         private final OutputStream transfer;
         /** What callers write to; closing it leaves ending the transfer to commit or abort. */
+        @Getter
         private final OutputStream stream;
         private final String partial;
         private final String target;
@@ -524,11 +527,6 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
             this.target = target;
             this.replace = replace;
             this.name = name;
-        }
-
-        @Override
-        public OutputStream stream() {
-            return stream;
         }
 
         @Override

@@ -131,8 +131,8 @@ class WorkspaceTest {
                 List.of(new TransferTask.Item(notes, "notes.txt", false, false)));
         finish(move);
 
-        assertThat(copy.state()).isEqualTo(TransferTask.State.DONE);
-        assertThat(move.message()).isEqualTo("Moved “notes.txt” to “Archive”");
+        assertThat(copy.getState()).isEqualTo(TransferTask.State.DONE);
+        assertThat(move.getMessage()).isEqualTo("Moved “notes.txt” to “Archive”");
         assertThat(folder.resolve("notes copy.txt")).hasContent("notes");
         assertThat(folder.resolve("Archive/notes.txt")).hasContent("notes");
         assertThat(workspace.isStarred("a", "Archive/notes.txt")).isTrue();
@@ -144,12 +144,12 @@ class WorkspaceTest {
         final var blocker = Files.createDirectory(folder.resolve("Big"));
         Files.writeString(blocker.resolve("data.bin"), "x".repeat(1024));
         registry.update("a", "Projects", Access.LOCKED);
-        final var task = workspace.transfers().enqueue(TransferTask.Kind.COPY, held, held, List.of("Big"),
+        final var task = workspace.getTransfers().enqueue(TransferTask.Kind.COPY, held, held, List.of("Big"),
                 List.of(new TransferTask.Item(notes, "notes.txt", false, false)));
         finish(task);
 
-        assertThat(task.state()).isEqualTo(TransferTask.State.FAILED);
-        assertThat(task.message()).isEqualTo("“Projects” is locked. Nothing was copied.");
+        assertThat(task.getState()).isEqualTo(TransferTask.State.FAILED);
+        assertThat(task.getMessage()).isEqualTo("“Projects” is locked. Nothing was copied.");
         assertThat(blocker.resolve("notes.txt")).doesNotExist();
     }
 
@@ -181,7 +181,7 @@ class WorkspaceTest {
                 List.of(new TransferTask.Item(notes, "notes.txt", false, false)));
         finish(task);
 
-        assertThat(task.message()).isEqualTo("Copied “notes.txt” to “Inbox” in “Archive”");
+        assertThat(task.getMessage()).isEqualTo("Copied “notes.txt” to “Inbox” in “Archive”");
         assertThat(dir.resolve("archive/Inbox/notes.txt")).hasContent("notes");
         assertThat(folder.resolve("notes.txt")).hasContent("notes");
         assertThatThrownBy(() -> workspace.transfer(TransferTask.Kind.MOVE, held, archive, List.of("Inbox"),
@@ -201,7 +201,7 @@ class WorkspaceTest {
                 List.of(new TransferTask.Item(reports, "Reports", false, false)));
         finish(task);
 
-        assertThat(task.state()).isEqualTo(TransferTask.State.DONE);
+        assertThat(task.getState()).isEqualTo(TransferTask.State.DONE);
         assertThat(task.progress()).isEqualTo(100);
         assertThat(dir.resolve("archive/Inbox/Reports/2025/q1.txt")).hasContent("q1");
         assertThat(folder.resolve("Reports")).doesNotExist();
@@ -212,7 +212,7 @@ class WorkspaceTest {
 
     @Test
     void someoneWhoHasNotChosenALayoutSeesTheGrid() {
-        assertThat(workspace.layout()).isEqualTo(Workspace.Layout.GRID);
+        assertThat(workspace.getLayout()).isEqualTo(Workspace.Layout.GRID);
     }
 
     @Test
@@ -247,7 +247,7 @@ class WorkspaceTest {
         final var extracted = List.of(new UploadQueue.Planned(archive, "photos.zip", false, extraction));
         assertThatThrownBy(() -> workspace.upload(held, List.of(), extracted, Long.MAX_VALUE))
                 .hasMessageContaining("Extracting archives is turned off");
-        assertThat(workspace.uploads().all()).isEmpty();
+        assertThat(workspace.getUploads().all()).isEmpty();
 
         final var plain = List.of(new UploadQueue.Planned(archive, "photos.zip", false));
         assertThat(workspace.upload(held, List.of(), plain, Long.MAX_VALUE)).hasSize(1);

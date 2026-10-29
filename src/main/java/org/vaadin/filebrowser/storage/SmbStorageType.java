@@ -50,7 +50,7 @@ public class SmbStorageType implements StorageType {
     }
 
     @Override
-    public String key() {
+    public String getKey() {
         return KEY;
     }
 

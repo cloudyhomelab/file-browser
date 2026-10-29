@@ -87,7 +87,7 @@ public final class VerifiedCopy {
             progress.phase(name, CopyProgress.Phase.COPYING);
             try (var in = from.openRead(path);
                  var write = to.openWrite(folder, temporaryName, false)) {
-                written = transfer(in, write.stream(), name, progress::copied, progress);
+                written = transfer(in, write.getStream(), name, progress::copied, progress);
                 write.commit();
             }
             final byte[] readBack;

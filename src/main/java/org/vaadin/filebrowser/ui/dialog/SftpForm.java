@@ -39,12 +39,12 @@ public class SftpForm extends RootForm {
         passphrase.addClassName("fb-field--mono");
         field(privateKey);
         field(passphrase);
-        signIn.fields(signIn.user(), methodPicker, signIn.password(), privateKey, passphrase);
+        signIn.fields(signIn.getUser(), methodPicker, signIn.getPassword(), privateKey, passphrase);
         add(signIn, trust);
         if (editing()) {
             method = signIn.has(SftpStorageType.PRIVATE_KEY) ? Method.KEY : Method.PASSWORD;
-            signIn.lock(signIn.user(), SftpStorageType.USER);
-            signIn.lock(signIn.password(), SftpStorageType.PASSWORD);
+            signIn.lock(signIn.getUser(), SftpStorageType.USER);
+            signIn.lock(signIn.getPassword(), SftpStorageType.PASSWORD);
             signIn.lock(privateKey, SftpStorageType.PRIVATE_KEY);
             signIn.lock(passphrase, SftpStorageType.PASSPHRASE);
         }
@@ -70,7 +70,7 @@ public class SftpForm extends RootForm {
             context.onChange().run();
         });
         methodPicker.add(editing() ? choice.locked() : choice);
-        signIn.password().setVisible(method == Method.PASSWORD);
+        signIn.getPassword().setVisible(method == Method.PASSWORD);
         privateKey.setVisible(method == Method.KEY);
         passphrase.setVisible(method == Method.KEY);
         final var started = signIn.started() || !privateKey.getValue().isBlank();
@@ -78,10 +78,10 @@ public class SftpForm extends RootForm {
     }
 
     private String credentialsProblem() {
-        if (SignInBox.blank(signIn.user())) {
+        if (SignInBox.blank(signIn.getUser())) {
             return "Enter the user name to sign in with.";
         }
-        if (method == Method.PASSWORD && SignInBox.blank(signIn.password())) {
+        if (method == Method.PASSWORD && SignInBox.blank(signIn.getPassword())) {
             return "Enter the password.";
         }
         if (method == Method.KEY && privateKey.getValue().isBlank()) {
@@ -103,9 +103,9 @@ public class SftpForm extends RootForm {
     @Override
     public Map<String, String> secrets() {
         final var secrets = new LinkedHashMap<String, String>();
-        secrets.put(SftpStorageType.USER, signIn.user().getValue().trim());
+        secrets.put(SftpStorageType.USER, signIn.getUser().getValue().trim());
         if (method == Method.PASSWORD) {
-            secrets.put(SftpStorageType.PASSWORD, signIn.password().getValue());
+            secrets.put(SftpStorageType.PASSWORD, signIn.getPassword().getValue());
         } else {
             secrets.put(SftpStorageType.PRIVATE_KEY, privateKey.getValue().strip() + "\n");
             if (!passphrase.getValue().isEmpty()) {

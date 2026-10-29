@@ -9,37 +9,26 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.storage.StorageEntry;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+
 /**
  * One move or copy the user started, of one or more items. Progress is written by the queue's worker
  * thread and read by the UI, so the changing fields are volatile or atomic.
  */
 public final class TransferTask implements Serializable {
 
+    @Getter
+    @RequiredArgsConstructor
     public enum Kind {
         MOVE("Moving", "Moved", "moved"), COPY("Copying", "Copied", "copied");
 
         private final String running;
         private final String done;
-        private final String participle;
-
-        Kind(String running, String done, String participle) {
-            this.running = running;
-            this.done = done;
-            this.participle = participle;
-        }
-
-        public String running() {
-            return running;
-        }
-
-        public String done() {
-            return done;
-        }
-
         /** As in "2 items were not moved". */
-        public String participle() {
-            return participle;
-        }
+        private final String participle;
     }
 
     public enum State { QUEUED, RUNNING, DONE, FAILED, CANCELLED }
@@ -54,21 +43,33 @@ public final class TransferTask implements Serializable {
     public record Item(StorageEntry entry, String name, boolean replace, boolean duplicate) implements Serializable {
     }
 
+    @Getter
     private final String id;
+    @Getter
     private final Kind kind;
+    @Getter
     private final FsRoot sourceRoot;
+    @Getter
     private final FsRoot destinationRoot;
+    @Getter
     private final List<String> destination;
+    @Getter
     private final List<Item> items;
     /** Bytes of the items, once known: up front when they are all files, otherwise after walking their folders. */
+    @Setter(AccessLevel.PACKAGE)
     private volatile Long bytesTotal;
+    @Getter
     private volatile State state = State.QUEUED;
     private final AtomicInteger itemsDone = new AtomicInteger();
     private final AtomicLong bytesDone = new AtomicLong();
     private final AtomicLong bytesVerified = new AtomicLong();
+    @Getter(AccessLevel.PACKAGE)
     private volatile boolean cancelRequested;
     /** What is happening right now, e.g. "Verifying “a.txt”…"; null when there is nothing to say. */
+    @Getter
+    @Setter(AccessLevel.PACKAGE)
     private volatile String status;
+    @Getter
     private volatile String message;
     /** Sentences added to the outcome, e.g. which originals a move kept. */
     private final List<String> notes = new CopyOnWriteArrayList<>();
@@ -86,7 +87,7 @@ public final class TransferTask implements Serializable {
                 : this.items.stream().mapToLong(i -> i.entry().size() == null ? 0 : i.entry().size()).sum();
     }
 
-    void state(State newState, String text) {
+    void transition(State newState, String text) {
         this.state = newState;
         this.message = text;
     }
@@ -103,28 +104,16 @@ public final class TransferTask implements Serializable {
         bytesVerified.addAndGet(bytes);
     }
 
-    void bytesTotal(long bytes) {
-        bytesTotal = bytes;
-    }
-
-    void status(String text) {
-        status = text;
-    }
-
     void note(String sentence) {
         notes.add(sentence);
     }
 
-    List<String> notes() {
+    List<String> getNotes() {
         return List.copyOf(notes);
     }
 
     void requestCancel() {
         cancelRequested = true;
-    }
-
-    boolean cancelRequested() {
-        return cancelRequested;
     }
 
     /** True once, for the UI to report a finished transfer exactly one time. Called on the UI thread only. */
@@ -158,10 +147,6 @@ public final class TransferTask implements Serializable {
         return (int) Math.min(PERCENT, (done + bytesVerified.get()) * PERCENT / (2 * total));
     }
 
-    public String status() {
-        return status;
-    }
-
     public boolean betweenFileSystems() {
         return !sourceRoot.id().equals(destinationRoot.id());
     }
@@ -182,39 +167,7 @@ public final class TransferTask implements Serializable {
         return items.size() == 1 ? "“" + items.getFirst().entry().name() + "”" : items.size() + " items";
     }
 
-    public String id() {
-        return id;
-    }
-
-    public Kind kind() {
-        return kind;
-    }
-
-    public FsRoot sourceRoot() {
-        return sourceRoot;
-    }
-
-    public FsRoot destinationRoot() {
-        return destinationRoot;
-    }
-
-    public List<String> destination() {
-        return destination;
-    }
-
-    public List<Item> items() {
-        return items;
-    }
-
-    public int itemsDone() {
+    public int getItemsDone() {
         return itemsDone.get();
-    }
-
-    public State state() {
-        return state;
-    }
-
-    public String message() {
-        return message;
     }
 }

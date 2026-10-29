@@ -2,7 +2,12 @@ package org.vaadin.filebrowser.data;
 
 import java.time.Duration;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
 /** How often the folder view re-reads the open folder on its own. */
+@Getter
+@RequiredArgsConstructor
 public enum AutoRefresh {
     OFF("Off", null),
     S5("5 s", Duration.ofSeconds(5)),
@@ -13,21 +18,8 @@ public enum AutoRefresh {
     M5("5 min", Duration.ofMinutes(5));
 
     private final String label;
-    private final Duration interval;
-
-    AutoRefresh(String label, Duration interval) {
-        this.label = label;
-        this.interval = interval;
-    }
-
-    public String label() {
-        return label;
-    }
-
     /** Null for {@link #OFF}. */
-    public Duration interval() {
-        return interval;
-    }
+    private final Duration interval;
 
     public boolean on() {
         return interval != null;

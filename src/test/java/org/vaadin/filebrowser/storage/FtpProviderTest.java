@@ -105,7 +105,7 @@ class FtpProviderTest {
                     FtpServers.signIn(FtpServers.PASSWORD), null);
             assertThatThrownBy(() -> unpinned.list(""))
                     .isInstanceOfSatisfying(UntrustedServerException.class,
-                            e -> assertThat(e.fingerprint()).isEqualTo(FtpServers.certificateFingerprint()));
+                            e -> assertThat(e.getFingerprint()).isEqualTo(FtpServers.certificateFingerprint()));
             final var changed = FtpServers.open(endpoint(folder), Security.EXPLICIT,
                     FtpServers.signIn(FtpServers.PASSWORD), "SHA256:somethingElse");
             assertThatThrownBy(() -> changed.list("")).hasMessageContaining("certificate changed");

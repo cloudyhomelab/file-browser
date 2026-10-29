@@ -35,7 +35,7 @@ public class FtpStorageType implements StorageType {
     }
 
     @Override
-    public String key() {
+    public String getKey() {
         return KEY;
     }
 
@@ -45,13 +45,13 @@ public class FtpStorageType implements StorageType {
     }
 
     static FtpProvider.Connection connection(StorageConfig config) {
-        final var security = security(config.settings());
+        final var security = securityOf(config.settings());
         final var port = security == FtpProvider.Security.IMPLICIT ? IMPLICIT_TLS_PORT : DEFAULT_PORT;
         final var location = RemoteLocation.parse(config.endpoint(), SCHEME, port);
         if (location == null) {
             throw new StorageException("Use the form ftp://host/folder or ftp://host:port/folder.");
         }
-        if (anonymous(config.settings())) {
+        if (isAnonymous(config.settings())) {
             return new FtpProvider.Connection(location, security, null, null, config.setting(CERTIFICATE));
         }
         final var user = config.secret(USER);
@@ -63,18 +63,18 @@ public class FtpStorageType implements StorageType {
     }
 
     /** Explicit TLS unless the settings say otherwise. */
-    public static FtpProvider.Security security(Map<String, String> settings) {
+    public static FtpProvider.Security securityOf(Map<String, String> settings) {
         final var security = FtpProvider.Security.of(settings.get(SECURITY));
         return security == null ? FtpProvider.Security.EXPLICIT : security;
     }
 
-    public static boolean anonymous(Map<String, String> settings) {
+    public static boolean isAnonymous(Map<String, String> settings) {
         return Boolean.parseBoolean(settings.get(ANONYMOUS));
     }
 
     @Override
     public String kindKey(Map<String, String> settings, Optional<MountInfo> mount) {
-        return security(settings) == FtpProvider.Security.NONE ? KEY : TLS_KIND;
+        return securityOf(settings) == FtpProvider.Security.NONE ? KEY : TLS_KIND;
     }
 
     @Override
@@ -84,6 +84,6 @@ public class FtpStorageType implements StorageType {
 
     @Override
     public String detail(Map<String, String> settings, Optional<MountInfo> mount) {
-        return anonymous(settings) ? "Anonymous" : "";
+        return isAnonymous(settings) ? "Anonymous" : "";
     }
 }

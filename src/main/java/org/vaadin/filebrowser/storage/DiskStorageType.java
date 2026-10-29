@@ -20,7 +20,7 @@ public class DiskStorageType implements StorageType {
     }
 
     @Override
-    public String key() {
+    public String getKey() {
         return KEY;
     }
 

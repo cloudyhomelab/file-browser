@@ -229,7 +229,7 @@ public class StorageService {
             provider = type.open(config);
             return Check.failed(type.problem(provider));
         } catch (UntrustedServerException e) {
-            return new Check(e.getMessage(), e.fingerprint());
+            return new Check(e.getMessage(), e.getFingerprint());
         } catch (StorageException e) {
             return Check.failed(e.getMessage());
         } catch (RuntimeException e) {

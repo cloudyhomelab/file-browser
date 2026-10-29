@@ -5,10 +5,15 @@ import java.util.List;
 
 import org.vaadin.filebrowser.data.FsRoot;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * One file being uploaded. Progress is written by the request thread that receives the bytes and
  * read by the UI, so the changing fields are volatile.
  */
+@Getter
 public final class UploadTask implements Serializable {
 
     public enum State { QUEUED, RECEIVING, EXTRACTING, DONE, FAILED, CANCELLED }
@@ -28,10 +33,14 @@ public final class UploadTask implements Serializable {
     /** How to unpack it once received; null to store it as is. */
     private final UploadQueue.Extraction extraction;
     /** What came of it, e.g. how many files an extraction wrote; null for a plain upload. */
+    @Setter(AccessLevel.PACKAGE)
     private volatile String summary;
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.PACKAGE)
     private volatile long received;
     private volatile State state = State.QUEUED;
     private volatile String error;
+    @Getter(AccessLevel.NONE)
     private boolean announced;
 
     UploadTask(String id, String clientId, String name, String type, long size, FsRoot root, List<String> folder,
@@ -48,42 +57,22 @@ public final class UploadTask implements Serializable {
         this.extraction = extraction;
     }
 
-    public UploadQueue.Extraction extraction() {
-        return extraction;
-    }
-
-    public String summary() {
-        return summary;
-    }
-
-    void summary(String text) {
-        this.summary = text;
-    }
-
-    public String url() {
-        return url;
-    }
-
     /** For display: null when unknown (a link that didn't say). */
     public Long knownSize() {
         return size < 0 ? null : size;
     }
 
-    void received(long bytes) {
-        this.received = bytes;
-    }
-
-    synchronized void state(State newState, String message) {
+    synchronized void transition(State newState, String message) {
         this.state = newState;
         this.error = message;
     }
 
     /** Moves to {@code newState} only from {@code expected}, in one step; false when it was in another state. */
-    synchronized boolean state(State expected, State newState, String message) {
+    synchronized boolean transition(State expected, State newState, String message) {
         if (state != expected) {
             return false;
         }
-        state(newState, message);
+        transition(newState, message);
         return true;
     }
 
@@ -109,45 +98,5 @@ public final class UploadTask implements Serializable {
             return PERCENT;
         }
         return size <= 0 ? 0 : (int) Math.min(PERCENT - 1, received * PERCENT / size);
-    }
-
-    public String id() {
-        return id;
-    }
-
-    public String clientId() {
-        return clientId;
-    }
-
-    public String name() {
-        return name;
-    }
-
-    public String type() {
-        return type;
-    }
-
-    public long size() {
-        return size;
-    }
-
-    public FsRoot root() {
-        return root;
-    }
-
-    public List<String> folder() {
-        return folder;
-    }
-
-    public boolean replace() {
-        return replace;
-    }
-
-    public State state() {
-        return state;
-    }
-
-    public String error() {
-        return error;
     }
 }

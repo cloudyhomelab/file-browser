@@ -60,7 +60,7 @@ public class FileBrowserOidcUserService implements OAuth2UserService<OidcUserReq
     }
 
     private static OAuth2AuthenticationException refused(SignInPolicy.Refusal refusal) {
-        final var error = new OAuth2Error(refusal.code());
+        final var error = new OAuth2Error(refusal.getCode());
         return new OAuth2AuthenticationException(error);
     }
 

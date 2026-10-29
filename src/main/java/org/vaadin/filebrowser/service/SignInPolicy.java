@@ -9,24 +9,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.vaadin.filebrowser.config.FileBrowserProperties;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
 /** Decides whether an identity returned by an OIDC provider may use the app. */
 @Component
 public class SignInPolicy {
 
+    @Getter
+    @RequiredArgsConstructor
     public enum Refusal {
         MISSING_EMAIL("missing_email"),
         UNVERIFIED_EMAIL("unverified_email"),
         EMAIL_NOT_ALLOWED("email_not_allowed");
 
         private final String code;
-
-        Refusal(String code) {
-            this.code = code;
-        }
-
-        public String code() {
-            return code;
-        }
     }
 
     private final Set<String> allowedDomains;

@@ -15,12 +15,12 @@ public class DiskForm extends RootForm {
             final SubfolderLoader serverFolders = folder -> workspace.serverFolders("/" + String.join("/", folder));
             final var browse = Buttons.create(Buttons.Kind.SECONDARY, "Browse", "folder", () -> {
                 final var picker = new FolderPickerDialog(serverFolders, workspace::endpointTaken, endpoint(),
-                        endpoint::setValue);
+                        endpointField::setValue);
                 picker.open();
             });
             browse.addClassName("fb-field-browse");
             browse.setTooltipText("Browse server folders");
-            endpoint.setSuffixComponent(browse);
+            endpointField.setSuffixComponent(browse);
         }
     }
 
@@ -53,7 +53,7 @@ public class DiskForm extends RootForm {
     @Override
     public boolean writable() {
         final var path = endpoint();
-        if (problem() != null || path.isEmpty()) {
+        if (getProblem() != null || path.isEmpty()) {
             return true;
         }
         final var found = context.workspace().probe(path);

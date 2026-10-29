@@ -22,7 +22,7 @@ class StorageTypesTest {
     private static StorageType type(String key, String kind) {
         return new StorageType() {
             @Override
-            public String key() {
+            public String getKey() {
                 return key;
             }
 

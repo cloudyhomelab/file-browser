@@ -33,13 +33,13 @@ public class SftpStorageType implements StorageType {
     }
 
     @Override
-    public String key() {
+    public String getKey() {
         return KEY;
     }
 
     @Override
     public StorageProvider open(StorageConfig config) {
-        return new SftpProvider(client(), connection(config), catalog::typeForFileName);
+        return new SftpProvider(sshClient(), connection(config), catalog::typeForFileName);
     }
 
     static SftpProvider.Connection connection(StorageConfig config) {
@@ -56,7 +56,7 @@ public class SftpStorageType implements StorageType {
     }
 
     // one client for every SFTP file system: it holds the threads that serve all their connections
-    private synchronized SshClient client() {
+    private synchronized SshClient sshClient() {
         if (client == null) {
             client = SshClient.setUpDefaultClient();
             // only what the admin entered: never the server's own ~/.ssh config or keys

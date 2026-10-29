@@ -32,6 +32,8 @@ import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
+import lombok.Getter;
+
 /**
  * An S3 bucket, or a folder ("prefix") inside one, as a file system. Folders are key prefixes; an
  * empty folder exists as a zero-byte {@code name/} marker. Moves and renames copy then delete, so
@@ -431,6 +433,7 @@ public class S3Provider implements StorageProvider, AutoCloseable {
         private String uploadId;
         private boolean done;
 
+        @Getter
         private final OutputStream stream = new OutputStream() {
             @Override
             public void write(int b) throws IOException {
@@ -449,11 +452,6 @@ public class S3Provider implements StorageProvider, AutoCloseable {
             this.path = path;
             this.name = name;
             this.replace = replace;
-        }
-
-        @Override
-        public OutputStream stream() {
-            return stream;
         }
 
         private void flushFullParts() throws IOException {

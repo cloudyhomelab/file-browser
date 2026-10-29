@@ -84,7 +84,7 @@ public class StarredView extends Div implements EntryHandler {
         if (total > 0) {
             final var listOption = Segmented.Option.iconOnly(Layout.LIST, "list", "List");
             final var gridOption = Segmented.Option.iconOnly(Layout.GRID, "grid", "Grid");
-            final var layoutToggle = new Segmented<>("fb-seg--view", List.of(listOption, gridOption), workspace.layout(), l -> {
+            final var layoutToggle = new Segmented<>("fb-seg--view", List.of(listOption, gridOption), workspace.getLayout(), l -> {
                 workspace.setLayout(l);
                 render();
             });
@@ -107,16 +107,16 @@ public class StarredView extends Div implements EntryHandler {
 
         final var sections = Ui.div("fb-starred-groups");
         for (final var g : groups) {
-            final var chip = RootChip.of(g.root(), workspace.catalog(), RootChip.Size.S);
+            final var chip = RootChip.of(g.root(), workspace.getCatalog(), RootChip.Size.S);
             final var name = Ui.span("fb-group-name", g.root().name());
             final var groupCount = Formats.plural(g.entries().size(), "item");
             final var count = Ui.span("fb-group-count", groupCount);
             final var line = Ui.divider("fb-group-line");
             final var head = Ui.div("fb-group-head", chip, name, count, line);
             final var section = new Section(head);
-            final var entries = workspace.layout() == Layout.GRID
-                    ? new FileGridView(g.entries(), this, workspace.catalog())
-                    : new FileListView(g.entries(), this, workspace.density(), workspace.catalog());
+            final var entries = workspace.getLayout() == Layout.GRID
+                    ? new FileGridView(g.entries(), this, workspace.getCatalog())
+                    : new FileListView(g.entries(), this, workspace.getDensity(), workspace.getCatalog());
             section.add(entries);
             sections.add(section);
         }
@@ -193,12 +193,12 @@ public class StarredView extends Div implements EntryHandler {
 
     @Override
     public Sort sort() {
-        return workspace.sort();
+        return workspace.getSort();
     }
 
     @Override
     public void sortBy(SortKey key) {
-        workspace.setSort(workspace.sort().toggle(key));
+        workspace.setSort(workspace.getSort().toggle(key));
         render();
     }
 }

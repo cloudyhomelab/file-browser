@@ -50,7 +50,7 @@ public class LinkFetcher implements AutoCloseable {
     private static final Timeout STALL_TIMEOUT = Timeout.ofSeconds(30);
     private static final Pattern FILENAME_STAR = Pattern.compile("filename\\*\\s*=\\s*([^']*)'[^']*'([^;]+)",
             Pattern.CASE_INSENSITIVE);
-    private static final Pattern FILENAME = Pattern.compile("filename\\s*=\\s*(\"([^\"]*)\"|[^;]+)",
+    private static final Pattern FILENAME_PARAM = Pattern.compile("filename\\s*=\\s*(\"([^\"]*)\"|[^;]+)",
             Pattern.CASE_INSENSITIVE);
 
     /** What a link offers, read from its headers. */
@@ -215,7 +215,7 @@ public class LinkFetcher implements AutoCloseable {
                 return null;
             }
         }
-        final var plain = FILENAME.matcher(header);
+        final var plain = FILENAME_PARAM.matcher(header);
         if (plain.find()) {
             final var value = plain.group(2) != null ? plain.group(2) : plain.group(1).trim();
             return validOr(value, null);
@@ -250,7 +250,7 @@ public class LinkFetcher implements AutoCloseable {
 
         private final long maxBytes;
         private final Opened opened;
-        private long read;
+        private long bytesRead;
 
         LimitedStream(InputStream in, long maxBytes, Opened opened) {
             super(in);
@@ -277,8 +277,8 @@ public class LinkFetcher implements AutoCloseable {
         }
 
         private void count(int n) throws IOException {
-            read += n;
-            if (read > maxBytes) {
+            bytesRead += n;
+            if (bytesRead > maxBytes) {
                 throw new TooLargeException();
             }
         }

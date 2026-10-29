@@ -56,7 +56,7 @@ public class AddRootDialog extends FbDialog {
 
     /** True when file systems of {@code type} have a form, so they can be edited. */
     public static boolean canEdit(Workspace workspace, String type) {
-        return RootForms.has(type) && workspace.catalog().rootType(type) != null;
+        return RootForms.has(type) && workspace.getCatalog().rootType(type) != null;
     }
 
     /** Edits the name and access of {@code root}; its endpoint and settings stay as they are. */
@@ -73,7 +73,7 @@ public class AddRootDialog extends FbDialog {
         this.editing = editing;
         this.onConfirm = onConfirm;
         this.types = editing != null ? List.of(editing.type())
-                : workspace.catalog().rootTypeKeys().stream().filter(RootForms::has).toList();
+                : workspace.getCatalog().rootTypeKeys().stream().filter(RootForms::has).toList();
         if (editing != null) {
             access = editing.access();
             name.setValue(editing.name());
@@ -105,7 +105,7 @@ public class AddRootDialog extends FbDialog {
 
     private void pick(String picked) {
         type = picked;
-        final var context = new RootForm.Context(workspace.catalog().rootType(type), editing, workspace,
+        final var context = new RootForm.Context(workspace.getCatalog().rootType(type), editing, workspace,
                 this::update, this::submit);
         form = RootForms.create(type, context);
         formSlot.removeAll();
@@ -114,7 +114,7 @@ public class AddRootDialog extends FbDialog {
     }
 
     private void update() {
-        final var catalog = workspace.catalog();
+        final var catalog = workspace.getCatalog();
         final var info = catalog.rootType(type);
         typePicker.removeAll();
         for (final var t : types) {
@@ -156,7 +156,7 @@ public class AddRootDialog extends FbDialog {
         }
         // only the name and access of an existing file system change; its settings stay as stored
         final var settings = editing == null ? form.settings() : editing.settings();
-        final var options = editing == null ? workspace.catalog().rootOptions() : editing.options();
+        final var options = editing == null ? workspace.getCatalog().getRootOptions() : editing.options();
         final var root = new FsRoot(id, name.getValue().trim(), type, form.endpoint(), settings,
                 effectiveAccess(), options, RootStatus.UNKNOWN);
         final var secrets = editing == null ? form.secrets() : Map.<String, String>of();

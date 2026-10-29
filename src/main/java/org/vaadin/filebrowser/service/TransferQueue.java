@@ -66,8 +66,8 @@ public class TransferQueue implements Serializable {
      */
     public void cancel(TransferTask task) {
         synchronized (this) {
-            if (task.state() == TransferTask.State.QUEUED) {
-                task.state(TransferTask.State.CANCELLED, "Cancelled; nothing was " + task.kind().participle() + ".");
+            if (task.getState() == TransferTask.State.QUEUED) {
+                task.transition(TransferTask.State.CANCELLED, "Cancelled; nothing was " + task.getKind().getParticiple() + ".");
                 return;
             }
         }
@@ -97,18 +97,18 @@ public class TransferQueue implements Serializable {
         while (true) {
             final TransferTask next;
             synchronized (this) {
-                next = tasks.stream().filter(t -> t.state() == TransferTask.State.QUEUED).findFirst().orElse(null);
+                next = tasks.stream().filter(t -> t.getState() == TransferTask.State.QUEUED).findFirst().orElse(null);
                 if (next == null) {
                     draining = false;
                     return;
                 }
-                next.state(TransferTask.State.RUNNING, null);
+                next.transition(TransferTask.State.RUNNING, null);
             }
             try {
                 run(next);
             } catch (RuntimeException e) {
                 LOG.log(System.Logger.Level.ERROR, "Transfer failed unexpectedly", e);
-                next.state(TransferTask.State.FAILED, "Something went wrong. " + notDone(next));
+                next.transition(TransferTask.State.FAILED, "Something went wrong. " + notDone(next));
             }
         }
     }
@@ -118,7 +118,7 @@ public class TransferQueue implements Serializable {
             work.check(task);
             work.prepare(task);
         } catch (StorageException e) {
-            task.state(TransferTask.State.FAILED, e.getMessage() + " Nothing was " + task.kind().participle() + ".");
+            task.transition(TransferTask.State.FAILED, e.getMessage() + " Nothing was " + task.getKind().getParticiple() + ".");
             return;
         }
         final var progress = new CopyProgress() {
@@ -134,37 +134,37 @@ public class TransferQueue implements Serializable {
 
             @Override
             public void phase(String name, Phase phase) {
-                task.status((phase == Phase.COPYING ? "Copying “" : "Verifying “") + name + "”…");
+                task.setStatus((phase == Phase.COPYING ? "Copying “" : "Verifying “") + name + "”…");
             }
 
             @Override
             public boolean cancelled() {
-                return task.cancelRequested();
+                return task.isCancelRequested();
             }
         };
-        for (final var item : task.items()) {
-            if (task.cancelRequested()) {
-                task.state(TransferTask.State.CANCELLED, withNotes(task, cancelled(task)));
+        for (final var item : task.getItems()) {
+            if (task.isCancelRequested()) {
+                task.transition(TransferTask.State.CANCELLED, withNotes(task, cancelled(task)));
                 return;
             }
             try {
                 work.run(task, item, progress);
             } catch (CopyCancelledException e) {
-                task.state(TransferTask.State.CANCELLED, withNotes(task, cancelled(task)));
+                task.transition(TransferTask.State.CANCELLED, withNotes(task, cancelled(task)));
                 return;
             } catch (StorageException e) {
-                task.state(TransferTask.State.FAILED, withNotes(task, failed(task, e.getMessage())));
+                task.transition(TransferTask.State.FAILED, withNotes(task, failed(task, e.getMessage())));
                 return;
             }
             task.itemDone();
         }
-        task.state(TransferTask.State.DONE, withNotes(task, task.kind().done() + " " + task.label() + " to "
+        task.transition(TransferTask.State.DONE, withNotes(task, task.getKind().getDone() + " " + task.label() + " to "
                 + task.destinationLabel()));
     }
 
     /** {@code outcome}, followed by what the work noted along the way. */
     private static String withNotes(TransferTask task, String outcome) {
-        final var notes = task.notes();
+        final var notes = task.getNotes();
         if (notes.isEmpty()) {
             return outcome;
         }
@@ -173,37 +173,37 @@ public class TransferQueue implements Serializable {
     }
 
     private static String cancelled(TransferTask task) {
-        final var done = task.itemsDone();
+        final var done = task.getItemsDone();
         if (done == 0) {
-            return "Cancelled; nothing was " + task.kind().participle() + ".";
+            return "Cancelled; nothing was " + task.getKind().getParticiple() + ".";
         }
-        final var left = task.items().size() - done;
+        final var left = task.getItems().size() - done;
         return partial(task) + "; " + left + (left == 1 ? " was" : " were") + " cancelled.";
     }
 
     /** The reason, with what was done before it and what was left undone. */
     private static String failed(TransferTask task, String reason) {
-        final var total = task.items().size();
-        final var done = task.itemsDone();
+        final var total = task.getItems().size();
+        final var done = task.getItemsDone();
         if (total == 1) {
             return reason;
         }
         if (done == 0) {
-            return reason + " Nothing was " + task.kind().participle() + ".";
+            return reason + " Nothing was " + task.getKind().getParticiple() + ".";
         }
         final var left = total - done - 1;
         final var rest = left == 0 ? "" : " " + Formats.plural(left, "other item") + (left == 1 ? " was" : " were")
-                + " not " + task.kind().participle() + ".";
+                + " not " + task.getKind().getParticiple() + ".";
         return partial(task) + ". " + reason + rest;
     }
 
     private static String notDone(TransferTask task) {
-        return task.itemsDone() == 0 ? "Nothing was " + task.kind().participle() + "." : partial(task) + ".";
+        return task.getItemsDone() == 0 ? "Nothing was " + task.getKind().getParticiple() + "." : partial(task) + ".";
     }
 
     /** "Moved 2 of 5 items to “Inbox”". */
     private static String partial(TransferTask task) {
-        return task.kind().done() + " " + task.itemsDone() + " of " + task.items().size() + " items to "
+        return task.getKind().getDone() + " " + task.getItemsDone() + " of " + task.getItems().size() + " items to "
                 + task.destinationLabel();
     }
 }

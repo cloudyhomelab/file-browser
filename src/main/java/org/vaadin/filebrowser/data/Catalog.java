@@ -13,6 +13,7 @@ import java.util.Optional;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
+import lombok.Getter;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
@@ -38,6 +39,8 @@ public class Catalog implements Serializable {
     private final List<Map.Entry<String, ArchiveFormat>> archiveFormats;
     /** Media type by lower-case extension, for files that may be shown in the page. */
     private final Map<String, String> viewTypes;
+    /** What a new file system starts with. */
+    @Getter
     private final RootOptions rootOptions;
 
     public Catalog() {
@@ -71,11 +74,6 @@ public class Catalog implements Serializable {
                 .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
                 .build();
         this.rootOptions = read(strict, "data/root-options.json", new TypeReference<>() { });
-    }
-
-    /** What a new file system starts with. */
-    public RootOptions rootOptions() {
-        return rootOptions;
     }
 
     private static Map<String, String> byExtension(Map<String, List<String>> extensionsByType) {

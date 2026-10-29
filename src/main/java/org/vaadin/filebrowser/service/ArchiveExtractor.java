@@ -293,7 +293,7 @@ public final class ArchiveExtractor {
                 if (bytes > limits.maxBytes()) {
                     throw new LimitException("expands to more than the extraction limit.");
                 }
-                write.stream().write(buffer, 0, read);
+                write.getStream().write(buffer, 0, read);
             }
             write.commit();
         }

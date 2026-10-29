@@ -23,6 +23,8 @@ import java.util.function.Function;
 
 import org.vaadin.filebrowser.data.Capacity;
 
+import lombok.Getter;
+
 /**
  * A folder on the server's file system, including OS-mounted NFS and SMB shares. Every path is
  * resolved inside the root: {@code ..} segments and symlinks that lead outside it are refused.
@@ -378,6 +380,7 @@ public class LocalDiskProvider implements StorageProvider {
 
     private static final class LocalWrite implements WriteHandle {
 
+        @Getter
         private final OutputStream stream;
         private final Path partial;
         private final Path target;
@@ -391,11 +394,6 @@ public class LocalDiskProvider implements StorageProvider {
             this.target = target;
             this.replace = replace;
             this.name = name;
-        }
-
-        @Override
-        public OutputStream stream() {
-            return stream;
         }
 
         @Override

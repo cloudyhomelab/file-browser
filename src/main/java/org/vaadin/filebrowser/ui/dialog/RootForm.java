@@ -17,6 +17,9 @@ import com.vaadin.flow.component.textfield.TextFieldBase;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.function.SerializableRunnable;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+
 /**
  * The part of {@link AddRootDialog} that belongs to one storage type: its endpoint and whatever
  * else the type needs. The endpoint is checked for its shape and for being connected already;
@@ -34,26 +37,28 @@ public abstract class RootForm extends Div {
     }
 
     protected final Context context;
-    protected final TextField endpoint = new TextField();
+    protected final TextField endpointField = new TextField();
     private final Div endpointError = Ui.div("fb-field-error");
     /** Why the last Connect failed, shown until the settings change. */
     private String connectProblem;
+    /** What is wrong with the endpoint, as last shown; null when nothing is. */
+    @Getter(AccessLevel.PROTECTED)
     private String problem;
 
     protected RootForm(Context context) {
         this.context = context;
         addClassName("fb-form-section");
         final var info = context.info();
-        endpoint.setLabel(info.endpointLabel());
-        endpoint.setPlaceholder(info.endpointPlaceholder());
-        endpoint.addClassName("fb-field--mono");
+        endpointField.setLabel(info.endpointLabel());
+        endpointField.setPlaceholder(info.endpointPlaceholder());
+        endpointField.addClassName("fb-field--mono");
         // filled in before listening: the dialog can't update until the form exists
         if (editing()) {
-            endpoint.setValue(context.editing().endpoint());
-            endpoint.setReadOnly(true);
+            endpointField.setValue(context.editing().endpoint());
+            endpointField.setReadOnly(true);
         }
-        field(endpoint);
-        final var endpointGroup = Ui.div("", endpoint, endpointError);
+        field(endpointField);
+        final var endpointGroup = Ui.div("", endpointField, endpointError);
         add(endpointGroup);
     }
 
@@ -71,7 +76,7 @@ public abstract class RootForm extends Div {
     }
 
     public String endpoint() {
-        return endpoint.getValue().trim();
+        return endpointField.getValue().trim();
     }
 
     /** Checks the fields again and shows what is wrong; the dialog calls it on every change. */
@@ -90,7 +95,7 @@ public abstract class RootForm extends Div {
         final var warnIcon = new Icon("warn");
         final var errorText = new Span(problem == null ? "" : problem);
         endpointError.add(warnIcon, errorText);
-        endpoint.getElement().getClassList().set("fb-field--invalid", problem != null);
+        endpointField.getElement().getClassList().set("fb-field--invalid", problem != null);
         updateFields();
     }
 
@@ -107,11 +112,6 @@ public abstract class RootForm extends Div {
      */
     public void offerFingerprint(String fingerprint) {
         showConnectProblem("The server's identity can't be checked.");
-    }
-
-    /** What is wrong with the endpoint, as last shown; null when nothing is. */
-    protected String problem() {
-        return problem;
     }
 
     /** True when everything needed to connect is entered and valid. */

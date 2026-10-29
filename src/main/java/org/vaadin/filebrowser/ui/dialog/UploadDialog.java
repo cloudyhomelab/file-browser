@@ -72,7 +72,7 @@ public class UploadDialog extends FbDialog {
         final var zoneTitle = Ui.span("fb-upload-zone-title", "Drag files here, or click to browse");
         final var zoneSub = Ui.span("fb-upload-zone-sub", "Up to " + sizeLimit + " per file");
         zone.add(zoneIcon, zoneTitle, zoneSub);
-        zone.onFiles(files -> {
+        zone.setOnFiles(files -> {
             files.forEach(this::offer);
             render();
         });

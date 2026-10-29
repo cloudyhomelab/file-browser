@@ -72,7 +72,7 @@ public class RootsView extends Div {
         final var spacer = Ui.spacer();
         final var titlebar = Ui.div("fb-page-titlebar", title, spacer);
         if (!roots.isEmpty()) {
-            final var groupSwitch = new Switch("Group by type", workspace.groupByType(), on -> {
+            final var groupSwitch = new Switch("Group by type", workspace.isGroupByType(), on -> {
                 workspace.setGroupByType(on);
                 render();
             });
@@ -101,9 +101,9 @@ public class RootsView extends Div {
         }
 
         final var grid = Ui.div("fb-drive-grid");
-        if (workspace.groupByType()) {
+        if (workspace.isGroupByType()) {
             byType(accessible).forEach((type, group) -> {
-                final var info = workspace.catalog().rootType(type);
+                final var info = workspace.getCatalog().rootType(type);
                 main.add(rule(info == null ? type : info.displayName()));
                 final var typeGrid = Ui.div("fb-drive-grid");
                 group.forEach(r -> typeGrid.add(card(r)));
@@ -112,7 +112,7 @@ public class RootsView extends Div {
         } else {
             accessible.forEach(r -> grid.add(card(r)));
         }
-        if (admin && !workspace.groupByType()) {
+        if (admin && !workspace.isGroupByType()) {
             final var plusIcon = new Icon("plus");
             final var addCardIcon = Ui.span("fb-addroot-card-icon", plusIcon);
             final var addCardTitle = Ui.span("fb-addroot-card-title", "Add file system");
@@ -134,7 +134,7 @@ public class RootsView extends Div {
 
     /** In the order the types are offered when adding a file system; types it no longer offers last. */
     private Map<String, List<FsRoot>> byType(List<FsRoot> roots) {
-        final var order = workspace.catalog().rootTypeKeys();
+        final var order = workspace.getCatalog().rootTypeKeys();
         final var groups = new TreeMap<String, List<FsRoot>>(Comparator
                 .comparingInt((String type) -> order.contains(type) ? order.indexOf(type) : order.size())
                 .thenComparing(Comparator.naturalOrder()));
@@ -149,7 +149,7 @@ public class RootsView extends Div {
     }
 
     private DriveCard card(FsRoot root) {
-        final var kind = workspace.catalog().kind(root);
+        final var kind = workspace.getCatalog().kind(root);
         final var rootParams = BrowserView.params(root.id(), List.of());
         // a file system of a type the app no longer has a form for can only be removed
         final SerializableConsumer<FsRoot> onEdit = AddRootDialog.canEdit(workspace, root.type())

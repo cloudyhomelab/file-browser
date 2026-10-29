@@ -60,9 +60,9 @@ public class UploadDock extends Composite<Div> {
 
         final var list = Ui.div("fb-dock-list");
         for (final var u : uploads) {
-            final var info = catalog.fileType(u.type());
-            final var badge = Ui.span("fb-dock-glyph fb-type-" + u.type());
-            final var failedRow = u.state() == UploadTask.State.FAILED;
+            final var info = catalog.fileType(u.getType());
+            final var badge = Ui.span("fb-dock-glyph fb-type-" + u.getType());
+            final var failedRow = u.getState() == UploadTask.State.FAILED;
             if (u.complete()) {
                 final var checkIcon = new Icon("check");
                 badge.add(checkIcon);
@@ -74,19 +74,19 @@ public class UploadDock extends Composite<Div> {
                 final var shortLabel = label.substring(0, Math.min(GLYPH_LABEL_CHARS, label.length()));
                 badge.add(shortLabel);
             }
-            final var nameText = new Span(u.name());
+            final var nameText = new Span(u.getName());
             final var name = Ui.div("fb-dock-name", nameText);
             final var body = Ui.div("fb-dock-body", name);
             if (u.complete()) {
-                final var sizeText = u.summary() != null ? u.summary() : Formats.size(u.knownSize()) + " · Done";
+                final var sizeText = u.getSummary() != null ? u.getSummary() : Formats.size(u.knownSize()) + " · Done";
                 final var doneText = new Span(sizeText);
                 final var doneLine = Ui.div("fb-dock-done", doneText);
                 body.add(doneLine);
             } else if (failedRow) {
-                final var errorText = new Span(u.error());
+                final var errorText = new Span(u.getError());
                 final var errorLine = Ui.div("fb-dock-failed", errorText);
                 body.add(errorLine);
-            } else if (u.state() == UploadTask.State.EXTRACTING) {
+            } else if (u.getState() == UploadTask.State.EXTRACTING) {
                 final var extractingText = new Span("Extracting…");
                 final var extractingLine = Ui.div("fb-dock-done", extractingText);
                 body.add(extractingLine);
@@ -118,14 +118,14 @@ public class UploadDock extends Composite<Div> {
         }
         final var parts = new ArrayList<String>();
         if (!uploads.isEmpty()) {
-            final var failed = (int) uploads.stream().filter(u -> u.state() == UploadTask.State.FAILED).count();
+            final var failed = (int) uploads.stream().filter(u -> u.getState() == UploadTask.State.FAILED).count();
             final var done = (int) uploads.stream().filter(UploadTask::complete).count();
             parts.add(Formats.plural(done, "upload") + " complete" + (failed > 0 ? ", " + failed + " failed" : ""));
         }
         if (!transfers.isEmpty()) {
-            final var failed = (int) transfers.stream().filter(t -> t.state() == TransferTask.State.FAILED).count();
-            final var done = (int) transfers.stream().filter(t -> t.state() == TransferTask.State.DONE).count();
-            final var cancelled = (int) transfers.stream().filter(t -> t.state() == TransferTask.State.CANCELLED).count();
+            final var failed = (int) transfers.stream().filter(t -> t.getState() == TransferTask.State.FAILED).count();
+            final var done = (int) transfers.stream().filter(t -> t.getState() == TransferTask.State.DONE).count();
+            final var cancelled = (int) transfers.stream().filter(t -> t.getState() == TransferTask.State.CANCELLED).count();
             parts.add(Formats.plural(done, "transfer") + " done" + (failed > 0 ? ", " + failed + " failed" : "")
                     + (cancelled > 0 ? ", " + cancelled + " cancelled" : ""));
         }
@@ -134,20 +134,20 @@ public class UploadDock extends Composite<Div> {
 
     private Div transferRow(TransferTask t) {
         final var badge = Ui.span("fb-dock-glyph fb-dock-glyph--transfer");
-        final var badgeIcon = t.state() == TransferTask.State.DONE ? new Icon("check")
-                : t.state() == TransferTask.State.FAILED ? new Icon("warn")
-                : new Icon(t.kind() == TransferTask.Kind.MOVE ? "move" : "copy");
+        final var badgeIcon = t.getState() == TransferTask.State.DONE ? new Icon("check")
+                : t.getState() == TransferTask.State.FAILED ? new Icon("warn")
+                : new Icon(t.getKind() == TransferTask.Kind.MOVE ? "move" : "copy");
         badge.add(badgeIcon);
-        final var verb = t.finished() ? "" : t.kind().running() + " ";
-        final var where = t.betweenFileSystems() && !t.destination().isEmpty()
-                ? t.destinationName() + " · " + t.destinationRoot().name() : t.destinationName();
+        final var verb = t.finished() ? "" : t.getKind().getRunning() + " ";
+        final var where = t.betweenFileSystems() && !t.getDestination().isEmpty()
+                ? t.destinationName() + " · " + t.getDestinationRoot().name() : t.destinationName();
         final var nameText = new Span(verb + t.label() + " → " + where);
         final var name = Ui.div("fb-dock-name", nameText);
         final var body = Ui.div("fb-dock-body", name);
-        switch (t.state()) {
-            case DONE -> body.add(line("fb-dock-done", t.message()));
-            case FAILED -> body.add(line("fb-dock-failed", t.message()));
-            case CANCELLED -> body.add(line("fb-dock-note", t.message()));
+        switch (t.getState()) {
+            case DONE -> body.add(line("fb-dock-done", t.getMessage()));
+            case FAILED -> body.add(line("fb-dock-failed", t.getMessage()));
+            case CANCELLED -> body.add(line("fb-dock-note", t.getMessage()));
             case QUEUED -> body.add(line("fb-dock-note", "Queued"));
             case RUNNING -> {
                 final var progress = t.progress();
@@ -157,15 +157,15 @@ public class UploadDock extends Composite<Div> {
                 }
                 final var bar = Ui.div("fb-dock-bar" + (progress == null ? " fb-dock-bar--busy" : ""), fill);
                 body.add(bar);
-                if (t.status() != null) {
-                    body.add(line("fb-dock-note", t.status()));
+                if (t.getStatus() != null) {
+                    body.add(line("fb-dock-note", t.getStatus()));
                 }
             }
         }
         final var row = Ui.div("fb-dock-row", badge, body);
         if (!t.finished()) {
-            if (t.items().size() > 1) {
-                final var counter = Ui.span("fb-mono fb-dock-pct", t.itemsDone() + " of " + t.items().size());
+            if (t.getItems().size() > 1) {
+                final var counter = Ui.span("fb-mono fb-dock-pct", t.getItemsDone() + " of " + t.getItems().size());
                 row.add(counter);
             }
             final var cancel = Ui.iconButton("cross", "Cancel", () -> onCancel.accept(t));
