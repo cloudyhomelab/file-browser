@@ -123,7 +123,7 @@ final class LzipInputStream extends InputStream {
     }
 
     /** Counts what the decoder takes, for the trailer's member size; it reads only what it needs. */
-    private static final class Counting extends FilterInputStream {
+    static final class Counting extends FilterInputStream {
 
         private long count;
 
@@ -147,6 +147,10 @@ final class LzipInputStream extends InputStream {
                 count += read;
             }
             return read;
+        }
+
+        long count() {
+            return count;
         }
 
         @Override
