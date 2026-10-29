@@ -98,6 +98,17 @@ none is given.
 - **FTPS limitation:** servers that require TLS session reuse on data connections (vsftpd's default,
   `require_ssl_reuse=YES`) are not supported yet.
 
+A file system can also be a folder in a Windows or NAS share over SMB
+(`smb://host[:port]/share[/folder]`), with no mount on the server.
+- **Protocol:** SMB 3 only (3.0, 3.0.2, 3.1.1); servers that offer only SMB 1 or 2 are refused.
+- **Sign-in:** NTLM with a user name, password and optional domain, stored encrypted like S3 keys.
+  Kerberos and guest access aren't supported; a server that signs the user in as a guest is refused.
+- **Security:** every message is signed, which also proves the server knows the password, so there
+  is no fingerprint to confirm. Messages are encrypted whenever the server offers it; with "Require
+  encryption" on, a server that doesn't is refused.
+- **Usage and copies:** usage is the share's size and free space as the server reports them. Copies
+  are made by the server.
+
 Admins can rename a file system or change its access from the "⋯" menu on its card; its path can't
 change, so to point it elsewhere remove it and add it again. Removing a file system only takes it
 off the list: its files stay where they are, and everyone's stars in it are removed. Changes apply at
