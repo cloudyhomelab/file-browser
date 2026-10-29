@@ -2,6 +2,7 @@ package org.vaadin.filebrowser.ui.dialog;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -118,26 +119,32 @@ public class ConflictDialog extends FbDialog {
         applyAll.add(applyAllLabel, applyAllChoice);
 
         rows.removeAll();
-        for (final var c : clashes) {
-            final var choice = choices.get(c.name());
-            final var detail = Ui.div("fb-conflict-detail fb-conflict-detail--" + choice.name().toLowerCase(Locale.ROOT).replace('_', '-'));
-            detail(detail, c, choice);
-            final var glyph = new FileGlyph(c.type(), catalog);
-            final var nameText = Ui.span("", c.name());
-            final var name = Ui.div("fb-conflict-name", nameText);
-            final var names = Ui.div("fb-conflict-names", name, detail);
-            final var picker = new Segmented<>(c.folder() ? "fb-seg--folder" : "fb-seg--danger-first",
-                    c.folder() ? FOLDER_OPTIONS : OPTIONS, choice, v -> {
-                choices.put(c.name(), v);
-                render();
-            });
-            final var row = Ui.div("fb-conflict-row" + (choice == ConflictChoice.SKIP ? " fb-conflict-row--skip" : ""),
-                    glyph, names, picker);
-            rows.add(row);
-        }
+        clashes.forEach(clash -> rows.add(row(clash)));
+        summary.setText(summaryText(choices.values()));
+    }
 
+    private Div row(Clash clash) {
+        final var choice = choices.get(clash.name());
+        final var detail = Ui.div("fb-conflict-detail fb-conflict-detail--"
+                + choice.name().toLowerCase(Locale.ROOT).replace('_', '-'));
+        detail(detail, clash, choice);
+        final var glyph = new FileGlyph(clash.type(), catalog);
+        final var nameText = Ui.span("", clash.name());
+        final var name = Ui.div("fb-conflict-name", nameText);
+        final var names = Ui.div("fb-conflict-names", name, detail);
+        final var picker = new Segmented<>(clash.folder() ? "fb-seg--folder" : "fb-seg--danger-first",
+                clash.folder() ? FOLDER_OPTIONS : OPTIONS, choice, v -> {
+            choices.put(clash.name(), v);
+            render();
+        });
+        return Ui.div("fb-conflict-row" + (choice == ConflictChoice.SKIP ? " fb-conflict-row--skip" : ""),
+                glyph, names, picker);
+    }
+
+    /** "2 replaced · 1 kept", counting each choice made. */
+    private static String summaryText(Collection<ConflictChoice> made) {
         final var counts = new EnumMap<ConflictChoice, Integer>(ConflictChoice.class);
-        choices.values().forEach(v -> counts.merge(v, 1, Integer::sum));
+        made.forEach(v -> counts.merge(v, 1, Integer::sum));
         final var parts = new ArrayList<String>();
         if (counts.containsKey(ConflictChoice.REPLACE)) {
             parts.add(counts.get(ConflictChoice.REPLACE) + " replaced");
@@ -148,8 +155,7 @@ public class ConflictDialog extends FbDialog {
         if (counts.containsKey(ConflictChoice.SKIP)) {
             parts.add(counts.get(ConflictChoice.SKIP) + " skipped");
         }
-        final var summaryText = String.join(" · ", parts);
-        summary.setText(summaryText);
+        return String.join(" · ", parts);
     }
 
     private void detail(Div detail, Clash clash, ConflictChoice choice) {

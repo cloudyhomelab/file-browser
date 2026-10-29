@@ -138,42 +138,47 @@ public class UploadDialog extends FbDialog {
     private void render() {
         sectionLabel.setVisible(!offered.isEmpty());
         list.removeAll();
-        for (final var f : offered) {
-            final var selected = picked.containsKey(f.name());
-            final var box = Ui.span("fb-check fb-check--l" + (selected ? " fb-check--on" : ""));
-            if (selected) {
-                final var checkIcon = new Icon("check");
-                box.add(checkIcon);
-            }
-            final var glyph = new FileGlyph(f.type(), catalog);
-            final var name = Ui.span("fb-upload-item-name", f.name());
-            if (f.fromLink()) {
-                final var linkIcon = new Icon("link");
-                final var fromLink = Ui.span("fb-upload-item-link", linkIcon);
-                fromLink.getElement().setAttribute("title", f.url());
-                name.addComponentAsFirst(fromLink);
-            }
-            final var sizeText = Formats.size(f.knownSize());
-            final var size = Ui.span("fb-mono fb-muted", sizeText);
-            final var archive = selected && extraction ? catalog.archiveFormat(f.name()).orElse(null) : null;
-            final var row = Ui.div("fb-upload-item" + (selected ? " fb-upload-item--on" : "")
-                    + (archive != null ? " fb-upload-item--attached" : ""), glyph, name, size, box);
-            row.getElement().setAttribute("role", "checkbox");
-            final var ariaChecked = String.valueOf(selected);
-            row.getElement().setAttribute("aria-checked", ariaChecked);
-            row.addClickListener(e -> {
-                if (picked.remove(f.name()) == null) {
-                    picked.put(f.name(), f);
-                }
-                render();
-            });
-            list.add(row);
+        for (final var file : offered) {
+            final var selected = picked.containsKey(file.name());
+            final var archive = selected && extraction ? catalog.archiveFormat(file.name()).orElse(null) : null;
+            list.add(row(file, selected, archive != null));
             if (archive != null) {
-                list.add(extractOptions(f, archive));
+                list.add(extractOptions(file, archive));
             }
         }
         confirm.setText(picked.isEmpty() ? "Upload" : "Upload " + picked.size());
         confirm.setEnabled(!picked.isEmpty());
+    }
+
+    /** One offered file; clicking it picks or unpicks it. */
+    private Div row(IncomingFile file, boolean selected, boolean attached) {
+        final var box = Ui.span("fb-check fb-check--l" + (selected ? " fb-check--on" : ""));
+        if (selected) {
+            final var checkIcon = new Icon("check");
+            box.add(checkIcon);
+        }
+        final var glyph = new FileGlyph(file.type(), catalog);
+        final var name = Ui.span("fb-upload-item-name", file.name());
+        if (file.fromLink()) {
+            final var linkIcon = new Icon("link");
+            final var fromLink = Ui.span("fb-upload-item-link", linkIcon);
+            fromLink.getElement().setAttribute("title", file.url());
+            name.addComponentAsFirst(fromLink);
+        }
+        final var sizeText = Formats.size(file.knownSize());
+        final var size = Ui.span("fb-mono fb-muted", sizeText);
+        final var row = Ui.div("fb-upload-item" + (selected ? " fb-upload-item--on" : "")
+                + (attached ? " fb-upload-item--attached" : ""), glyph, name, size, box);
+        row.getElement().setAttribute("role", "checkbox");
+        final var ariaChecked = String.valueOf(selected);
+        row.getElement().setAttribute("aria-checked", ariaChecked);
+        row.addClickListener(e -> {
+            if (picked.remove(file.name()) == null) {
+                picked.put(file.name(), file);
+            }
+            render();
+        });
+        return row;
     }
 
     /**

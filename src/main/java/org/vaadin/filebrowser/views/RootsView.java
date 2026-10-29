@@ -66,8 +66,23 @@ public class RootsView extends Div {
                 .toList();
         final var accessible = roots.stream().filter(r -> !r.locked()).toList();
         final var restricted = roots.stream().filter(FsRoot::locked).toList();
-
         final var admin = currentUser.isAdmin();
+        main.add(titlebar(roots, admin), intro(roots, accessible, admin));
+        if (!roots.isEmpty()) {
+            final var starredCount = workspace.browsableRoots().stream().mapToInt(r -> workspace.starredIn(r).size()).sum();
+            final var banner = new StarredBanner(starredCount, () -> UI.getCurrent().navigate(StarredView.class));
+            main.add(banner);
+        }
+        addCards(accessible, admin);
+        if (!restricted.isEmpty()) {
+            main.add(rule("Restricted"));
+            final var lockedGrid = Ui.div("fb-drive-grid");
+            restricted.forEach(r -> lockedGrid.add(card(r)));
+            main.add(lockedGrid);
+        }
+    }
+
+    private Div titlebar(List<FsRoot> roots, boolean admin) {
         final var title = new H1("Your file systems");
         final var spacer = Ui.spacer();
         final var titlebar = Ui.div("fb-page-titlebar", title, spacer);
@@ -82,7 +97,10 @@ public class RootsView extends Div {
             final var add = Buttons.create(Buttons.Kind.PRIMARY, "Add file system", "plus", this::openAddDialog);
             titlebar.add(add);
         }
-        main.add(titlebar);
+        return titlebar;
+    }
+
+    private static Paragraph intro(List<FsRoot> roots, List<FsRoot> accessible, boolean admin) {
         final var emptyText = admin
                 ? "No file systems are connected yet. Add a folder on the server — a local disk or a mounted share — to get started."
                 : "No file systems are connected yet. Ask an administrator to add one.";
@@ -92,15 +110,11 @@ public class RootsView extends Div {
                         + " connected systems.";
         final var intro = new Paragraph(introText);
         intro.setClassName("fb-page-intro");
-        main.add(intro);
+        return intro;
+    }
 
-        if (!roots.isEmpty()) {
-            final var starredCount = workspace.browsableRoots().stream().mapToInt(r -> workspace.starredIn(r).size()).sum();
-            final var banner = new StarredBanner(starredCount, () -> UI.getCurrent().navigate(StarredView.class));
-            main.add(banner);
-        }
-
-        final var grid = Ui.div("fb-drive-grid");
+    /** The cards of the file systems the user may open, grouped by type or in one grid with the add card. */
+    private void addCards(List<FsRoot> accessible, boolean admin) {
         if (workspace.isGroupByType()) {
             byType(accessible).forEach((type, group) -> {
                 final var info = workspace.getCatalog().rootType(type);
@@ -109,10 +123,11 @@ public class RootsView extends Div {
                 group.forEach(r -> typeGrid.add(card(r)));
                 main.add(typeGrid);
             });
-        } else {
-            accessible.forEach(r -> grid.add(card(r)));
+            return;
         }
-        if (admin && !workspace.isGroupByType()) {
+        final var grid = Ui.div("fb-drive-grid");
+        accessible.forEach(r -> grid.add(card(r)));
+        if (admin) {
             final var plusIcon = new Icon("plus");
             final var addCardIcon = Ui.span("fb-addroot-card-icon", plusIcon);
             final var addCardTitle = Ui.span("fb-addroot-card-title", "Add file system");
@@ -122,13 +137,6 @@ public class RootsView extends Div {
         }
         if (grid.getComponentCount() > 0) {
             main.add(grid);
-        }
-
-        if (!restricted.isEmpty()) {
-            main.add(rule("Restricted"));
-            final var lockedGrid = Ui.div("fb-drive-grid");
-            restricted.forEach(r -> lockedGrid.add(card(r)));
-            main.add(lockedGrid);
         }
     }
 

@@ -11,6 +11,7 @@ import org.vaadin.filebrowser.data.Located;
 
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.NativeButton;
 import com.vaadin.flow.function.SerializableBiConsumer;
 import com.vaadin.flow.function.SerializableConsumer;
 
@@ -97,18 +98,7 @@ public class FolderTree extends Composite<Div> {
         final var leaf = children != null && children.isEmpty();
         final var currentKey = current == null ? null : key(current);
         final var active = key.equals(currentKey);
-
-        final var caretIcon = new Icon("angle-right");
-        final var caretClass = "fb-caret" + (expanded && !leaf ? " fb-caret--open" : "") + (leaf ? " fb-caret--none" : "");
-        final var caret = Ui.button(caretClass, () -> {
-            if (!open.remove(key)) {
-                open.add(key);
-            }
-            render();
-        }, caretIcon);
-        caret.getElement().setAttribute("aria-label", expanded ? "Collapse" : "Expand");
-        caret.setEnabled(!leaf);
-
+        final var caret = caret(key, expanded, leaf);
         final var folderIcon = new Icon("folder");
         final var name = Ui.span("fb-ellipsis", path.getLast());
         final var row = Ui.div("fb-tree-row" + (active ? " fb-tree-row--active" : ""), caret, folderIcon, name);
@@ -125,5 +115,20 @@ public class FolderTree extends Composite<Div> {
                 addNode(immutableChildPath, depth + 1);
             }
         }
+    }
+
+    /** Opens or closes the folder; disabled for a folder known to have no subfolders. */
+    private NativeButton caret(String key, boolean expanded, boolean leaf) {
+        final var caretIcon = new Icon("angle-right");
+        final var caretClass = "fb-caret" + (expanded && !leaf ? " fb-caret--open" : "") + (leaf ? " fb-caret--none" : "");
+        final var caret = Ui.button(caretClass, () -> {
+            if (!open.remove(key)) {
+                open.add(key);
+            }
+            render();
+        }, caretIcon);
+        caret.getElement().setAttribute("aria-label", expanded ? "Collapse" : "Expand");
+        caret.setEnabled(!leaf);
+        return caret;
     }
 }

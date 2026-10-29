@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -27,6 +28,7 @@ import org.vaadin.filebrowser.service.Downloads;
 import org.vaadin.filebrowser.service.UploadQueue.Planned;
 import org.vaadin.filebrowser.service.TransferTask;
 import org.vaadin.filebrowser.service.UploadQueue;
+import org.vaadin.filebrowser.service.UploadTask;
 import org.vaadin.filebrowser.service.Workspace.ConflictChoice;
 import org.vaadin.filebrowser.service.Workspace.Density;
 import org.vaadin.filebrowser.service.Workspace.Layout;
@@ -811,24 +813,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     /** Queues the move or copy with the names and Replace choices settled now; the queue reports the outcome. */
     private void transfer(Mode mode, List<Located> targets, FsRoot destRoot, List<String> dest, Set<String> existing,
                           Map<String, ConflictChoice> choices) {
-        final var sameRoot = destRoot.id().equals(root.id());
-        final var taken = new HashSet<>(existing);
-        final var items = new ArrayList<TransferTask.Item>();
-        for (final var t : targets) {
-            final var entry = t.entry();
-            if (mode == Mode.COPY && sameRoot && inFolder(entry, dest)) {
-                items.add(new TransferTask.Item(entry, entry.name(), false, true));
-                continue;
-            }
-            final var choice = choices.get(entry.name());
-            if (choice == ConflictChoice.SKIP) {
-                continue;
-            }
-            final var finalName = choice == ConflictChoice.KEEP_BOTH ? Workspace.keepBothName(entry.name(), taken)
-                    : entry.name();
-            taken.add(finalName);
-            items.add(new TransferTask.Item(entry, finalName, choice == ConflictChoice.REPLACE, false));
-        }
+        final var copyInPlace = mode == Mode.COPY && destRoot.id().equals(root.id());
+        final var items = transferItems(targets, copyInPlace, dest, existing, choices);
         if (mode == Mode.MOVE) {
             selectedPaths.clear();
         }
@@ -844,6 +830,33 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         }
         refresh();
         updatePollInterval();
+    }
+
+    /**
+     * What to move or copy, under which names; skipped items are left out.
+     *
+     * @param copyInPlace a copy within the same file system, where an item copied into its own folder is duplicated
+     */
+    private static List<TransferTask.Item> transferItems(List<Located> targets, boolean copyInPlace, List<String> dest,
+                                                         Set<String> existing, Map<String, ConflictChoice> choices) {
+        final var taken = new HashSet<>(existing);
+        final var items = new ArrayList<TransferTask.Item>();
+        for (final var target : targets) {
+            final var entry = target.entry();
+            if (copyInPlace && inFolder(entry, dest)) {
+                items.add(new TransferTask.Item(entry, entry.name(), false, true));
+                continue;
+            }
+            final var choice = choices.get(entry.name());
+            if (choice == ConflictChoice.SKIP) {
+                continue;
+            }
+            final var finalName = choice == ConflictChoice.KEEP_BOTH ? Workspace.keepBothName(entry.name(), taken)
+                    : entry.name();
+            taken.add(finalName);
+            items.add(new TransferTask.Item(entry, finalName, choice == ConflictChoice.REPLACE, false));
+        }
+        return items;
     }
 
     private void delete(List<Located> targets) {
@@ -910,13 +923,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void startUploads(List<IncomingFile> picked) {
-        final var tooLarge = picked.stream().filter(f -> f.size() > maxUploadBytes).toList();
-        if (!tooLarge.isEmpty()) {
-            final var limit = Formats.size(maxUploadBytes);
-            final var names = tooLarge.size() == 1 ? "“" + tooLarge.getFirst().name() + "” is" : tooLarge.size() + " files are";
-            Toasts.error(names + " larger than " + limit + " and won't be uploaded");
-        }
-        final var files = picked.stream().filter(f -> f.size() <= maxUploadBytes).toList();
+        final var files = withinLimit(picked);
         if (files.isEmpty()) {
             return;
         }
@@ -930,17 +937,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             Toasts.error(e.getMessage());
             return;
         }
-        // a stored file clashes with a file of the same name; a new folder for an archive with anything
-        final var conflicts = new ArrayList<ConflictDialog.Clash>();
-        for (final var f : files) {
-            if (stored(f) && existingFiles.contains(f.name())) {
-                conflicts.add(new ConflictDialog.Clash(f.name(), f.type(), false));
-            }
-            final var folderName = newFolderName(f);
-            if (folderName != null && existing.contains(folderName)) {
-                conflicts.add(new ConflictDialog.Clash(folderName, StorageEntry.FOLDER_TYPE, true));
-            }
-        }
+        final var conflicts = uploadClashes(files, existingFiles, existing);
         if (conflicts.isEmpty()) {
             resolveConflicts(files, destination, existing, Map.of());
             return;
@@ -948,6 +945,33 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var dialog = new ConflictDialog(ConflictDialog.Purpose.UPLOAD, workspace.getCatalog(), conflicts, files.size(),
                 existing, choices -> resolveConflicts(files, destination, existing, choices));
         dialog.open();
+    }
+
+    /** The files within the upload limit; the rest are reported and dropped. */
+    private List<IncomingFile> withinLimit(List<IncomingFile> picked) {
+        final var tooLarge = picked.stream().filter(f -> f.size() > maxUploadBytes).toList();
+        if (!tooLarge.isEmpty()) {
+            final var limit = Formats.size(maxUploadBytes);
+            final var names = tooLarge.size() == 1 ? "“" + tooLarge.getFirst().name() + "” is" : tooLarge.size() + " files are";
+            Toasts.error(names + " larger than " + limit + " and won't be uploaded");
+        }
+        return picked.stream().filter(f -> f.size() <= maxUploadBytes).toList();
+    }
+
+    /** A stored file clashes with a file of the same name; a new folder for an archive with anything. */
+    private List<ConflictDialog.Clash> uploadClashes(List<IncomingFile> files, Set<String> existingFiles,
+                                                     Set<String> existing) {
+        final var conflicts = new ArrayList<ConflictDialog.Clash>();
+        for (final var file : files) {
+            if (stored(file) && existingFiles.contains(file.name())) {
+                conflicts.add(new ConflictDialog.Clash(file.name(), file.type(), false));
+            }
+            final var folderName = newFolderName(file);
+            if (folderName != null && existing.contains(folderName)) {
+                conflicts.add(new ConflictDialog.Clash(folderName, StorageEntry.FOLDER_TYPE, true));
+            }
+        }
+        return conflicts;
     }
 
     /** Whether the upload itself ends up in the folder: always, unless it's an archive extracted without keeping it. */
@@ -970,43 +994,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                                   Map<String, ConflictChoice> choices) {
         final var taken = new HashSet<>(existing);
         final var planned = new ArrayList<Planned>();
-        for (final var f : files) {
-            var store = stored(f);
-            var finalName = f.name();
-            var replace = false;
-            if (store) {
-                final var choice = choices.get(f.name());
-                if (choice == ConflictChoice.REPLACE) {
-                    replace = true;
-                } else if (choice == ConflictChoice.KEEP_BOTH) {
-                    finalName = Workspace.keepBothName(f.name(), taken);
-                } else if (choice == ConflictChoice.SKIP) {
-                    // a skipped archive name still lets its contents be extracted, just without keeping it
-                    store = false;
-                }
-                taken.add(finalName);
-            }
-            final var match = f.extract() == null ? null : workspace.getCatalog().archiveFormat(f.name()).orElse(null);
-            if (match == null) {
-                if (store) {
-                    planned.add(new Planned(f, finalName, replace));
-                }
-                continue;
-            }
-            var folderName = newFolderName(f);
-            if (folderName != null) {
-                final var choice = choices.get(folderName);
-                if (choice == ConflictChoice.SKIP) {
-                    continue;
-                }
-                if (choice == ConflictChoice.KEEP_BOTH) {
-                    folderName = Workspace.keepBothName(folderName, taken);
-                }
-                taken.add(folderName);
-            }
-            final var extraction = new UploadQueue.Extraction(match.format(), match.baseName(), folderName, store,
-                    f.extract().clash(), extractLimits);
-            planned.add(new Planned(f, finalName, replace, extraction));
+        for (final var file : files) {
+            plan(file, choices, taken).ifPresent(planned::add);
         }
         final var skipped = files.size() - planned.size();
         if (planned.isEmpty() && skipped > 0) {
@@ -1014,6 +1003,48 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return;
         }
         enqueue(destination, planned);
+    }
+
+    /** How the upload itself is stored after the user's choice. */
+    private record Storing(boolean store, String finalName, boolean replace) {
+    }
+
+    /** One upload as planned after the user's choices; empty when nothing is left to do. */
+    private Optional<Planned> plan(IncomingFile file, Map<String, ConflictChoice> choices, Set<String> taken) {
+        final var storing = storing(file, choices, taken);
+        final var match = file.extract() == null ? null : workspace.getCatalog().archiveFormat(file.name()).orElse(null);
+        if (match == null) {
+            return storing.store()
+                    ? Optional.of(new Planned(file, storing.finalName(), storing.replace())) : Optional.empty();
+        }
+        var folderName = newFolderName(file);
+        if (folderName != null) {
+            final var choice = choices.get(folderName);
+            if (choice == ConflictChoice.SKIP) {
+                return Optional.empty();
+            }
+            if (choice == ConflictChoice.KEEP_BOTH) {
+                folderName = Workspace.keepBothName(folderName, taken);
+            }
+            taken.add(folderName);
+        }
+        final var extraction = new UploadQueue.Extraction(match.format(), match.baseName(), folderName,
+                storing.store(), file.extract().clash(), extractLimits);
+        return Optional.of(new Planned(file, storing.finalName(), storing.replace(), extraction));
+    }
+
+    private static Storing storing(IncomingFile file, Map<String, ConflictChoice> choices, Set<String> taken) {
+        if (!stored(file)) {
+            return new Storing(false, file.name(), false);
+        }
+        final var choice = choices.get(file.name());
+        var finalName = file.name();
+        if (choice == ConflictChoice.KEEP_BOTH) {
+            finalName = Workspace.keepBothName(file.name(), taken);
+        }
+        taken.add(finalName);
+        // a skipped archive name still lets its contents be extracted, just without keeping it
+        return new Storing(choice != ConflictChoice.SKIP, finalName, choice == ConflictChoice.REPLACE);
     }
 
     private void enqueue(List<String> destination, List<Planned> planned) {
@@ -1069,29 +1100,33 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private void onTaskPoll() {
         final var finished = workspace.getUploads().takeFinished();
-        for (final var t : finished) {
-            switch (t.getState()) {
-                case DONE -> Toasts.show(t.getSummary() != null ? "“" + t.getName() + "”: " + t.getSummary()
-                        : (t.isReplace() ? "Replaced “" : "Uploaded “") + t.getName() + "”", "check");
-                case FAILED -> Toasts.error(t.getError());
-                default -> { }
-            }
-        }
+        finished.forEach(BrowserView::announce);
         final var transfersFinished = workspace.getTransfers().takeFinished();
-        for (final var t : transfersFinished) {
-            switch (t.getState()) {
-                case DONE -> Toasts.show(t.getMessage(), t.getKind() == TransferTask.Kind.MOVE ? "move" : "copy");
-                case FAILED -> Toasts.error(t.getMessage());
-                case CANCELLED -> Toasts.show(t.getMessage(), "cross");
-                default -> { }
-            }
-        }
+        transfersFinished.forEach(BrowserView::announce);
         if (transfersFinished.isEmpty() && finished.isEmpty()) {
             showDock();
         } else if (transfersFinished.isEmpty()) {
             refresh();
         } else {
             afterChange();
+        }
+    }
+
+    private static void announce(UploadTask upload) {
+        switch (upload.getState()) {
+            case DONE -> Toasts.show(upload.getSummary() != null ? "“" + upload.getName() + "”: " + upload.getSummary()
+                    : (upload.isReplace() ? "Replaced “" : "Uploaded “") + upload.getName() + "”", "check");
+            case FAILED -> Toasts.error(upload.getError());
+            default -> { }
+        }
+    }
+
+    private static void announce(TransferTask transfer) {
+        switch (transfer.getState()) {
+            case DONE -> Toasts.show(transfer.getMessage(), transfer.getKind() == TransferTask.Kind.MOVE ? "move" : "copy");
+            case FAILED -> Toasts.error(transfer.getMessage());
+            case CANCELLED -> Toasts.show(transfer.getMessage(), "cross");
+            default -> { }
         }
     }
 
