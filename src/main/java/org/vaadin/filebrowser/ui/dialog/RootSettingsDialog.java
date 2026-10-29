@@ -37,7 +37,7 @@ public class RootSettingsDialog extends FbDialog {
     }
 
     private static Div option(Switch toggle, String hint) {
-        final var text = Ui.div("fb-addroot-access-hint", Ui.span("", hint));
+        final var text = Ui.div("fb-settings-hint", Ui.span("", hint));
         return Ui.div("fb-settings-option", toggle, text);
     }
 }
