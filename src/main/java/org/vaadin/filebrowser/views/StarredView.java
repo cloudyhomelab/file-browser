@@ -22,7 +22,7 @@ import org.vaadin.filebrowser.ui.Icon;
 import org.vaadin.filebrowser.ui.MenuPosition;
 import org.vaadin.filebrowser.ui.RootChip;
 import org.vaadin.filebrowser.ui.Segmented;
-import org.vaadin.filebrowser.ui.Toasts;
+import org.vaadin.filebrowser.ui.Notices;
 import org.vaadin.filebrowser.ui.Ui;
 
 import jakarta.annotation.security.PermitAll;
@@ -178,7 +178,7 @@ public class StarredView extends Div implements EntryHandler {
             if (action == EntryAction.OPEN) {
                 open(located);
             } else if (action == EntryAction.DOWNLOAD) {
-                Toasts.show("Downloading “" + located.entry().name() + "”…", "download");
+                Notices.show("Downloading “" + located.entry().name() + "”…", "download");
             } else if (action == EntryAction.STAR) {
                 toggleStar(located);
             }
@@ -189,7 +189,7 @@ public class StarredView extends Div implements EntryHandler {
     public void toggleStar(Located entry) {
         final var on = starred(entry);
         workspace.setStarred(entry.rootId(), entry.entry().path(), !on);
-        Toasts.show(on ? "Removed “" + entry.entry().name() + "” from starred" : "Added “" + entry.entry().name() + "” to starred", "star");
+        Notices.show(on ? "Removed “" + entry.entry().name() + "” from starred" : "Added “" + entry.entry().name() + "” to starred", "star");
         render();
     }
 
