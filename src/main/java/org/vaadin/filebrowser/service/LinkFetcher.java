@@ -53,11 +53,11 @@ public class LinkFetcher implements AutoCloseable {
     private static final Pattern FILENAME_PARAM = Pattern.compile("filename\\s*=\\s*(\"([^\"]*)\"|[^;]+)",
             Pattern.CASE_INSENSITIVE);
 
+    private final CloseableHttpClient client;
+
     /** What a link offers, read from its headers. */
     public record LinkInfo(String url, String name, Long size) implements Serializable {
     }
-
-    private final CloseableHttpClient client;
 
     @Autowired
     public LinkFetcher(FileBrowserProperties properties) {

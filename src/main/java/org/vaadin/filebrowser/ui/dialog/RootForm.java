@@ -27,15 +27,6 @@ import lombok.Getter;
  */
 public abstract class RootForm extends Div {
 
-    /**
-     * @param editing  the file system being edited, or null when adding one
-     * @param onChange called on every change, so the dialog can update
-     * @param onSubmit called when Enter is pressed in a field
-     */
-    public record Context(RootTypeInfo info, FsRoot editing, Workspace workspace, SerializableRunnable onChange,
-                          SerializableRunnable onSubmit) implements Serializable {
-    }
-
     protected final Context context;
     protected final TextField endpointField = new TextField();
     private final Div endpointError = Ui.div("fb-field-error");
@@ -44,6 +35,15 @@ public abstract class RootForm extends Div {
     /** What is wrong with the endpoint, as last shown; null when nothing is. */
     @Getter(AccessLevel.PROTECTED)
     private String problem;
+
+    /**
+     * @param editing  the file system being edited, or null when adding one
+     * @param onChange called on every change, so the dialog can update
+     * @param onSubmit called when Enter is pressed in a field
+     */
+    public record Context(RootTypeInfo info, FsRoot editing, Workspace workspace, SerializableRunnable onChange,
+                          SerializableRunnable onSubmit) implements Serializable {
+    }
 
     protected RootForm(Context context) {
         this.context = context;

@@ -13,10 +13,10 @@ import java.io.Serializable;
 public record RootStatus(Capacity capacity, boolean online, String kind, String detail, String reason)
         implements Serializable {
 
+    /** Before the storage has been asked, e.g. for a file system that is being added. */
+    public static final RootStatus UNKNOWN = new RootStatus(null, false, "", "");
+
     public RootStatus(Capacity capacity, boolean online, String kind, String detail) {
         this(capacity, online, kind, detail, null);
     }
-
-    /** Before the storage has been asked, e.g. for a file system that is being added. */
-    public static final RootStatus UNKNOWN = new RootStatus(null, false, "", "");
 }

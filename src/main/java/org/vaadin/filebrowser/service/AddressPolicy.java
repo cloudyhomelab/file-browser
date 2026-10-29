@@ -14,6 +14,20 @@ import java.util.List;
  */
 public final class AddressPolicy {
 
+    /** Ranges a deployment may open up: private networks only. */
+    private static final List<Cidr> PRIVATE = cidrs("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7");
+
+    /** Everything that isn't the public internet. */
+    private static final List<Cidr> NOT_PUBLIC = cidrs(
+            "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+            "192.0.0.0/24", "192.0.2.0/24", "192.168.0.0/16", "198.18.0.0/15", "198.51.100.0/24",
+            "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4",
+            "::/128", "::1/128", "fe80::/10", "fc00::/7", "ff00::/8", "2001:db8::/32",
+            // these carry an IPv4 address inside that could point anywhere
+            "64:ff9b::/96", "2002::/16");
+
+    private final List<Cidr> allowed;
+
     /** A block of addresses, e.g. {@code 10.0.0.0/8}. */
     record Cidr(byte[] network, int prefix) {
 
@@ -54,20 +68,6 @@ public final class AddressPolicy {
             return prefix >= outer.prefix && outer.contains(network);
         }
     }
-
-    /** Ranges a deployment may open up: private networks only. */
-    private static final List<Cidr> PRIVATE = cidrs("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7");
-
-    /** Everything that isn't the public internet. */
-    private static final List<Cidr> NOT_PUBLIC = cidrs(
-            "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
-            "192.0.0.0/24", "192.0.2.0/24", "192.168.0.0/16", "198.18.0.0/15", "198.51.100.0/24",
-            "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4",
-            "::/128", "::1/128", "fe80::/10", "fc00::/7", "ff00::/8", "2001:db8::/32",
-            // these carry an IPv4 address inside that could point anywhere
-            "64:ff9b::/96", "2002::/16");
-
-    private final List<Cidr> allowed;
 
     /** @param allowedNetworks CIDRs inside private ranges; anything else stops the app from starting */
     public AddressPolicy(List<String> allowedNetworks) {

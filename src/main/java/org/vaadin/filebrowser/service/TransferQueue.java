@@ -19,6 +19,11 @@ public class TransferQueue implements Serializable {
 
     private static final System.Logger LOG = System.getLogger(TransferQueue.class.getName());
 
+    private final Work work;
+    private final List<TransferTask> tasks = new CopyOnWriteArrayList<>();
+    /** Whether a worker thread is draining the queue; guarded by {@code this}. */
+    private boolean draining;
+
     /** What running a task means; the queue only orders, counts, stops and reports. */
     public interface Work extends Serializable {
 
@@ -32,11 +37,6 @@ public class TransferQueue implements Serializable {
         /** Moves or copies one item; sentences worth adding to the outcome go to {@link TransferTask#note}. */
         void run(TransferTask task, TransferTask.Item item, CopyProgress progress);
     }
-
-    private final Work work;
-    private final List<TransferTask> tasks = new CopyOnWriteArrayList<>();
-    /** Whether a worker thread is draining the queue; guarded by {@code this}. */
-    private boolean draining;
 
     public TransferQueue(Work work) {
         this.work = work;

@@ -46,6 +46,16 @@ public class StorageService {
     /** Checking a file system before adding it may reach a remote region, so it gets longer than a status read. */
     private static final Duration CHECK_TIMEOUT = Duration.ofSeconds(10);
 
+    /** The kind shown for a file system whose type the app no longer knows. */
+    private static final String UNSUPPORTED_KIND = "unsupported";
+
+    private final StorageTypes types;
+    private final Function<String, Map<String, String>> secrets;
+    private final Clock clock = Clock.systemUTC();
+    private final Map<String, StorageProvider> providers = new ConcurrentHashMap<>();
+    private final Map<String, CachedStatus> statuses = new ConcurrentHashMap<>();
+    private final ExecutorService probes = Executors.newVirtualThreadPerTaskExecutor();
+
     /** What the server sees at a path that is about to be registered. */
     public record PathProbe(boolean exists, boolean directory, boolean readable, boolean writable)
             implements Serializable {
@@ -70,16 +80,6 @@ public class StorageService {
             return problem == null ? OK : new Check(problem, null);
         }
     }
-
-    /** The kind shown for a file system whose type the app no longer knows. */
-    private static final String UNSUPPORTED_KIND = "unsupported";
-
-    private final StorageTypes types;
-    private final Function<String, Map<String, String>> secrets;
-    private final Clock clock = Clock.systemUTC();
-    private final Map<String, StorageProvider> providers = new ConcurrentHashMap<>();
-    private final Map<String, CachedStatus> statuses = new ConcurrentHashMap<>();
-    private final ExecutorService probes = Executors.newVirtualThreadPerTaskExecutor();
 
     @Autowired
     public StorageService(StorageTypes types, RootSecrets secrets) {

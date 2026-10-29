@@ -49,6 +49,10 @@ public class S3Provider implements StorageProvider, AutoCloseable {
     private static final int NOT_FOUND = 404;
     private static final int FORBIDDEN = 403;
 
+    private final Location location;
+    private final S3Client client;
+    private final Function<String, String> typeForName;
+
     /** Where a file system lives: {@code s3://bucket} or {@code s3://bucket/some/prefix}. */
     public record Location(String bucket, String prefix) {
 
@@ -76,10 +80,6 @@ public class S3Provider implements StorageProvider, AutoCloseable {
      */
     public record Connection(String endpoint, String region, URI endpointUrl, String accessKey, String secretKey) {
     }
-
-    private final Location location;
-    private final S3Client client;
-    private final Function<String, String> typeForName;
 
     public S3Provider(Connection connection, Function<String, String> typeForName) {
         this.location = Location.parse(connection.endpoint());

@@ -43,13 +43,13 @@ import com.vaadin.flow.router.Route;
 @PageTitle("Starred · FileBrowser")
 public class StarredView extends Div implements EntryHandler {
 
-    private record Group(FsRoot root, List<Located> entries) {
-    }
-
     private final Workspace workspace;
     private final CurrentUser currentUser;
     private final Main main = new Main();
     private final EntryMenu entryMenu = new EntryMenu();
+
+    private record Group(FsRoot root, List<Located> entries) {
+    }
 
     public StarredView(Workspace workspace, CurrentUser currentUser) {
         this.workspace = workspace;

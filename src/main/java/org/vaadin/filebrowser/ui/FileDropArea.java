@@ -25,12 +25,6 @@ import tools.jackson.databind.json.JsonMapper;
  */
 public class FileDropArea extends Div {
 
-    private record DroppedFile(String id, String name, long size) {
-    }
-
-    private record UploadJob(String taskId, String clientId) {
-    }
-
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     // file contents stay in the browser (window.__fbFiles) until uploaded, so any drop area on the page can send them
@@ -85,6 +79,12 @@ public class FileDropArea extends Div {
     /** Called with a task id whose file is no longer in the browser (e.g. after a reload). */
     @Setter
     private SerializableConsumer<String> onUploadLost = taskId -> { };
+
+    private record DroppedFile(String id, String name, long size) {
+    }
+
+    private record UploadJob(String taskId, String clientId) {
+    }
 
     public FileDropArea(Catalog catalog, boolean pickOnClick) {
         this.catalog = catalog;

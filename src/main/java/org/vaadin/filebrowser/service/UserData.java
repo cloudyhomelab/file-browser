@@ -15,13 +15,13 @@ import org.vaadin.filebrowser.storage.StoragePaths;
 @Repository
 public class UserData {
 
+    private final JdbcClient jdbc;
+
     public record Preferences(Workspace.Layout layout, Workspace.Density density, Sort sort, boolean groupByType) {
 
         public static final Preferences DEFAULT =
                 new Preferences(Workspace.Layout.GRID, Workspace.Density.DENSE, Sort.DEFAULT, false);
     }
-
-    private final JdbcClient jdbc;
 
     public UserData(JdbcClient jdbc) {
         this.jdbc = jdbc;

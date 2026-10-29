@@ -27,6 +27,12 @@ import com.vaadin.flow.function.SerializableRunnable;
  */
 public class Toolbar extends Composite<Div> {
 
+    private static final int SEARCH_DEBOUNCE_MS = 250;
+
+    private final TextField search = new TextField();
+    private final Div actions = Ui.div("fb-toolbar-actions");
+    private final Callbacks callbacks;
+
     public record State(Sort sort, AutoRefresh autoRefresh, Density density, Layout layout, boolean readOnly,
                         Component bulkSlot) {
     }
@@ -36,12 +42,6 @@ public class Toolbar extends Composite<Div> {
                             SerializableConsumer<Layout> onLayout, SerializableRunnable onNewFolder,
                             SerializableRunnable onUpload) implements Serializable {
     }
-
-    private static final int SEARCH_DEBOUNCE_MS = 250;
-
-    private final TextField search = new TextField();
-    private final Div actions = Ui.div("fb-toolbar-actions");
-    private final Callbacks callbacks;
 
     public Toolbar(Callbacks callbacks) {
         this.callbacks = callbacks;

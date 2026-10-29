@@ -29,18 +29,6 @@ import com.vaadin.flow.function.SerializableConsumer;
  */
 public class ConflictDialog extends FbDialog {
 
-    public enum Purpose { UPLOAD, MOVE, COPY }
-
-    /**
-     * A name that already exists in the destination.
-     *
-     * @param type   the incoming item's file type, for its glyph
-     * @param folder whether a folder is involved on either side; for an upload, the new folder an
-     *               archive would be extracted into
-     */
-    public record Clash(String name, String type, boolean folder) implements Serializable {
-    }
-
     private static final List<Segmented.Option<ConflictChoice>> OPTIONS = List.of(
             Segmented.Option.text(ConflictChoice.REPLACE, "Replace"),
             Segmented.Option.text(ConflictChoice.KEEP_BOTH, "Keep both"),
@@ -58,6 +46,18 @@ public class ConflictDialog extends FbDialog {
     private final Div applyAll = Ui.div("fb-conflict-all");
     private final Div rows = Ui.div("fb-conflict-list");
     private final Span summary = Ui.span("fb-dialog-summary", "");
+
+    public enum Purpose { UPLOAD, MOVE, COPY }
+
+    /**
+     * A name that already exists in the destination.
+     *
+     * @param type   the incoming item's file type, for its glyph
+     * @param folder whether a folder is involved on either side; for an upload, the new folder an
+     *               archive would be extracted into
+     */
+    public record Clash(String name, String type, boolean folder) implements Serializable {
+    }
 
     public ConflictDialog(Purpose purpose, Catalog catalog, List<Clash> clashes, int totalCount, Set<String> existingNames,
                           SerializableConsumer<Map<String, ConflictChoice>> onResolve) {

@@ -26,11 +26,6 @@ public class Catalog implements Serializable {
     private static final String DEFAULT_SIGN_IN_ERROR = "default";
     private static final String LOCAL_KIND = "disk";
 
-    /** @param tints the colours kinds may use; each has a {@code fb-tint-*} class in styles.css */
-    record MountKinds(List<String> tints, Map<String, String> storeTypes, Map<String, KindInfo> kinds)
-            implements Serializable {
-    }
-
     private final Map<String, RootTypeInfo> rootTypes;
     private final Map<String, FileTypeInfo> fileTypes;
     private final Map<String, String> signInErrors;
@@ -42,6 +37,11 @@ public class Catalog implements Serializable {
     /** What a new file system starts with. */
     @Getter
     private final RootOptions rootOptions;
+
+    /** @param tints the colours kinds may use; each has a {@code fb-tint-*} class in styles.css */
+    record MountKinds(List<String> tints, Map<String, String> storeTypes, Map<String, KindInfo> kinds)
+            implements Serializable {
+    }
 
     public Catalog() {
         final var mapper = JsonMapper.builder()

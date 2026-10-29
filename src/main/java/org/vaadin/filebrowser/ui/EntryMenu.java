@@ -17,10 +17,10 @@ public class EntryMenu extends Div {
     private static final int ASSUMED_MENU_HEIGHT = 320;
     private static final int ASSUMED_MENU_WIDTH = 220;
 
+    private final Div menu = Ui.div("fb-menu fb-entry-menu");
+
     private record Item(EntryAction action, String label, String icon, boolean danger) {
     }
-
-    private final Div menu = Ui.div("fb-menu fb-entry-menu");
 
     public EntryMenu() {
         setClassName("fb-entry-menu-layer");

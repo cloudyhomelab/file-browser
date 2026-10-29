@@ -38,6 +38,10 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
     private static final String PARTIAL_PREFIX = ".";
     private static final String PARTIAL_SUFFIX = ".uploading";
 
+    protected final RemoteLocation location;
+    private final Function<String, String> typeForName;
+    private final SessionPool<S> pool;
+
     /** What the server says about one file or folder. */
     public record Node(String name, boolean folder, Long size, Instant modified) {
     }
@@ -53,10 +57,6 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
     protected interface Work<S, T> {
         T run(S session) throws IOException;
     }
-
-    protected final RemoteLocation location;
-    private final Function<String, String> typeForName;
-    private final SessionPool<S> pool;
 
     protected RemoteProvider(RemoteLocation location, Function<String, String> typeForName) {
         this.location = location;

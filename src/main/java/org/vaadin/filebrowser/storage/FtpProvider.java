@@ -46,6 +46,11 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
     /** Some servers want an e-mail-like password for anonymous sign-in. */
     private static final String ANONYMOUS_PASSWORD = "file-browser@";
 
+    /** Replies to {@code REST} from a server that doesn't support it: unknown command, bad argument, not implemented. */
+    private static final Set<Integer> REST_NOT_SUPPORTED = Set.of(500, 501, 502, 504);
+
+    private final Connection connection;
+
     /** How the connection is protected; the names are what the {@code security} setting stores. */
     public enum Security {
         /** Starts plain and switches to TLS (AUTH TLS) before signing in. */
@@ -81,11 +86,6 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
     /** One signed-in control connection. */
     public record Session(FTPClient ftp, boolean machineListing) {
     }
-
-    /** Replies to {@code REST} from a server that doesn't support it: unknown command, bad argument, not implemented. */
-    private static final Set<Integer> REST_NOT_SUPPORTED = Set.of(500, 501, 502, 504);
-
-    private final Connection connection;
 
     public FtpProvider(Connection connection, Function<String, String> typeForName) {
         super(connection.location(), typeForName);

@@ -39,11 +39,11 @@ public class SmbStorageType implements StorageType {
             .withSoTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .build();
 
+    private final Catalog catalog;
+
     /** Where an endpoint points: the share, and the folder in it. */
     public record Location(RemoteLocation folder, String share) {
     }
-
-    private final Catalog catalog;
 
     public SmbStorageType(Catalog catalog) {
         this.catalog = catalog;

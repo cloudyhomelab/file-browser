@@ -37,17 +37,30 @@ import org.vaadin.filebrowser.storage.StorageProvider;
  */
 public final class ArchiveExtractor {
 
+    private static final int BUFFER_SIZE = 64 * 1024;
+    /** Tar entry types that hold a plain file. */
+    private static final Set<Byte> REGULAR_TAR_TYPES = Set.of(TarConstants.LF_NORMAL, TarConstants.LF_OLDNORM,
+            TarConstants.LF_CONTIG);
+
+    private final StorageProvider provider;
+    private final String target;
+    private final ExtractOptions.Clash clash;
+    private final Limits limits;
+    private final List<String> createdFolders = new ArrayList<>();
+    private final List<String> writtenFiles = new ArrayList<>();
+    private final Set<String> knownFolders = new HashSet<>();
+    private final Map<String, Set<String>> namesIn = new HashMap<>();
+    private long bytes;
+    private int entries;
+    private int written;
+    private int skipped;
+
     /** Upper bounds for one archive. */
     public record Limits(long maxBytes, int maxEntries) implements Serializable {
     }
 
     public record Result(int written, int skipped) {
     }
-
-    private static final int BUFFER_SIZE = 64 * 1024;
-    /** Tar entry types that hold a plain file. */
-    private static final Set<Byte> REGULAR_TAR_TYPES = Set.of(TarConstants.LF_NORMAL, TarConstants.LF_OLDNORM,
-            TarConstants.LF_CONTIG);
 
     /** One entry as read from any of the formats. */
     private interface Entry {
@@ -67,19 +80,6 @@ public final class ArchiveExtractor {
 
         void accept(Entry entry) throws IOException;
     }
-
-    private final StorageProvider provider;
-    private final String target;
-    private final ExtractOptions.Clash clash;
-    private final Limits limits;
-    private final List<String> createdFolders = new ArrayList<>();
-    private final List<String> writtenFiles = new ArrayList<>();
-    private final Set<String> knownFolders = new HashSet<>();
-    private final Map<String, Set<String>> namesIn = new HashMap<>();
-    private long bytes;
-    private int entries;
-    private int written;
-    private int skipped;
 
     private ArchiveExtractor(StorageProvider provider, String target, ExtractOptions.Clash clash, Limits limits) {
         this.provider = provider;

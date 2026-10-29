@@ -28,6 +28,9 @@ public class UploadQueue implements Serializable {
 
     private static final int BUFFER_SIZE = 64 * 1024;
 
+    private final StorageService storage;
+    private final List<UploadTask> tasks = new CopyOnWriteArrayList<>();
+
     /**
      * @param finalName  the name the file is stored under (for an extracted archive: if kept)
      * @param extraction how to unpack it; null to store it as is
@@ -49,9 +52,6 @@ public class UploadQueue implements Serializable {
     public record Extraction(ArchiveFormat format, String singleName, String folderName, boolean keepArchive,
                              ExtractOptions.Clash clash, ArchiveExtractor.Limits limits) implements Serializable {
     }
-
-    private final StorageService storage;
-    private final List<UploadTask> tasks = new CopyOnWriteArrayList<>();
 
     public UploadQueue(StorageService storage) {
         this.storage = storage;

@@ -50,6 +50,9 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     private static final AttributeRepository.AttributeKey<AtomicReference<String>> SEEN =
             new AttributeRepository.AttributeKey<>();
 
+    private final SshClient client;
+    private final Connection connection;
+
     /**
      * How to sign in: a password, or a private key with an optional passphrase.
      *
@@ -67,9 +70,6 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     /** One SSH connection and the SFTP channel on it. */
     public record Session(ClientSession ssh, SftpClient sftp) {
     }
-
-    private final SshClient client;
-    private final Connection connection;
 
     /** @param client started, with {@link #verifier()} as its server key verifier */
     public SftpProvider(SshClient client, Connection connection, Function<String, String> typeForName) {

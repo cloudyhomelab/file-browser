@@ -45,6 +45,9 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     private static final Set<Long> NO_SERVER_COPY = Set.of(NtStatus.STATUS_NOT_SUPPORTED.getValue(),
             INVALID_DEVICE_REQUEST);
 
+    private final SmbConfig config;
+    private final Connection connection;
+
     /**
      * Where and how to sign in.
      *
@@ -64,9 +67,6 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     public record Session(SMBClient client, com.hierynomus.smbj.connection.Connection connection,
                           com.hierynomus.smbj.session.Session session, DiskShare share) {
     }
-
-    private final SmbConfig config;
-    private final Connection connection;
 
     /** @param config speaks only SMB 3, with signing required */
     public SmbProvider(SmbConfig config, Connection connection, Function<String, String> typeForName) {

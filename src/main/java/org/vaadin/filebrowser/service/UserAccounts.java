@@ -16,11 +16,11 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class UserAccounts {
 
-    public record Account(String email, String name, String lastProvider, Instant firstSignIn, Instant lastSignIn) {
-    }
-
     private final JdbcClient jdbc;
     private final Clock clock;
+
+    public record Account(String email, String name, String lastProvider, Instant firstSignIn, Instant lastSignIn) {
+    }
 
     @Autowired
     public UserAccounts(JdbcClient jdbc) {

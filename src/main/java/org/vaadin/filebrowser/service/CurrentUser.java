@@ -16,11 +16,11 @@ import com.vaadin.flow.spring.security.AuthenticationContext;
 @SpringComponent
 public class CurrentUser implements Serializable {
 
-    public record User(String email, String name, String providerLabel, boolean admin) implements Serializable {
-    }
-
     private final AuthenticationContext authenticationContext;
     private final FileBrowserProperties properties;
+
+    public record User(String email, String name, String providerLabel, boolean admin) implements Serializable {
+    }
 
     public CurrentUser(AuthenticationContext authenticationContext, FileBrowserProperties properties) {
         this.authenticationContext = authenticationContext;

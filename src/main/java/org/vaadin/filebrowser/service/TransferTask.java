@@ -20,28 +20,7 @@ import lombok.Setter;
  */
 public final class TransferTask implements Serializable {
 
-    @Getter
-    @RequiredArgsConstructor
-    public enum Kind {
-        MOVE("Moving", "Moved", "moved"), COPY("Copying", "Copied", "copied");
-
-        private final String running;
-        private final String done;
-        /** As in "2 items were not moved". */
-        private final String participle;
-    }
-
-    public enum State { QUEUED, RUNNING, DONE, FAILED, CANCELLED }
-
     private static final int PERCENT = 100;
-
-    /**
-     * @param name      the name it gets in the destination, fixed when queued
-     * @param replace   an existing file of that name is replaced
-     * @param duplicate copied into its own folder as "name copy"; {@code name} is ignored
-     */
-    public record Item(StorageEntry entry, String name, boolean replace, boolean duplicate) implements Serializable {
-    }
 
     @Getter
     private final String id;
@@ -74,6 +53,27 @@ public final class TransferTask implements Serializable {
     /** Sentences added to the outcome, e.g. which originals a move kept. */
     private final List<String> notes = new CopyOnWriteArrayList<>();
     private volatile boolean announced;
+
+    @Getter
+    @RequiredArgsConstructor
+    public enum Kind {
+        MOVE("Moving", "Moved", "moved"), COPY("Copying", "Copied", "copied");
+
+        private final String running;
+        private final String done;
+        /** As in "2 items were not moved". */
+        private final String participle;
+    }
+
+    public enum State { QUEUED, RUNNING, DONE, FAILED, CANCELLED }
+
+    /**
+     * @param name      the name it gets in the destination, fixed when queued
+     * @param replace   an existing file of that name is replaced
+     * @param duplicate copied into its own folder as "name copy"; {@code name} is ignored
+     */
+    public record Item(StorageEntry entry, String name, boolean replace, boolean duplicate) implements Serializable {
+    }
 
     TransferTask(String id, Kind kind, FsRoot sourceRoot, FsRoot destinationRoot, List<String> destination,
                  List<Item> items) {
