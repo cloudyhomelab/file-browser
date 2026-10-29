@@ -2,6 +2,7 @@ package org.vaadin.filebrowser.ui.dialog;
 
 import java.net.URI;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.vaadin.filebrowser.storage.S3Provider;
@@ -51,7 +52,7 @@ public class S3Form extends RootForm {
             endpointUrl.setReadOnly(true);
             endpointUrl.setPlaceholder("AWS");
         }
-        for (final TextFieldBase<?, String> field : new TextFieldBase[]{endpointUrl, keyId, secret, region}) {
+        for (final var field : List.<TextFieldBase<?, String>>of(endpointUrl, keyId, secret, region)) {
             field(field);
         }
 
@@ -64,7 +65,7 @@ public class S3Form extends RootForm {
         if (editing()) {
             // shown as stored; keys never are
             final var stored = context.workspace().secretNames(context.editing());
-            for (final var key : new TextFieldBase[]{keyId, secret}) {
+            for (final var key : List.<TextFieldBase<?, String>>of(keyId, secret)) {
                 key.setReadOnly(true);
                 key.setPlaceholder(stored.contains(S3StorageType.ACCESS_KEY) ? "Stored encrypted" : "None, a public bucket");
             }

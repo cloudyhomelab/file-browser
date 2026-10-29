@@ -10,6 +10,7 @@ import org.vaadin.filebrowser.web.FileUrls;
 import com.vaadin.componentfactory.pdfviewer.PdfViewer;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Key;
+import com.vaadin.flow.component.ModalityMode;
 import com.vaadin.flow.component.Shortcuts;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Anchor;
@@ -59,7 +60,7 @@ public class Lightbox extends Dialog {
         this.onShown = onShown;
         this.onDownload = onDownload;
         addClassName("fb-lightbox");
-        setModal(true);
+        setModality(ModalityMode.STRICT);
         setDraggable(false);
         setResizable(false);
         setCloseOnOutsideClick(true);

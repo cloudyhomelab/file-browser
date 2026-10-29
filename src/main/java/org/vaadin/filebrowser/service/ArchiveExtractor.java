@@ -141,7 +141,7 @@ public final class ArchiveExtractor {
             case TAR -> raw;
             case TAR_GZ, GZ -> GzipCompressorInputStream.builder().setInputStream(raw).setDecompressConcatenated(true).get();
             case TAR_BZ2, BZ2 -> new BZip2CompressorInputStream(raw, true);
-            case TAR_XZ, XZ -> new XZCompressorInputStream(raw, true);
+            case TAR_XZ, XZ -> XZCompressorInputStream.builder().setInputStream(raw).setDecompressConcatenated(true).get();
             case TAR_LZ, LZ -> new LzipInputStream(raw);
             default -> throw new IllegalArgumentException(format.name());
         };
