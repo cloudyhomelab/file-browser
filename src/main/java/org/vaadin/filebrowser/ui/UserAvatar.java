@@ -12,6 +12,8 @@ public class UserAvatar extends Span {
     private static final int PALETTE_SIZE = 8;
     private static final int HASH_MULTIPLIER = 31;
 
+    // the constants name CSS modifier classes, e.g. fb-avatar--m
+    @SuppressWarnings("PMD.ShortVariable")
     public enum Size { XS, S, M, L, XL }
 
     public UserAvatar(String name, Size size) {

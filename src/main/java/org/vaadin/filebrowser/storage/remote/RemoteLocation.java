@@ -13,6 +13,20 @@ public record RemoteLocation(String host, int port, String folder) {
 
     /** @return null when {@code endpoint} isn't of that form */
     public static RemoteLocation parse(String endpoint, String scheme, int defaultPort) {
+        final var uri = serverUri(endpoint, scheme);
+        if (uri == null) {
+            return null;
+        }
+        final var path = uri.getPath() == null ? "" : uri.getPath().replaceAll("/+$", "");
+        if (path.contains("//")) {
+            return null;
+        }
+        return new RemoteLocation(uri.getHost(), uri.getPort() < 0 ? defaultPort : uri.getPort(),
+                path.isEmpty() ? "/" : path);
+    }
+
+    /** @return null unless {@code endpoint} is a URI of {@code scheme} naming just a server and a path */
+    private static URI serverUri(String endpoint, String scheme) {
         if (endpoint == null || !endpoint.startsWith(scheme + "://")) {
             return null;
         }
@@ -27,12 +41,7 @@ public record RemoteLocation(String host, int port, String folder) {
                 || uri.getRawFragment() != null || uri.getPort() > MAX_PORT) {
             return null;
         }
-        final var path = uri.getPath() == null ? "" : uri.getPath().replaceAll("/+$", "");
-        if (path.contains("//")) {
-            return null;
-        }
-        return new RemoteLocation(uri.getHost(), uri.getPort() < 0 ? defaultPort : uri.getPort(),
-                path.isEmpty() ? "/" : path);
+        return uri;
     }
 
     /** The absolute server path of {@code path}, relative to the folder; the folder itself for {@code ""}. */

@@ -7,6 +7,8 @@ import com.vaadin.flow.component.html.Span;
 /** The black folder mark; size comes from the modifier class. */
 public class Brand extends Span {
 
+    // the constants name CSS modifier classes, e.g. fb-avatar--m
+    @SuppressWarnings("PMD.ShortVariable")
     public enum Size { S, M, XL }
 
     public Brand(Size size) {

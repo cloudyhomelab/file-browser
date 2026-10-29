@@ -81,6 +81,8 @@ import com.vaadin.flow.server.streams.UploadHandler;
 import com.vaadin.flow.shared.Registration;
 
 /** Browses one file system: sidebar tree, header with breadcrumb and toolbar, list/grid, details. */
+// split up with #77
+@SuppressWarnings("PMD.TooManyMethods")
 @PermitAll
 @Route("fs/:rootId/:path*")
 public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicTitle, EntryHandler {

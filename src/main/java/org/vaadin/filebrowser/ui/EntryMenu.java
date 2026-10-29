@@ -81,8 +81,8 @@ public class EntryMenu extends Div {
             button.setEnabled(!disabled);
             menu.add(button);
         }
-        final var top = Math.max(0, Math.min(pos.y(), pos.viewportHeight() - ASSUMED_MENU_HEIGHT));
-        final var left = Math.max(0, Math.min(pos.x(), pos.viewportWidth() - ASSUMED_MENU_WIDTH));
+        final var top = Math.max(0, Math.min(pos.clientY(), pos.viewportHeight() - ASSUMED_MENU_HEIGHT));
+        final var left = Math.max(0, Math.min(pos.clientX(), pos.viewportWidth() - ASSUMED_MENU_WIDTH));
         menu.getStyle().setTop(top + "px").setLeft(left + "px");
         setVisible(true);
     }

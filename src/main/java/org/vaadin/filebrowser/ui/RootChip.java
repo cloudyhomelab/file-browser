@@ -11,6 +11,8 @@ import com.vaadin.flow.component.html.Span;
 /** The tinted square with a disk / server / cloud mark that identifies a file-system kind. */
 public class RootChip extends Span {
 
+    // the constants name CSS modifier classes, e.g. fb-avatar--m
+    @SuppressWarnings("PMD.ShortVariable")
     public enum Size { XS, S, M, L }
 
     public RootChip(KindInfo kind, Size size) {

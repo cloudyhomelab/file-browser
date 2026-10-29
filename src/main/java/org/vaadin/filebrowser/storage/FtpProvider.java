@@ -104,34 +104,42 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         ftp.setDataTimeout(REPLY_TIMEOUT);
         ftp.setAutodetectUTF8(true);
         try {
-            try {
-                ftp.connect(location.host(), location.port());
-            } catch (SSLException e) {
-                throw trustFailure(seen.get(), e);
-            } catch (IOException e) {
-                throw new StorageException("Could not reach " + location.host() + ":" + location.port() + ".", e);
-            }
-            if (!FTPReply.isPositiveCompletion(ftp.getReplyCode())) {
-                throw new StorageException("The server refused the connection.");
-            }
-            if (ftp instanceof FTPSClient ftps) {
-                // data connections are encrypted as well
-                ftps.execPBSZ(0);
-                ftps.execPROT("P");
-            }
-            final var anonymous = connection.user() == null;
-            final var user = anonymous ? ANONYMOUS_USER : connection.user();
-            final var password = anonymous ? ANONYMOUS_PASSWORD : connection.password();
-            if (!ftp.login(user, password == null ? "" : password)) {
-                throw new StorageException(anonymous ? "The server doesn't allow anonymous sign-in."
-                        : "The server refused the user name or password.");
-            }
+            open(ftp, seen);
+            signIn(ftp);
             ftp.enterLocalPassiveMode();
             ftp.setFileType(FTP.BINARY_FILE_TYPE);
             return new Session(ftp, ftp.hasFeature("MLST"));
         } catch (IOException | RuntimeException e) {
             quit(ftp);
             throw e;
+        }
+    }
+
+    private void open(FTPClient ftp, AtomicReference<String> seen) throws IOException {
+        try {
+            ftp.connect(location.host(), location.port());
+        } catch (SSLException e) {
+            throw trustFailure(seen.get(), e);
+        } catch (IOException e) {
+            throw new StorageException("Could not reach " + location.host() + ":" + location.port() + ".", e);
+        }
+        if (!FTPReply.isPositiveCompletion(ftp.getReplyCode())) {
+            throw new StorageException("The server refused the connection.");
+        }
+        if (ftp instanceof FTPSClient ftps) {
+            // data connections are encrypted as well
+            ftps.execPBSZ(0);
+            ftps.execPROT("P");
+        }
+    }
+
+    private void signIn(FTPClient ftp) throws IOException {
+        final var anonymous = connection.user() == null;
+        final var user = anonymous ? ANONYMOUS_USER : connection.user();
+        final var password = anonymous ? ANONYMOUS_PASSWORD : connection.password();
+        if (!ftp.login(user, password == null ? "" : password)) {
+            throw new StorageException(anonymous ? "The server doesn't allow anonymous sign-in."
+                    : "The server refused the user name or password.");
         }
     }
 
@@ -339,8 +347,13 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         if (ROOT.equals(path)) {
             throw refusal(ftp);
         }
+        return statInParent(ftp, path, name);
+    }
+
+    /** Finds a file in its parent's listing, for servers without MLST. */
+    private static Node statInParent(FTPClient ftp, String path, String name) throws IOException {
         final var slash = path.lastIndexOf('/');
-        final var parent = slash == 0 ? "/" : path.substring(0, slash);
+        final var parent = slash == 0 ? ROOT : path.substring(0, slash);
         if (!ftp.changeWorkingDirectory(parent)) {
             return null;
         }

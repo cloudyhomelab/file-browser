@@ -6,6 +6,7 @@ import com.vaadin.flow.component.html.NativeButton;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.function.SerializableRunnable;
 
+@SuppressWarnings("PMD.ShortClassName")
 public final class Ui {
 
     private Ui() {

@@ -124,12 +124,7 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
 
     /** Runs {@code work} on a pooled session. */
     protected <T> T call(String action, Work<S, T> work) {
-        final S session;
-        try {
-            session = pool.borrow();
-        } catch (IOException e) {
-            throw failure(action, e);
-        }
+        final var session = borrow(action);
         var broken = false;
         try {
             return work.run(session);
@@ -143,6 +138,14 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
             throw e;
         } finally {
             pool.release(session, broken);
+        }
+    }
+
+    private S borrow(String action) {
+        try {
+            return pool.borrow();
+        } catch (IOException e) {
+            throw failure(action, e);
         }
     }
 
@@ -231,12 +234,7 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
     @SuppressWarnings("PMD.CloseResource")
     private InputStream open(String path, long offset, long length) {
         final var action = "read “" + nameOf(path) + "”";
-        final S session;
-        try {
-            session = pool.borrow();
-        } catch (IOException e) {
-            throw failure(action, e);
-        }
+        final var session = borrow(action);
         try {
             final var node = statNode(session, remote(path));
             if (node == null || node.folder()) {
@@ -469,26 +467,27 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
         deleteEmptyFolder(session, path);
     }
 
+    /** The folder exists, and {@code path} is free or a file that may be replaced. */
+    private void requireWritable(S session, String folder, String path, boolean replace) throws IOException {
+        requireFolder(session, folder);
+        final var existing = statNode(session, remote(path));
+        final var name = nameOf(path);
+        if (existing != null && existing.folder()) {
+            throw new StorageException("A folder named “" + name + "” already exists here.");
+        }
+        if (existing != null && !replace) {
+            throw new StorageException("“" + name + "” already exists here.");
+        }
+    }
+
     @Override
     public WriteHandle openWrite(String folder, String name, boolean replace) {
         StoragePaths.requireValidName(name);
         final var action = "save “" + name + "”";
-        final S session;
+        final var session = borrow(action);
         try {
-            session = pool.borrow();
-        } catch (IOException e) {
-            throw failure(action, e);
-        }
-        try {
-            requireFolder(session, folder);
             final var path = StoragePaths.child(folder, name);
-            final var existing = statNode(session, remote(path));
-            if (existing != null && existing.folder()) {
-                throw new StorageException("A folder named “" + name + "” already exists here.");
-            }
-            if (existing != null && !replace) {
-                throw new StorageException("“" + name + "” already exists here.");
-            }
+            requireWritable(session, folder, path, replace);
             final var partial = StoragePaths.child(folder, PARTIAL_PREFIX + name + "." + UUID.randomUUID() + PARTIAL_SUFFIX);
             final var stream = writeStream(session, remote(partial));
             return new RemoteWrite(session, stream, partial, path, replace, name);

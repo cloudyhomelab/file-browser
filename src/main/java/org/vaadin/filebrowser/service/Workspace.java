@@ -37,8 +37,8 @@ import lombok.Getter;
  * operations through {@link StorageService}, the user's starred items and view preferences (saved
  * through {@link UserData}), uploads and transfers. Lives for the Vaadin session.
  */
-// holds app-wide services; sessions are never serialized. Remove with #76
-@SuppressWarnings("PMD.NonSerializableClass")
+// holds app-wide services; sessions are never serialized. Both go with #76
+@SuppressWarnings({"PMD.NonSerializableClass", "PMD.TooManyMethods"})
 @SpringComponent
 @VaadinSessionScope
 public class Workspace implements Serializable {

@@ -42,11 +42,16 @@ record ByteRange(long start, long end) {
         }
         final var firstText = spec.substring(0, dash);
         final var lastText = spec.substring(dash + 1);
-        final var last = number(lastText);
         if (firstText.isEmpty()) {
-            return last.map(suffix -> suffix(suffix, size)).orElseGet(Whole::new);
+            return number(lastText).map(suffix -> suffix(suffix, size)).orElseGet(Whole::new);
         }
+        return fromStart(firstText, lastText, size);
+    }
+
+    /** {@code first-last} or {@code first-}. */
+    private static Request fromStart(String firstText, String lastText, long size) {
         final var first = number(firstText);
+        final var last = number(lastText);
         if (first.isEmpty() || (!lastText.isEmpty() && last.isEmpty())) {
             return new Whole();
         }

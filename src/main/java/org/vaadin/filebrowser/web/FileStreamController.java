@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.vaadin.filebrowser.data.Catalog;
+import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.service.FileSystemRegistry;
 import org.vaadin.filebrowser.service.StorageService;
 import org.vaadin.filebrowser.storage.StorageEntry;
@@ -73,23 +74,15 @@ public class FileStreamController {
         response.setHeader(RESOURCE_POLICY, "same-origin");
         response.setHeader(REFERRER_POLICY, "no-referrer");
         final var relative = path.startsWith(StoragePaths.SEPARATOR) ? path.substring(1) : path;
-        if (relative.isEmpty()) {
-            response.setStatus(HttpStatus.NOT_FOUND.value());
-            return;
-        }
-        try {
-            StoragePaths.requireValidPath(relative);
-        } catch (StorageException e) {
-            response.setStatus(HttpStatus.BAD_REQUEST.value());
+        final var badPath = pathRefusal(relative);
+        if (badPath.isPresent()) {
+            response.setStatus(badPath.orElseThrow().value());
             return;
         }
         final var root = registry.find(rootId);
-        if (root.isEmpty()) {
-            response.setStatus(HttpStatus.NOT_FOUND.value());
-            return;
-        }
-        if (root.orElseThrow().locked() || !root.orElseThrow().options().opening()) {
-            response.setStatus(HttpStatus.FORBIDDEN.value());
+        final var badRoot = rootRefusal(root);
+        if (badRoot.isPresent()) {
+            response.setStatus(badRoot.orElseThrow().value());
             return;
         }
         final StorageProvider provider;
@@ -108,6 +101,28 @@ public class FileStreamController {
         send(provider, found.orElseThrow(), request, response);
     }
 
+    private static Optional<HttpStatus> pathRefusal(String relative) {
+        if (relative.isEmpty()) {
+            return Optional.of(HttpStatus.NOT_FOUND);
+        }
+        try {
+            StoragePaths.requireValidPath(relative);
+        } catch (StorageException e) {
+            return Optional.of(HttpStatus.BAD_REQUEST);
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<HttpStatus> rootRefusal(Optional<FsRoot> root) {
+        if (root.isEmpty()) {
+            return Optional.of(HttpStatus.NOT_FOUND);
+        }
+        if (root.orElseThrow().locked() || !root.orElseThrow().options().opening()) {
+            return Optional.of(HttpStatus.FORBIDDEN);
+        }
+        return Optional.empty();
+    }
+
     // close() reports a failure to close instead of throwing it, and the stream is null for HEAD
     @SuppressWarnings("PMD.UseTryWithResources")
     private void send(StorageProvider provider, StorageEntry entry, HttpServletRequest request,
@@ -122,15 +137,7 @@ public class FileStreamController {
             return;
         }
         final var size = entry.size();
-        final ByteRange.Request asked;
-        if (size == null) {
-            asked = new ByteRange.Whole();
-        } else {
-            response.setHeader(HttpHeaders.ACCEPT_RANGES, BYTES);
-            asked = rangeStillValid(request, etag, entry.modified())
-                    ? ByteRange.parse(request.getHeader(HttpHeaders.RANGE), size)
-                    : new ByteRange.Whole();
-        }
+        final var asked = requestedRange(entry, etag, request, response);
         if (asked instanceof ByteRange.Unsatisfiable) {
             response.setStatus(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE.value());
             response.setHeader(HttpHeaders.CONTENT_RANGE, BYTES + " */" + size);
@@ -148,19 +155,36 @@ public class FileStreamController {
         // closing gives a remote session back to its pool, so it must happen whatever fails below
         try {
             describe(entry, viewType, response);
-            if (range != null) {
-                response.setStatus(HttpStatus.PARTIAL_CONTENT.value());
-                response.setHeader(HttpHeaders.CONTENT_RANGE,
-                        BYTES + " " + range.start() + "-" + range.end() + "/" + size);
-                response.setContentLengthLong(range.length());
-            } else if (size != null) {
-                response.setContentLengthLong(size);
-            }
+            setLength(range, size, response);
             if (in != null) {
                 in.transferTo(response.getOutputStream());
             }
         } finally {
             close(in, entry);
+        }
+    }
+
+    /** The whole file where the size is unknown or the file changed since the range was asked for. */
+    private static ByteRange.Request requestedRange(StorageEntry entry, String etag, HttpServletRequest request,
+                                                    HttpServletResponse response) {
+        final var size = entry.size();
+        if (size == null) {
+            return new ByteRange.Whole();
+        }
+        response.setHeader(HttpHeaders.ACCEPT_RANGES, BYTES);
+        return rangeStillValid(request, etag, entry.modified())
+                ? ByteRange.parse(request.getHeader(HttpHeaders.RANGE), size)
+                : new ByteRange.Whole();
+    }
+
+    private static void setLength(ByteRange range, Long size, HttpServletResponse response) {
+        if (range != null) {
+            response.setStatus(HttpStatus.PARTIAL_CONTENT.value());
+            response.setHeader(HttpHeaders.CONTENT_RANGE,
+                    BYTES + " " + range.start() + "-" + range.end() + "/" + size);
+            response.setContentLengthLong(range.length());
+        } else if (size != null) {
+            response.setContentLengthLong(size);
         }
     }
 
