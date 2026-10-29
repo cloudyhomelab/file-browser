@@ -3,13 +3,15 @@ package org.vaadin.filebrowser.service;
 import java.io.Serializable;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.storage.StorageEntry;
 
 /**
  * One move or copy the user started, of one or more items. Progress is written by the queue's worker
- * thread and read by the UI, so the changing fields are volatile.
+ * thread and read by the UI, so the changing fields are volatile or atomic.
  */
 public final class TransferTask implements Serializable {
 
@@ -61,16 +63,16 @@ public final class TransferTask implements Serializable {
     /** Bytes of the items, once known: up front when they are all files, otherwise after walking their folders. */
     private volatile Long bytesTotal;
     private volatile State state = State.QUEUED;
-    private volatile int itemsDone;
-    private volatile long bytesDone;
-    private volatile long bytesVerified;
+    private final AtomicInteger itemsDone = new AtomicInteger();
+    private final AtomicLong bytesDone = new AtomicLong();
+    private final AtomicLong bytesVerified = new AtomicLong();
     private volatile boolean cancelRequested;
     /** What is happening right now, e.g. "Verifying “a.txt”…"; null when there is nothing to say. */
     private volatile String status;
     private volatile String message;
     /** Sentences added to the outcome, e.g. which originals a move kept. */
     private final List<String> notes = new CopyOnWriteArrayList<>();
-    private boolean announced;
+    private volatile boolean announced;
 
     TransferTask(String id, Kind kind, FsRoot sourceRoot, FsRoot destinationRoot, List<String> destination,
                  List<Item> items) {
@@ -90,15 +92,15 @@ public final class TransferTask implements Serializable {
     }
 
     void itemDone() {
-        itemsDone++;
+        itemsDone.incrementAndGet();
     }
 
     void copied(long bytes) {
-        bytesDone += bytes;
+        bytesDone.addAndGet(bytes);
     }
 
     void verified(long bytes) {
-        bytesVerified += bytes;
+        bytesVerified.addAndGet(bytes);
     }
 
     void bytesTotal(long bytes) {
@@ -149,10 +151,11 @@ public final class TransferTask implements Serializable {
      */
     public Integer progress() {
         final var total = bytesTotal;
-        if (total == null || total <= 0 || bytesDone == 0) {
+        final var done = bytesDone.get();
+        if (total == null || total <= 0 || done == 0) {
             return null;
         }
-        return (int) Math.min(PERCENT, (bytesDone + bytesVerified) * PERCENT / (2 * total));
+        return (int) Math.min(PERCENT, (done + bytesVerified.get()) * PERCENT / (2 * total));
     }
 
     public String status() {
@@ -204,7 +207,7 @@ public final class TransferTask implements Serializable {
     }
 
     public int itemsDone() {
-        return itemsDone;
+        return itemsDone.get();
     }
 
     public State state() {

@@ -35,7 +35,8 @@ public class Catalog implements Serializable {
     private final Map<String, FileTypeInfo> fileTypes;
     private final Map<String, String> signInErrors;
     private final MountKinds mountKinds;
-    private final Map<String, ArchiveFormat> archiveFormats;
+    /** By name suffix, e.g. {@code .tar.gz}. */
+    private final List<Map.Entry<String, ArchiveFormat>> archiveFormats;
     /** Media type by lower-case extension, for files that may be shown in the page. */
     private final Map<String, String> viewTypes;
     private final RootOptions rootOptions;
@@ -60,7 +61,9 @@ public class Catalog implements Serializable {
                         + mountKinds.tints() + " for kind " + key);
             }
         });
-        this.archiveFormats = read(mapper, "data/archive-formats.json", new TypeReference<Map<String, ArchiveFormat>>() { });
+        final var formatsBySuffix = read(mapper, "data/archive-formats.json",
+                new TypeReference<Map<String, ArchiveFormat>>() { });
+        this.archiveFormats = List.copyOf(formatsBySuffix.entrySet());
         final var extensionsByViewType = read(mapper, "data/view-types.json",
                 new TypeReference<Map<String, List<String>>>() { });
         this.viewTypes = byExtension(extensionsByViewType);
@@ -111,7 +114,7 @@ public class Catalog implements Serializable {
     /** The archive format a name's suffix says, longest suffix first ({@code .tar.gz} before {@code .gz}). */
     public Optional<ArchiveFormat.Match> archiveFormat(String fileName) {
         final var lower = fileName.toLowerCase(Locale.ROOT);
-        return archiveFormats.entrySet().stream()
+        return archiveFormats.stream()
                 .filter(e -> lower.endsWith(e.getKey()) && lower.length() > e.getKey().length())
                 .max(Map.Entry.comparingByKey(Comparator.comparingInt(String::length)))
                 .map(e -> new ArchiveFormat.Match(e.getValue(), fileName.substring(0, fileName.length() - e.getKey().length())));

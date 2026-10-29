@@ -33,6 +33,8 @@ import org.vaadin.filebrowser.storage.StorageProvider;
 import org.vaadin.filebrowser.storage.StorageType;
 import org.vaadin.filebrowser.storage.UntrustedServerException;
 
+import jakarta.annotation.PreDestroy;
+
 /** Hands out the storage provider for each configured file system and reports its status. */
 @Service
 public class StorageService {
@@ -64,7 +66,7 @@ public class StorageService {
 
         public static final Check OK = new Check(null, null);
 
-        public static Check problem(String problem) {
+        public static Check failed(String problem) {
             return problem == null ? OK : new Check(problem, null);
         }
     }
@@ -159,7 +161,12 @@ public class StorageService {
         return types.find(root.type())
                 .map(type -> new RootStatus(null, false, type.kindKey(root.settings(), mount),
                         type.detail(root.settings(), mount), reason))
-                .orElse(new RootStatus(null, false, UNSUPPORTED_KIND, ""));
+                .orElseGet(() -> new RootStatus(null, false, UNSUPPORTED_KIND, ""));
+    }
+
+    @PreDestroy
+    void stop() {
+        probes.shutdownNow();
     }
 
     public PathProbe probe(String path) {
@@ -205,23 +212,23 @@ public class StorageService {
         try {
             type = types.get(typeKey);
         } catch (StorageException e) {
-            return Check.problem(e.getMessage());
+            return Check.failed(e.getMessage());
         }
         final var info = types.info(typeKey);
-        return withTimeout(() -> readCheck(type, info, config), Check.problem(info.checkTimeout()), CHECK_TIMEOUT);
+        return withTimeout(() -> readCheck(type, info, config), Check.failed(info.checkTimeout()), CHECK_TIMEOUT);
     }
 
     private Check readCheck(StorageType type, RootTypeInfo info, StorageConfig config) {
         StorageProvider provider = null;
         try {
             provider = type.open(config);
-            return Check.problem(type.problem(provider));
+            return Check.failed(type.problem(provider));
         } catch (UntrustedServerException e) {
             return new Check(e.getMessage(), e.fingerprint());
         } catch (StorageException e) {
-            return Check.problem(e.getMessage());
+            return Check.failed(e.getMessage());
         } catch (RuntimeException e) {
-            return Check.problem(info.checkFailed());
+            return Check.failed(info.checkFailed());
         } finally {
             if (provider instanceof AutoCloseable closeable) {
                 try {

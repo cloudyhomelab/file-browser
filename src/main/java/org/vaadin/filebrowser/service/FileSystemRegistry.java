@@ -57,11 +57,11 @@ public class FileSystemRegistry {
     }
 
     public List<FsRoot> all() {
-        return jdbc.sql("SELECT " + COLUMNS + " FROM file_system ORDER BY created_at, name").query(this::map).list();
+        return jdbc.sql("SELECT " + COLUMNS + " FROM file_system ORDER BY created_at, name").query((rs, row) -> map(rs)).list();
     }
 
     public Optional<FsRoot> find(String id) {
-        return jdbc.sql("SELECT " + COLUMNS + " FROM file_system WHERE id = :id").param("id", id).query(this::map).optional();
+        return jdbc.sql("SELECT " + COLUMNS + " FROM file_system WHERE id = :id").param("id", id).query((rs, row) -> map(rs)).optional();
     }
 
     public boolean endpointTaken(String endpoint) {
@@ -131,7 +131,7 @@ public class FileSystemRegistry {
     }
 
     // the status is read from the storage, not stored
-    private FsRoot map(ResultSet rs, int row) throws SQLException {
+    private FsRoot map(ResultSet rs) throws SQLException {
         final var access = Access.valueOf(rs.getString("access"));
         final var settings = JsonMaps.read(rs.getString("settings"));
         final var options = OPTIONS.readValue(rs.getString("options"), RootOptions.class);

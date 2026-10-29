@@ -19,11 +19,12 @@ import com.vaadin.flow.component.html.NativeButton;
 public class FileListView extends Composite<Div> {
 
     private final EntryHandler handler;
-    private final Map<Located, Div> rows = new LinkedHashMap<>();
+    private final Map<Located, Div> rows;
     private final DragMove.Targets dropTargets = new DragMove.Targets();
 
     public FileListView(List<Located> entries, EntryHandler handler, Density density, Catalog catalog) {
         this.handler = handler;
+        this.rows = LinkedHashMap.newLinkedHashMap(entries.size());
         final var table = getContent();
         table.addClassNames("fb-table", "fb-table--" + density.name().toLowerCase());
         table.getElement().getClassList().set("fb-table--selectable", handler.selectable());

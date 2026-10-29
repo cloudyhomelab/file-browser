@@ -15,7 +15,7 @@ public class Segmented<T> extends Composite<Div> {
             return new Option<>(value, label, null, null);
         }
 
-        public static <T> Option<T> icon(T value, String icon, String title) {
+        public static <T> Option<T> iconOnly(T value, String icon, String title) {
             return new Option<>(value, null, icon, title);
         }
     }

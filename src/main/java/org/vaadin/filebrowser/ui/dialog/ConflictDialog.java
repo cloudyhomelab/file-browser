@@ -1,5 +1,6 @@
 package org.vaadin.filebrowser.ui.dialog;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
@@ -36,7 +37,7 @@ public class ConflictDialog extends FbDialog {
      * @param folder whether a folder is involved on either side; for an upload, the new folder an
      *               archive would be extracted into
      */
-    public record Clash(String name, String type, boolean folder) {
+    public record Clash(String name, String type, boolean folder) implements Serializable {
     }
 
     private static final List<Segmented.Option<ConflictChoice>> OPTIONS = List.of(

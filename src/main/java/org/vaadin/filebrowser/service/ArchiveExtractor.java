@@ -4,6 +4,7 @@ import java.io.BufferedInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -36,7 +37,7 @@ import org.vaadin.filebrowser.storage.StorageProvider;
 public final class ArchiveExtractor {
 
     /** Upper bounds for one archive. */
-    public record Limits(long maxBytes, int maxEntries) {
+    public record Limits(long maxBytes, int maxEntries) implements Serializable {
     }
 
     public record Result(int written, int skipped) {
@@ -237,9 +238,10 @@ public final class ArchiveExtractor {
         var path = target;
         for (final var segment : segments) {
             final var child = StoragePaths.child(path, segment);
-            if (!knownFolders.contains(child)) {
+            if (knownFolders.add(child)) {
                 final var existing = provider.stat(child);
                 if (existing.isPresent() && !existing.get().folder()) {
+                    knownFolders.remove(child);
                     return null;
                 }
                 if (existing.isEmpty()) {
@@ -247,7 +249,6 @@ public final class ArchiveExtractor {
                     createdFolders.add(child);
                     names(path).add(segment);
                 }
-                knownFolders.add(child);
             }
             path = child;
         }

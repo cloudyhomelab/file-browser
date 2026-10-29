@@ -3,6 +3,7 @@ package org.vaadin.filebrowser.config;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.util.unit.DataSize;
@@ -31,7 +32,7 @@ public record FileBrowserProperties(Path databasePath, Map<String, Provider> oid
         allowedEmails = allowedEmails == null ? List.of() : List.copyOf(allowedEmails);
         adminEmails = adminEmails == null ? List.of() : List.copyOf(adminEmails);
         linkUploadAllowedNetworks = linkUploadAllowedNetworks == null ? List.of() : List.copyOf(linkUploadAllowedNetworks);
-        maxExtractEntries = maxExtractEntries == null ? DEFAULT_EXTRACT_ENTRIES : maxExtractEntries;
+        maxExtractEntries = Objects.requireNonNullElse(maxExtractEntries, DEFAULT_EXTRACT_ENTRIES);
     }
 
     /** The most an extracted archive may add up to: the setting, else a multiple of the upload limit. */

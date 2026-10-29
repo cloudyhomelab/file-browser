@@ -1,5 +1,6 @@
 package org.vaadin.filebrowser.ui;
 
+import java.io.Serializable;
 import java.util.List;
 
 import org.vaadin.filebrowser.data.AutoRefresh;
@@ -33,7 +34,7 @@ public class Toolbar extends Composite<Div> {
     public record Callbacks(SerializableConsumer<String> onQuery, SerializableConsumer<SortKey> onSort,
                             SerializableConsumer<AutoRefresh> onAutoRefresh, SerializableRunnable onToggleDensity,
                             SerializableConsumer<Layout> onLayout, SerializableRunnable onNewFolder,
-                            SerializableRunnable onUpload) {
+                            SerializableRunnable onUpload) implements Serializable {
     }
 
     private static final int SEARCH_DEBOUNCE_MS = 250;
@@ -75,8 +76,8 @@ public class Toolbar extends Composite<Div> {
         final var densityToggle = Ui.iconButton(dense ? "list" : "menu", dense ? "Comfortable rows" : "Dense rows",
                 callbacks.onToggleDensity());
         actions.add(densityToggle);
-        final var listOption = Segmented.Option.icon(Layout.LIST, "list", "List");
-        final var gridOption = Segmented.Option.icon(Layout.GRID, "grid", "Grid");
+        final var listOption = Segmented.Option.iconOnly(Layout.LIST, "list", "List");
+        final var gridOption = Segmented.Option.iconOnly(Layout.GRID, "grid", "Grid");
         final var layoutToggle = new Segmented<>("fb-seg--view", List.of(listOption, gridOption), state.layout(),
                 callbacks.onLayout());
         actions.add(layoutToggle);

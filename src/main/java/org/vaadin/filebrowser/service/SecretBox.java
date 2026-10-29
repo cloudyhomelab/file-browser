@@ -112,7 +112,7 @@ public class SecretBox {
             return new String(plain, StandardCharsets.UTF_8);
         } catch (GeneralSecurityException e) {
             // another key than the one it was stored with, or a value moved from another context
-            throw new StorageException("Stored credentials can't be read with the server's secret key.");
+            throw new StorageException("Stored credentials can't be read with the server's secret key.", e);
         }
     }
 

@@ -82,8 +82,8 @@ public class StarredView extends Div implements EntryHandler {
         final var spacer = Ui.spacer();
         final var titlebar = Ui.div("fb-page-titlebar", title, spacer);
         if (total > 0) {
-            final var listOption = Segmented.Option.icon(Layout.LIST, "list", "List");
-            final var gridOption = Segmented.Option.icon(Layout.GRID, "grid", "Grid");
+            final var listOption = Segmented.Option.iconOnly(Layout.LIST, "list", "List");
+            final var gridOption = Segmented.Option.iconOnly(Layout.GRID, "grid", "Grid");
             final var layoutToggle = new Segmented<>("fb-seg--view", List.of(listOption, gridOption), workspace.layout(), l -> {
                 workspace.setLayout(l);
                 render();

@@ -92,11 +92,8 @@ public class UploadQueue implements Serializable {
 
     /** The browser no longer has the file (e.g. the page was reloaded before the upload started). */
     public void lost(UploadTask task) {
-        synchronized (task) {
-            if (task.state() == UploadTask.State.QUEUED) {
-                task.state(UploadTask.State.FAILED, "“" + task.name() + "” is no longer available to upload.");
-            }
-        }
+        task.state(UploadTask.State.QUEUED, UploadTask.State.FAILED,
+                "“" + task.name() + "” is no longer available to upload.");
     }
 
     /** Finished uploads not yet reported to the user; each is returned once. UI thread only. */
@@ -114,11 +111,8 @@ public class UploadQueue implements Serializable {
      */
     public void receive(String taskId, InputStream in, long maxBytes) {
         final var task = find(taskId).orElseThrow(() -> new StorageException("Unknown upload."));
-        synchronized (task) {
-            if (task.state() != UploadTask.State.QUEUED) {
-                throw new StorageException("This upload was already handled.");
-            }
-            task.state(UploadTask.State.RECEIVING, null);
+        if (!task.state(UploadTask.State.QUEUED, UploadTask.State.RECEIVING, null)) {
+            throw new StorageException("This upload was already handled.");
         }
         final var provider = storage.provider(task.root());
         final var folder = StoragePaths.join(task.folder());
@@ -247,11 +241,7 @@ public class UploadQueue implements Serializable {
         try {
             in = links.fetch(task.url(), maxBytes);
         } catch (StorageException e) {
-            synchronized (task) {
-                if (task.state() == UploadTask.State.QUEUED) {
-                    task.state(UploadTask.State.FAILED, e.getMessage());
-                }
-            }
+            task.state(UploadTask.State.QUEUED, UploadTask.State.FAILED, e.getMessage());
             return;
         }
         try (in) {

@@ -27,7 +27,6 @@ public class S3Form extends RootForm {
     private static final String DEFAULT_REGION = "defaultRegion";
 
     private final TextField endpointUrl = new TextField("Endpoint URL (optional)");
-    private final Div credentials = Ui.div("fb-addroot-creds");
     private final TextField keyId = new TextField("Access key ID");
     private final PasswordField secret = new PasswordField("Secret access key");
     private final Div credentialsHint = Ui.div("fb-addroot-creds-hint");
@@ -60,7 +59,7 @@ public class S3Form extends RootForm {
         final var credsLabel = new Span("Credentials");
         final var credsOptional = Ui.span("fb-muted-regular", "(optional)");
         final var credsTitle = Ui.div("fb-addroot-creds-title", lockIcon, credsLabel, credsOptional);
-        credentials.add(credsTitle, keyId, secret, credentialsHint);
+        final var credentials = Ui.div("fb-addroot-creds", credsTitle, keyId, secret, credentialsHint);
         add(endpointUrl, credentials, region);
         if (editing()) {
             // shown as stored; keys never are

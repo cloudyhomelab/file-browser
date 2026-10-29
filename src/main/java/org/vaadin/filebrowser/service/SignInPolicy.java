@@ -2,6 +2,8 @@ package org.vaadin.filebrowser.service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -27,8 +29,8 @@ public class SignInPolicy {
         }
     }
 
-    private final List<String> allowedDomains;
-    private final List<String> allowedEmails;
+    private final Set<String> allowedDomains;
+    private final Set<String> allowedEmails;
     private final boolean requireVerifiedEmail;
 
     @Autowired
@@ -62,10 +64,10 @@ public class SignInPolicy {
         return Optional.empty();
     }
 
-    private static List<String> normalized(List<String> values) {
+    private static Set<String> normalized(List<String> values) {
         return values.stream()
                 .map(FileBrowserProperties::normalizedEmail)
                 .filter(v -> !v.isEmpty())
-                .toList();
+                .collect(Collectors.toUnmodifiableSet());
     }
 }

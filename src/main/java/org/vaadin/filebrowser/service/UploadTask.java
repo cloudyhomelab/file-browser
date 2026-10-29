@@ -73,9 +73,18 @@ public final class UploadTask implements Serializable {
         this.received = bytes;
     }
 
-    void state(State newState, String message) {
+    synchronized void state(State newState, String message) {
         this.state = newState;
         this.error = message;
+    }
+
+    /** Moves to {@code newState} only from {@code expected}, in one step; false when it was in another state. */
+    synchronized boolean state(State expected, State newState, String message) {
+        if (state != expected) {
+            return false;
+        }
+        state(newState, message);
+        return true;
     }
 
     /** True once, for the UI to report a finished upload exactly one time. Called on the UI thread only. */

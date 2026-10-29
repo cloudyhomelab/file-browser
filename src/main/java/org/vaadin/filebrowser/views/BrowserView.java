@@ -420,8 +420,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var countLabel = Ui.span("fb-header-count", count + " " + noun + (count == 1 ? "" : "s"));
         titleRow.add(spacer, countLabel);
         if (starredView) {
-            final var listOption = Segmented.Option.icon(Layout.LIST, "list", "List");
-            final var gridOption = Segmented.Option.icon(Layout.GRID, "grid", "Grid");
+            final var listOption = Segmented.Option.iconOnly(Layout.LIST, "list", "List");
+            final var gridOption = Segmented.Option.iconOnly(Layout.GRID, "grid", "Grid");
             final var layoutToggle = new Segmented<>("fb-seg--view", List.of(listOption, gridOption), workspace.layout(),
                     this::setLayout);
             titleRow.add(layoutToggle);

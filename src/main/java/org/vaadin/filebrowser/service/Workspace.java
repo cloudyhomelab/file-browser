@@ -130,7 +130,7 @@ public class Workspace implements Serializable {
             throw new AccessDeniedException("Only admins can add file systems");
         }
         if (!config.secrets().isEmpty() && !secrets.canStore()) {
-            return StorageService.Check.problem("Set FILEBROWSER_SECRET_KEY_FILE on the server to store credentials.");
+            return StorageService.Check.failed("Set FILEBROWSER_SECRET_KEY_FILE on the server to store credentials.");
         }
         return storage.check(type, config);
     }

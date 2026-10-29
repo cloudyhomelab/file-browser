@@ -142,7 +142,11 @@ public class LocalDiskProvider implements StorageProvider {
     }
 
     private static boolean isPartialUpload(Path path) {
-        final var name = path.getFileName().toString();
+        final var fileName = path.getFileName();
+        if (fileName == null) {
+            return false;
+        }
+        final var name = fileName.toString();
         return name.startsWith(PARTIAL_PREFIX) && name.endsWith(PARTIAL_SUFFIX);
     }
 
@@ -162,7 +166,8 @@ public class LocalDiskProvider implements StorageProvider {
         } catch (IOException e) {
             return Optional.empty();
         }
-        final var name = absolute.getFileName() == null ? "" : absolute.getFileName().toString();
+        final var fileName = absolute.getFileName();
+        final var name = fileName == null ? "" : fileName.toString();
         final var folder = attributes.isDirectory();
         final var type = folder ? StorageEntry.FOLDER_TYPE : typeForName.apply(name);
         final var size = folder ? null : attributes.size();

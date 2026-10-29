@@ -79,7 +79,7 @@ public final class AddressPolicy {
         try {
             cidr = Cidr.parse(text);
         } catch (IllegalArgumentException e) {
-            throw new IllegalStateException("FILEBROWSER_LINK_UPLOAD_ALLOWED_NETWORKS has an invalid CIDR: " + text);
+            throw new IllegalStateException("FILEBROWSER_LINK_UPLOAD_ALLOWED_NETWORKS has an invalid CIDR: " + text, e);
         }
         if (PRIVATE.stream().noneMatch(cidr::within)) {
             throw new IllegalStateException("FILEBROWSER_LINK_UPLOAD_ALLOWED_NETWORKS may only open private ranges "

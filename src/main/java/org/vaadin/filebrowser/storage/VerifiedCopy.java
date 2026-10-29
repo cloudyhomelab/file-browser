@@ -153,6 +153,6 @@ public final class VerifiedCopy {
     }
 
     private static String nameOf(String path) {
-        return path.substring(path.lastIndexOf(StoragePaths.SEPARATOR) + 1);
+        return path.substring(path.lastIndexOf('/') + 1);
     }
 }

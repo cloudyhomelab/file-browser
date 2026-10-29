@@ -128,7 +128,7 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
             ftp.setFileType(FTP.BINARY_FILE_TYPE);
             return new Session(ftp, ftp.hasFeature("MLST"));
         } catch (IOException | RuntimeException e) {
-            disconnect(ftp);
+            quit(ftp);
             throw e;
         }
     }
@@ -257,10 +257,10 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
 
     @Override
     protected void disconnect(Session session) {
-        disconnect(session.ftp());
+        quit(session.ftp());
     }
 
-    private static void disconnect(FTPClient ftp) {
+    private static void quit(FTPClient ftp) {
         if (!ftp.isConnected()) {
             return;
         }

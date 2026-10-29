@@ -76,7 +76,7 @@ record ByteRange(long start, long end) {
             return Optional.empty();
         }
         try {
-            return Optional.of(Long.parseLong(digits));
+            return Optional.of(Long.valueOf(digits));
         } catch (NumberFormatException e) {
             // too many digits for a long: larger than any file, so the range runs to the end or starts past it
             return Optional.of(Long.MAX_VALUE);
