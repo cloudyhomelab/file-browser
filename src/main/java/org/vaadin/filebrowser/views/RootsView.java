@@ -18,7 +18,7 @@ import org.vaadin.filebrowser.ui.MenuPosition;
 import org.vaadin.filebrowser.ui.RootMenu;
 import org.vaadin.filebrowser.ui.StarredBanner;
 import org.vaadin.filebrowser.ui.Switch;
-import org.vaadin.filebrowser.ui.Toasts;
+import org.vaadin.filebrowser.ui.Notices;
 import org.vaadin.filebrowser.ui.Ui;
 import org.vaadin.filebrowser.ui.dialog.AddRootDialog;
 import org.vaadin.filebrowser.ui.dialog.RemoveRootDialog;
@@ -167,14 +167,14 @@ public class RootsView extends Div {
                 : null;
         return new DriveCard(root, kind,
                 () -> UI.getCurrent().navigate(BrowserView.class, rootParams),
-                () -> Toasts.show("Access requested for “" + root.name() + "”", "mail"),
+                () -> Notices.show("Access requested for “" + root.name() + "”", "mail"),
                 onMenu);
     }
 
     private void openEditDialog(FsRoot root) {
         final var dialog = AddRootDialog.edit(workspace, root, edited -> {
             workspace.updateRoot(root, edited.name(), edited.access());
-            Toasts.show("Saved “" + edited.name() + "”", "check");
+            Notices.show("Saved “" + edited.name() + "”", "check");
             render();
         });
         dialog.open();
@@ -183,7 +183,7 @@ public class RootsView extends Div {
     private void openSettingsDialog(FsRoot root) {
         final var dialog = new RootSettingsDialog(root, options -> {
             workspace.updateOptions(root, options);
-            Toasts.show("Saved settings for “" + root.name() + "”", "check");
+            Notices.show("Saved settings for “" + root.name() + "”", "check");
             render();
         });
         dialog.open();
@@ -192,7 +192,7 @@ public class RootsView extends Div {
     private void openRemoveDialog(FsRoot root) {
         final var dialog = new RemoveRootDialog(root, () -> {
             workspace.removeRoot(root);
-            Toasts.show("Removed “" + root.name() + "”", "trash");
+            Notices.show("Removed “" + root.name() + "”", "trash");
             render();
         });
         dialog.open();
@@ -204,10 +204,10 @@ public class RootsView extends Div {
             try {
                 workspace.addRoot(root, secrets);
             } catch (StorageException e) {
-                Toasts.error(e.getMessage());
+                Notices.error(e.getMessage());
                 return;
             }
-            Toasts.show("Connected “" + root.name() + "”", "check");
+            Notices.show("Connected “" + root.name() + "”", "check");
             render();
         });
         dialog.open();

@@ -53,7 +53,8 @@ import org.vaadin.filebrowser.ui.MenuPosition;
 import org.vaadin.filebrowser.ui.RootChip;
 import org.vaadin.filebrowser.ui.Segmented;
 import org.vaadin.filebrowser.ui.Sidebar;
-import org.vaadin.filebrowser.ui.Toasts;
+import org.vaadin.filebrowser.ui.Notices;
+import org.vaadin.filebrowser.ui.NotificationBell;
 import org.vaadin.filebrowser.ui.Toolbar;
 import org.vaadin.filebrowser.ui.Ui;
 import org.vaadin.filebrowser.ui.UploadDock;
@@ -72,6 +73,8 @@ import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.popover.PopoverPosition;
 import com.vaadin.flow.dom.Style;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
@@ -105,6 +108,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private final Div sidebarSlot = Ui.div("fb-sidebar-slot");
     private final FileDropArea main;
     private final Div titleRow = Ui.div("fb-header-row");
+    private final Span footerCount = Ui.span("fb-footer-count", "");
     private final Toolbar toolbar;
     private final Div content = Ui.div("fb-content");
     private final Div detailsSlot = Ui.div("fb-details-slot");
@@ -164,7 +168,10 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var dropOverlay = Ui.div("fb-drop-overlay", dropIcon, dropTitle, dropSub);
         final var header = Ui.div("fb-header", titleRow, toolbar);
         final var body = Ui.div("fb-body", content, detailsSlot);
-        main.add(header, body, dropOverlay, bulkSlot, dock);
+        final var footerSpacer = Ui.spacer();
+        final var bell = new NotificationBell(PopoverPosition.TOP_END);
+        final var footer = Ui.div("fb-footer", footerCount, footerSpacer, bell);
+        main.add(header, body, footer, dropOverlay, bulkSlot, dock);
 
         downloadLink.getElement().setAttribute("download", true);
         downloadLink.getStyle().setDisplay(Style.Display.NONE);
@@ -422,10 +429,10 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             }
         }
         final String noun = starredView ? "starred item" : "item";
-        final var spacer = Ui.spacer();
-        final var countLabel = Ui.span("fb-header-count", count + " " + noun + (count == 1 ? "" : "s"));
-        titleRow.add(spacer, countLabel);
+        footerCount.setText(count + " " + noun + (count == 1 ? "" : "s"));
         if (starredView) {
+            final var spacer = Ui.spacer();
+            titleRow.add(spacer);
             final var listOption = Segmented.Option.iconOnly(Layout.LIST, "list", "List");
             final var gridOption = Segmented.Option.iconOnly(Layout.GRID, "grid", "Grid");
             final var layoutToggle = new Segmented<>("fb-seg--view", List.of(listOption, gridOption), workspace.getLayout(),
@@ -558,11 +565,11 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         try {
             root = workspace.current(root);
         } catch (StorageException e) {
-            Toasts.error(e.getMessage());
+            Notices.error(e.getMessage());
             return;
         }
         if (!root.options().opening()) {
-            Toasts.show("Opening files is turned off for “" + root.name() + "”", "info");
+            Notices.error("Opening files is turned off for “" + root.name() + "”");
             return;
         }
         final var shown = displayEntries().stream().map(Located::entry).toList();
@@ -623,7 +630,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     public void toggleStar(Located entry) {
         final var on = starred(entry);
         workspace.setStarred(entry.rootId(), entry.entry().path(), !on);
-        Toasts.show(on ? "Removed “" + entry.entry().name() + "” from starred" : "Added “" + entry.entry().name() + "” to starred", "star");
+        Notices.show(on ? "Removed “" + entry.entry().name() + "” from starred" : "Added “" + entry.entry().name() + "” to starred", "star");
         refresh();
     }
 
@@ -661,7 +668,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return;
         }
         if (readOnly() && action.writes()) {
-            Toasts.readOnly();
+            Notices.readOnly();
             return;
         }
         final var first = targets.getFirst();
@@ -684,7 +691,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                     toggleStar(first);
                 } else {
                     targets.forEach(t -> workspace.setStarred(t.rootId(), t.entry().path(), true));
-                    Toasts.show("Added " + targets.size() + " items to starred", "star");
+                    Notices.show("Added " + targets.size() + " items to starred", "star");
                     refresh();
                 }
             }
@@ -694,9 +701,9 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private void rename(Located target, String name) {
         try {
             workspace.rename(root, target.entry(), name);
-            Toasts.show("Renamed to “" + name + "”", "edit");
+            Notices.show("Renamed to “" + name + "”", "edit");
         } catch (StorageException e) {
-            Toasts.error(e.getMessage());
+            Notices.error(e.getMessage());
         }
         afterChange();
     }
@@ -709,7 +716,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                 change.accept(t.entry());
                 done++;
             } catch (StorageException e) {
-                Toasts.error(e.getMessage());
+                Notices.error(e.getMessage());
                 break;
             }
         }
@@ -719,7 +726,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private void pickDestination(Mode mode, List<Located> targets) {
         final var fileSystems = workspace.transferTargets(root);
         if (fileSystems.isEmpty()) {
-            Toasts.readOnly();
+            Notices.readOnly();
             return;
         }
         final var entries = targets.stream().map(Located::entry).toList();
@@ -744,7 +751,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         try {
             existing = workspace.list(destRoot, dest);
         } catch (StorageException e) {
-            Toasts.error(e.getMessage());
+            Notices.error(e.getMessage());
             return;
         }
         final var existingFolders = new HashMap<String, Boolean>();
@@ -795,7 +802,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var movedFolders = targets.stream().map(Located::entry).filter(StorageEntry::folder).map(StorageEntry::path).toList();
         switch (MoveCheck.of(path, movedFolders, dest)) {
             case SAME_FOLDER -> { }
-            case INTO_ITSELF -> Toasts.error("Can't move a folder into itself.");
+            case INTO_ITSELF -> Notices.error("Can't move a folder into itself.");
             case OK -> checkClashes(Mode.MOVE, targets, root, dest, true);
         }
     }
@@ -826,7 +833,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         try {
             workspace.transfer(kind, root, destRoot, dest, items);
         } catch (StorageException e) {
-            Toasts.error(e.getMessage());
+            Notices.error(e.getMessage());
         }
         refresh();
         updatePollInterval();
@@ -867,7 +874,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         }
         if (done > 0) {
             final var deletedLabel = done == targets.size() ? label(targets) : Formats.plural(done, "item");
-            Toasts.show(deletedLabel + " deleted", "trash");
+            Notices.show(deletedLabel + " deleted", "trash");
         }
         afterChange();
     }
@@ -883,15 +890,15 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private void newFolder() {
         if (readOnly()) {
-            Toasts.readOnly();
+            Notices.readOnly();
             return;
         }
         final var dialog = NameDialog.newFolder(name -> {
             try {
                 workspace.createFolder(root, path, name);
-                Toasts.show("Folder “" + name + "” created", "folder");
+                Notices.show("Folder “" + name + "” created", "folder");
             } catch (StorageException e) {
-                Toasts.error(e.getMessage());
+                Notices.error(e.getMessage());
             }
             afterChange();
         });
@@ -902,7 +909,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private void openUploadDialog() {
         if (readOnly()) {
-            Toasts.readOnly();
+            Notices.readOnly();
             return;
         }
         final var now = workspace.current(root);
@@ -916,7 +923,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return;
         }
         if (readOnly()) {
-            Toasts.readOnly();
+            Notices.readOnly();
             return;
         }
         startUploads(files);
@@ -934,7 +941,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             existingFiles = workspace.fileNames(root, destination);
             existing = workspace.entryNames(root, destination);
         } catch (StorageException e) {
-            Toasts.error(e.getMessage());
+            Notices.error(e.getMessage());
             return;
         }
         final var conflicts = uploadClashes(files, existingFiles, existing);
@@ -953,7 +960,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         if (!tooLarge.isEmpty()) {
             final var limit = Formats.size(maxUploadBytes);
             final var names = tooLarge.size() == 1 ? "“" + tooLarge.getFirst().name() + "” is" : tooLarge.size() + " files are";
-            Toasts.error(names + " larger than " + limit + " and won't be uploaded");
+            Notices.error(names + " larger than " + limit + " and won't be uploaded");
         }
         return picked.stream().filter(f -> f.size() <= maxUploadBytes).toList();
     }
@@ -999,7 +1006,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         }
         final var skipped = files.size() - planned.size();
         if (planned.isEmpty() && skipped > 0) {
-            Toasts.show(skipped + " file" + (skipped > 1 ? "s" : "") + " skipped", "info");
+            Notices.show(skipped + " file" + (skipped > 1 ? "s" : "") + " skipped", "info");
             return;
         }
         enqueue(destination, planned);
@@ -1052,7 +1059,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             final var tasks = workspace.upload(root, destination, planned, maxUploadBytes);
             main.upload(tasks);
         } catch (StorageException e) {
-            Toasts.error(e.getMessage());
+            Notices.error(e.getMessage());
             return;
         }
         updatePollInterval();
@@ -1114,18 +1121,18 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private static void announce(UploadTask upload) {
         switch (upload.getState()) {
-            case DONE -> Toasts.show(upload.getSummary() != null ? "“" + upload.getName() + "”: " + upload.getSummary()
+            case DONE -> Notices.show(upload.getSummary() != null ? "“" + upload.getName() + "”: " + upload.getSummary()
                     : (upload.isReplace() ? "Replaced “" : "Uploaded “") + upload.getName() + "”", "check");
-            case FAILED -> Toasts.error(upload.getError());
+            case FAILED -> Notices.error(upload.getError());
             default -> { }
         }
     }
 
     private static void announce(TransferTask transfer) {
         switch (transfer.getState()) {
-            case DONE -> Toasts.show(transfer.getMessage(), transfer.getKind() == TransferTask.Kind.MOVE ? "move" : "copy");
-            case FAILED -> Toasts.error(transfer.getMessage());
-            case CANCELLED -> Toasts.show(transfer.getMessage(), "cross");
+            case DONE -> Notices.show(transfer.getMessage(), transfer.getKind() == TransferTask.Kind.MOVE ? "move" : "copy");
+            case FAILED -> Notices.error(transfer.getMessage());
+            case CANCELLED -> Notices.show(transfer.getMessage(), "cross");
             default -> { }
         }
     }
