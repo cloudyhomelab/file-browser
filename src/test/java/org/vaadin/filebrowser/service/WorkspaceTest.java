@@ -30,9 +30,12 @@ import org.vaadin.filebrowser.config.FileBrowserProperties;
 import org.vaadin.filebrowser.config.Roles;
 import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Catalog;
+import org.vaadin.filebrowser.data.ExtractOptions;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.IncomingFile;
+import org.vaadin.filebrowser.data.RootOptions;
 import org.vaadin.filebrowser.data.RootStatus;
+import org.vaadin.filebrowser.data.TestRoots;
 import org.vaadin.filebrowser.storage.DiskStorageType;
 import org.vaadin.filebrowser.storage.S3StorageType;
 import org.vaadin.filebrowser.storage.StorageConfig;
@@ -72,7 +75,7 @@ class WorkspaceTest {
         folder = Files.createDirectory(dir.resolve("projects"));
         Files.writeString(folder.resolve("notes.txt"), "notes");
         final var definition = new FsRoot("a", "Projects", DiskStorageType.KEY, folder.toString(), Map.of(),
-                Access.READ_WRITE, RootStatus.UNKNOWN);
+                Access.READ_WRITE, TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
         registry.add(definition, Map.of());
         held = registry.find("a").orElseThrow();
     }
@@ -154,7 +157,7 @@ class WorkspaceTest {
     private FsRoot archive() throws IOException {
         final var archiveFolder = Files.createDirectories(dir.resolve("archive/Inbox")).getParent();
         final var definition = new FsRoot("b", "Archive", DiskStorageType.KEY, archiveFolder.toString(), Map.of(),
-                Access.READ_WRITE, RootStatus.UNKNOWN);
+                Access.READ_WRITE, TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
         registry.add(definition, Map.of());
         return registry.find("b").orElseThrow();
     }
@@ -224,6 +227,30 @@ class WorkspaceTest {
         assertThatThrownBy(() -> workspace.upload(held, List.of(), planned, Long.MAX_VALUE)).isInstanceOf(StorageException.class);
         assertThat(folder.resolve("Research")).doesNotExist();
         assertThat(workspace.list(held, List.of())).extracting(e -> e.name()).containsExactly("notes.txt");
+    }
+
+    @Test
+    void linkUploadsAndExtractionAreRefusedOnceTurnedOff() {
+        registry.updateOptions("a", new RootOptions(false, false, true));
+
+        assertThatThrownBy(() -> workspace.inspectLink(held, "https://example.com/report.pdf"))
+                .isInstanceOf(StorageException.class)
+                .hasMessageContaining("web links are turned off");
+        final var link = IncomingFile.link("https://example.com/report.pdf", "report.pdf", "pdf", 5L);
+        final var fromLink = List.of(new UploadQueue.Planned(link, "report.pdf", false));
+        assertThatThrownBy(() -> workspace.upload(held, List.of(), fromLink, Long.MAX_VALUE))
+                .hasMessageContaining("web links are turned off");
+        final var archive = new IncomingFile("c1", "photos.zip", "archive", 5);
+        final var match = catalog.archiveFormat("photos.zip").orElseThrow();
+        final var extraction = new UploadQueue.Extraction(match.format(), match.baseName(), "photos", false,
+                ExtractOptions.Clash.KEEP_BOTH, new ArchiveExtractor.Limits(Long.MAX_VALUE, 10));
+        final var extracted = List.of(new UploadQueue.Planned(archive, "photos.zip", false, extraction));
+        assertThatThrownBy(() -> workspace.upload(held, List.of(), extracted, Long.MAX_VALUE))
+                .hasMessageContaining("Extracting archives is turned off");
+        assertThat(workspace.uploads().all()).isEmpty();
+
+        final var plain = List.of(new UploadQueue.Planned(archive, "photos.zip", false));
+        assertThat(workspace.upload(held, List.of(), plain, Long.MAX_VALUE)).hasSize(1);
     }
 
     @Test
@@ -320,7 +347,7 @@ class WorkspaceTest {
     @Test
     void aFileSystemWithSecretsIsNotAddedWithoutASecretKey() {
         final var bucket = new FsRoot("b", "Assets", S3StorageType.KEY, "s3://assets", Map.of(), Access.READ_WRITE,
-                RootStatus.UNKNOWN);
+                TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
         final var keys = Map.of(S3StorageType.ACCESS_KEY, "AKIDEXAMPLE", S3StorageType.SECRET_KEY, "wJalrXUtnFEMI");
         assertThatThrownBy(() -> workspace.addRoot(bucket, keys)).isInstanceOf(StorageException.class);
         assertThat(registry.all()).extracting(FsRoot::id).containsExactly("a");

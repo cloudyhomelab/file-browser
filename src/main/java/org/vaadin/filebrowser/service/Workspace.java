@@ -17,6 +17,7 @@ import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.Located;
+import org.vaadin.filebrowser.data.RootOptions;
 import org.vaadin.filebrowser.data.Sort;
 import org.vaadin.filebrowser.storage.CopyProgress;
 import org.vaadin.filebrowser.storage.StorageConfig;
@@ -144,6 +145,10 @@ public class Workspace implements Serializable {
 
     public void updateRoot(FsRoot root, String name, Access access) {
         registry.update(root.id(), name, access);
+    }
+
+    public void updateOptions(FsRoot root, RootOptions options) {
+        registry.updateOptions(root.id(), options);
     }
 
     public void removeRoot(FsRoot root) {
@@ -531,9 +536,19 @@ public class Workspace implements Serializable {
         return candidate;
     }
 
-    /** Queues uploads; files from web links start downloading on the server right away. */
+    /**
+     * Queues uploads; files from web links start downloading on the server right away. Refuses links and
+     * extraction where the file system's settings turn them off.
+     */
     public List<UploadTask> upload(FsRoot root, List<String> folder, List<UploadQueue.Planned> planned, long maxBytes) {
-        final var tasks = uploads.enqueue(writableRoot(root), folder, planned);
+        final var now = writableRoot(root);
+        if (!now.options().linkUploads() && planned.stream().anyMatch(p -> p.file().fromLink())) {
+            throw linkUploadsOff(now);
+        }
+        if (!now.options().extraction() && planned.stream().anyMatch(p -> p.extraction() != null)) {
+            throw new StorageException("Extracting archives is turned off for “" + now.name() + "”.");
+        }
+        final var tasks = uploads.enqueue(now, folder, planned);
         tasks.stream()
                 .filter(t -> t.url() != null)
                 .forEach(t -> Thread.ofVirtual().name("link-upload-" + t.id()).start(() -> uploads.download(t, links, maxBytes)));
@@ -541,8 +556,16 @@ public class Workspace implements Serializable {
     }
 
     /** The name and size a web link offers, read on the server with the same checks as the download. */
-    public LinkFetcher.LinkInfo inspectLink(String url) {
+    public LinkFetcher.LinkInfo inspectLink(FsRoot root, String url) {
+        final var now = current(root);
+        if (!now.options().linkUploads()) {
+            throw linkUploadsOff(now);
+        }
         return links.inspect(url);
+    }
+
+    private static StorageException linkUploadsOff(FsRoot root) {
+        return new StorageException("Uploads from web links are turned off for “" + root.name() + "”.");
     }
 
     public UploadQueue uploads() {

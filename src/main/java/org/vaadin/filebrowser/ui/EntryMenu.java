@@ -31,8 +31,9 @@ public class EntryMenu extends Div {
         add(backdrop, menu);
     }
 
+    /** @param canPreview whether a file offers Preview; its file system may not allow opening files */
     public void open(Located located, MenuPosition pos, boolean starredMode, boolean starred, boolean readOnly,
-                     SerializableBiConsumer<EntryAction, Located> onAction) {
+                     boolean canPreview, SerializableBiConsumer<EntryAction, Located> onAction) {
         final var folder = located.entry().folder();
         final var items = new ArrayList<Item>();
         final var star = new Item(EntryAction.STAR, starred ? "Remove from starred" : "Add to starred",
@@ -53,7 +54,9 @@ public class EntryMenu extends Div {
             final var move = new Item(EntryAction.MOVE, "Move to…", "move", false);
             final var copy = new Item(EntryAction.COPY, "Copy", "copy", false);
             final var delete = new Item(EntryAction.DELETE, "Delete", "trash", true);
-            items.add(open);
+            if (folder || canPreview) {
+                items.add(open);
+            }
             items.add(download);
             items.add(null);
             items.addAll(List.of(rename, move, copy, star));

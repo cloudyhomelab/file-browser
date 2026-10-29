@@ -38,6 +38,7 @@ import org.springframework.web.context.WebApplicationContext;
 import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.RootStatus;
+import org.vaadin.filebrowser.data.TestRoots;
 import org.vaadin.filebrowser.service.FileSystemRegistry;
 import org.vaadin.filebrowser.service.StorageService;
 import org.vaadin.filebrowser.storage.LocalDiskProvider;
@@ -87,7 +88,8 @@ class FileStreamSecurityTest {
     @BeforeEach
     void setUp() throws IOException {
         Files.writeString(files.resolve("notes.txt"), "notes");
-        final var root = new FsRoot("r1", "Disk", "disk", "/srv", Map.of(), Access.READ_WRITE, RootStatus.UNKNOWN);
+        final var root = new FsRoot("r1", "Disk", "disk", "/srv", Map.of(), Access.READ_WRITE, TestRoots.ALL_ALLOWED,
+                RootStatus.UNKNOWN);
         when(registry.find("r1")).thenReturn(Optional.of(root));
         final var provider = new LocalDiskProvider(files, name -> "generic", type -> "disk");
         when(storage.provider(any())).thenReturn(provider);

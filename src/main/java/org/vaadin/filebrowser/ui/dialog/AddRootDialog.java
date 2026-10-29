@@ -156,8 +156,9 @@ public class AddRootDialog extends FbDialog {
         }
         // only the name and access of an existing file system change; its settings stay as stored
         final var settings = editing == null ? form.settings() : editing.settings();
+        final var options = editing == null ? workspace.catalog().rootOptions() : editing.options();
         final var root = new FsRoot(id, name.getValue().trim(), type, form.endpoint(), settings,
-                effectiveAccess(), RootStatus.UNKNOWN);
+                effectiveAccess(), options, RootStatus.UNKNOWN);
         final var secrets = editing == null ? form.secrets() : Map.<String, String>of();
         if (editing == null) {
             final var check = workspace.checkRoot(type, new StorageConfig(root.endpoint(), root.settings(), secrets));

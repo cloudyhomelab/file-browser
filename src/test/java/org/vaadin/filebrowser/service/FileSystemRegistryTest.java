@@ -22,7 +22,9 @@ import org.sqlite.SQLiteDataSource;
 import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Capacity;
 import org.vaadin.filebrowser.data.FsRoot;
+import org.vaadin.filebrowser.data.RootOptions;
 import org.vaadin.filebrowser.data.RootStatus;
+import org.vaadin.filebrowser.data.TestRoots;
 import org.vaadin.filebrowser.storage.DiskStorageType;
 
 class FileSystemRegistryTest {
@@ -54,7 +56,7 @@ class FileSystemRegistryTest {
 
     private static FsRoot root(String id, String endpoint) {
         return new FsRoot(id, "Projects", DiskStorageType.KEY, endpoint, Map.of("node", "node-1"), Access.READ_ONLY,
-                RootStatus.UNKNOWN);
+                TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
     }
 
     @Test
@@ -136,8 +138,48 @@ class FileSystemRegistryTest {
         assertThatThrownBy(() -> regular.update("a", "Renamed", Access.READ_WRITE))
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> regular.remove("a")).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> regular.updateOptions("a", new RootOptions(false, false, false)))
+                .isInstanceOf(AccessDeniedException.class);
         final var unchanged = regular.find("a").orElseThrow();
         assertThat(unchanged.name()).isEqualTo("Projects");
         assertThat(unchanged.access()).isEqualTo(Access.READ_ONLY);
+        assertThat(unchanged.options()).isEqualTo(TestRoots.ALL_ALLOWED);
+    }
+
+    @Test
+    void storesItsOwnOptions() {
+        final var admin = registry(true);
+        final var noLinks = new RootOptions(false, true, true);
+        admin.add(new FsRoot("a", "Projects", DiskStorageType.KEY, "/srv/projects", Map.of(), Access.READ_WRITE,
+                noLinks, RootStatus.UNKNOWN), Map.of());
+        assertThat(admin.find("a").orElseThrow().options()).isEqualTo(noLinks);
+
+        final var nothing = new RootOptions(false, false, false);
+        admin.updateOptions("a", nothing);
+        assertThat(registry(false).find("a").orElseThrow().options()).isEqualTo(nothing);
+    }
+
+    @Test
+    void anOptionMissingFromTheDatabaseIsAnError() {
+        registry(true).add(root("a", "/srv/projects"), Map.of());
+        jdbc.sql("UPDATE file_system SET options = '{\"link_uploads\": true}'").update();
+        assertThatThrownBy(() -> registry(false).find("a")).hasMessageContaining("extraction");
+    }
+
+    @Test
+    void theMigrationAllowsEverythingOnExistingFileSystems() {
+        final var config = new SQLiteConfig();
+        final var dataSource = new SQLiteDataSource(config);
+        dataSource.setUrl("jdbc:sqlite:" + dir.resolve("old.db"));
+        Flyway.configure().dataSource(dataSource).target("6").load().migrate();
+        final var old = JdbcClient.create(dataSource);
+        old.sql("""
+                INSERT INTO file_system (id, name, type, endpoint, access, created_by, created_at)
+                VALUES ('a', 'Projects', 'disk', '/srv/projects', 'READ_WRITE', 'admin@example.com', '2026-01-01')
+                """).update();
+        Flyway.configure().dataSource(dataSource).load().migrate();
+        final var registry = new FileSystemRegistry(old, () -> false, () -> "", Clock.fixed(NOW, ZoneOffset.UTC),
+                root -> ONLINE);
+        assertThat(registry.find("a").orElseThrow().options()).isEqualTo(new RootOptions(true, true, true));
     }
 }

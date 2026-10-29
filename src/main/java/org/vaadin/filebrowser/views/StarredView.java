@@ -172,7 +172,7 @@ public class StarredView extends Div implements EntryHandler {
 
     @Override
     public void contextMenu(Located entry, MenuPosition position) {
-        entryMenu.open(entry, position, true, starred(entry), false, (action, located) -> {
+        entryMenu.open(entry, position, true, starred(entry), false, true, (action, located) -> {
             if (action == EntryAction.OPEN) {
                 open(located);
             } else if (action == EntryAction.DOWNLOAD) {

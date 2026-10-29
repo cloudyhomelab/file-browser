@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.RootStatus;
+import org.vaadin.filebrowser.data.TestRoots;
 import org.vaadin.filebrowser.storage.CopyCancelledException;
 import org.vaadin.filebrowser.storage.CopyProgress;
 import org.vaadin.filebrowser.storage.StorageEntry;
@@ -24,7 +25,7 @@ class TransferQueueTest {
 
     private static final Duration WAIT = Duration.ofSeconds(5);
     private static final FsRoot ROOT = new FsRoot("r", "Share", "disk", "/srv", Map.of(), Access.READ_WRITE,
-            RootStatus.UNKNOWN);
+            TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
 
     /** Records what it ran; fails or blocks on the names it is told to. */
     private static final class FakeWork implements TransferQueue.Work {

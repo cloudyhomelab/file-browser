@@ -14,6 +14,7 @@ import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.RootStatus;
+import org.vaadin.filebrowser.data.TestRoots;
 import org.vaadin.filebrowser.storage.DiskStorageType;
 import org.vaadin.filebrowser.storage.FtpStorageType;
 import org.vaadin.filebrowser.storage.Health;
@@ -32,7 +33,7 @@ class StorageServiceTest {
 
     private static FsRoot root(Path path) {
         return new FsRoot("id-" + path.getFileName(), "Test", DiskStorageType.KEY, path.toString(), Map.of(),
-                Access.READ_WRITE, RootStatus.UNKNOWN);
+                Access.READ_WRITE, TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
     }
 
     @Test
@@ -80,7 +81,8 @@ class StorageServiceTest {
 
     @Test
     void reportsAFileSystemOfAnUnknownTypeAsOffline() {
-        final var gone = new FsRoot("g", "Gone", "ftp", "ftp://host", Map.of(), Access.READ_WRITE, RootStatus.UNKNOWN);
+        final var gone = new FsRoot("g", "Gone", "ftp", "ftp://host", Map.of(), Access.READ_WRITE,
+                TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
         final var status = storage.status(gone);
         assertThat(status.online()).isFalse();
         assertThat(status.kind()).isEqualTo("unsupported");
@@ -121,9 +123,9 @@ class StorageServiceTest {
     void showsAnFtpServerAsFtpsUnlessItIsPlain() {
         final var withFtp = new StorageService(new StorageTypes(List.of(new FtpStorageType(catalog)), catalog));
         final var tls = new FsRoot("f1", "Shop", FtpStorageType.KEY, "ftp://127.0.0.1:1/x",
-                Map.of(FtpStorageType.ANONYMOUS, "true"), Access.READ_ONLY, RootStatus.UNKNOWN);
+                Map.of(FtpStorageType.ANONYMOUS, "true"), Access.READ_ONLY, TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
         final var plain = new FsRoot("f2", "Shop", FtpStorageType.KEY, "ftp://127.0.0.1:1/x",
-                Map.of(FtpStorageType.SECURITY, "none"), Access.READ_ONLY, RootStatus.UNKNOWN);
+                Map.of(FtpStorageType.SECURITY, "none"), Access.READ_ONLY, TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
         assertThat(withFtp.status(tls)).extracting(RootStatus::kind, RootStatus::detail, RootStatus::online)
                 .containsExactly("ftps", "Anonymous", false);
         assertThat(withFtp.status(plain).kind()).isEqualTo("ftp");
@@ -144,7 +146,7 @@ class StorageServiceTest {
         };
         final var withDown = new StorageService(new StorageTypes(List.of(down), catalog));
         final var root = new FsRoot("f3", "Shop", FtpStorageType.KEY, "ftp://example.com/x", Map.of(),
-                Access.READ_ONLY, RootStatus.UNKNOWN);
+                Access.READ_ONLY, TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
         assertThat(withDown.status(root)).extracting(RootStatus::online, RootStatus::reason)
                 .containsExactly(false, "The server's host key changed.");
     }

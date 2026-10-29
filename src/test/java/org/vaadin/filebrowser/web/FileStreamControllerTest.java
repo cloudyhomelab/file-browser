@@ -33,7 +33,9 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
+import org.vaadin.filebrowser.data.RootOptions;
 import org.vaadin.filebrowser.data.RootStatus;
+import org.vaadin.filebrowser.data.TestRoots;
 import org.vaadin.filebrowser.service.FileSystemRegistry;
 import org.vaadin.filebrowser.service.StorageService;
 import org.vaadin.filebrowser.storage.LocalDiskProvider;
@@ -75,7 +77,7 @@ class FileStreamControllerTest {
     }
 
     private static FsRoot root(Access access) {
-        return new FsRoot("r1", "Disk", "disk", "/srv", Map.of(), access, RootStatus.UNKNOWN);
+        return new FsRoot("r1", "Disk", "disk", "/srv", Map.of(), access, TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
     }
 
     private ResultActions fetch(String path, String... headers) throws Exception {
@@ -327,6 +329,15 @@ class FileStreamControllerTest {
     @Test
     void refusesLockedFileSystems() throws Exception {
         when(registry.find(any())).thenReturn(Optional.of(root(Access.LOCKED)));
+        fetch("notes.txt").andExpect(status().isForbidden()).andExpect(content().string(""));
+        verifyNoInteractions(storage);
+    }
+
+    @Test
+    void refusesFileSystemsThatDontAllowOpeningFiles() throws Exception {
+        final var closed = new FsRoot("r1", "Disk", "disk", "/srv", Map.of(), Access.READ_WRITE,
+                new RootOptions(true, true, false), RootStatus.UNKNOWN);
+        when(registry.find(any())).thenReturn(Optional.of(closed));
         fetch("notes.txt").andExpect(status().isForbidden()).andExpect(content().string(""));
         verifyNoInteractions(storage);
     }

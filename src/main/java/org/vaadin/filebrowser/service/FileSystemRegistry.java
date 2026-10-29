@@ -17,14 +17,23 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.FsRoot;
+import org.vaadin.filebrowser.data.RootOptions;
 import org.vaadin.filebrowser.data.RootStatus;
+
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 /** The configured file systems, shared by every user. Only admins may add to it. */
 @Service
 public class FileSystemRegistry {
 
     /** Everything but the secrets, which only {@link RootSecrets} reads. */
-    private static final String COLUMNS = "id, name, type, endpoint, settings, access";
+    private static final String COLUMNS = "id, name, type, endpoint, settings, access, options";
+    // every option must be stored: a file system only ever reads its own
+    private static final JsonMapper OPTIONS = JsonMapper.builder()
+            .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
+            .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
+            .build();
 
     private final JdbcClient jdbc;
     private final BooleanSupplier isAdmin;
@@ -73,8 +82,10 @@ public class FileSystemRegistry {
             throw new AccessDeniedException("Only admins can add file systems");
         }
         jdbc.sql("""
-                        INSERT INTO file_system (id, name, type, endpoint, settings, secrets, access, created_by, created_at)
-                        VALUES (:id, :name, :type, :endpoint, :settings, :secrets, :access, :createdBy, :createdAt)
+                        INSERT INTO file_system (id, name, type, endpoint, settings, secrets, access, options,
+                                                 created_by, created_at)
+                        VALUES (:id, :name, :type, :endpoint, :settings, :secrets, :access, :options, :createdBy,
+                                :createdAt)
                         """)
                 .param("id", root.id())
                 .param("name", root.name())
@@ -83,6 +94,7 @@ public class FileSystemRegistry {
                 .param("settings", JsonMaps.write(root.settings()))
                 .param("secrets", JsonMaps.write(sealedSecrets))
                 .param("access", root.access().name())
+                .param("options", OPTIONS.writeValueAsString(root.options()))
                 .param("createdBy", currentEmail.get())
                 .param("createdAt", clock.instant().toString())
                 .update();
@@ -100,6 +112,16 @@ public class FileSystemRegistry {
                 .update();
     }
 
+    public void updateOptions(String id, RootOptions options) {
+        if (!isAdmin.getAsBoolean()) {
+            throw new AccessDeniedException("Only admins can change file systems");
+        }
+        jdbc.sql("UPDATE file_system SET options = :options WHERE id = :id")
+                .param("id", id)
+                .param("options", OPTIONS.writeValueAsString(options))
+                .update();
+    }
+
     /** Unregisters it; the files stay where they are. Stars on it go with it (foreign key cascade). */
     public void remove(String id) {
         if (!isAdmin.getAsBoolean()) {
@@ -112,10 +134,11 @@ public class FileSystemRegistry {
     private FsRoot map(ResultSet rs, int row) throws SQLException {
         final var access = Access.valueOf(rs.getString("access"));
         final var settings = JsonMaps.read(rs.getString("settings"));
+        final var options = OPTIONS.readValue(rs.getString("options"), RootOptions.class);
         final var definition = new FsRoot(rs.getString("id"), rs.getString("name"), rs.getString("type"),
-                rs.getString("endpoint"), settings, access, RootStatus.UNKNOWN);
+                rs.getString("endpoint"), settings, access, options, RootStatus.UNKNOWN);
         final var current = status.apply(definition);
         return new FsRoot(definition.id(), definition.name(), definition.type(), definition.endpoint(), settings,
-                access, current);
+                access, options, current);
     }
 }

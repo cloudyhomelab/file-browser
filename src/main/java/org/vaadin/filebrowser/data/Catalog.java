@@ -38,6 +38,7 @@ public class Catalog implements Serializable {
     private final Map<String, ArchiveFormat> archiveFormats;
     /** Media type by lower-case extension, for files that may be shown in the page. */
     private final Map<String, String> viewTypes;
+    private final RootOptions rootOptions;
 
     public Catalog() {
         final var mapper = JsonMapper.builder()
@@ -63,6 +64,16 @@ public class Catalog implements Serializable {
         final var extensionsByViewType = read(mapper, "data/view-types.json",
                 new TypeReference<Map<String, List<String>>>() { });
         this.viewTypes = byExtension(extensionsByViewType);
+        final var strict = JsonMapper.builder()
+                .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
+                .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
+                .build();
+        this.rootOptions = read(strict, "data/root-options.json", new TypeReference<RootOptions>() { });
+    }
+
+    /** What a new file system starts with. */
+    public RootOptions rootOptions() {
+        return rootOptions;
     }
 
     private static Map<String, String> byExtension(Map<String, List<String>> extensionsByType) {

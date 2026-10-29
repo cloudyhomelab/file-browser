@@ -10,7 +10,7 @@ import java.util.Map;
  * @param settings what its type needs besides the endpoint, without secrets
  */
 public record FsRoot(String id, String name, String type, String endpoint, Map<String, String> settings,
-                     Access access, RootStatus status) implements Serializable {
+                     Access access, RootOptions options, RootStatus status) implements Serializable {
 
     public FsRoot {
         settings = Map.copyOf(settings);

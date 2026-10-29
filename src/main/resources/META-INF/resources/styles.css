@@ -1000,6 +1000,10 @@ vaadin-button.fb-btn.fb-field-browse {
 .fb-seg--locked { opacity: 0.6; }
 .fb-seg--locked .fb-seg-btn { cursor: default; }
 .fb-switch[disabled] { cursor: default; opacity: 0.6; }
+.fb-settings-features > .fb-form-label { margin-bottom: 14px; }
+.fb-settings-option { display: flex; flex-direction: column; align-items: flex-start; }
+.fb-settings-option + .fb-settings-option { margin-top: 16px; }
+.fb-settings-hint { margin-top: 2px; padding-left: 42px; font: 400 12px/1.4 var(--fb-font-sans); color: var(--fb-fg-secondary); }
 .fb-addroot-trust .fb-addroot-creds-title > .fb-icon { color: var(--fb-orange); }
 .fb-addroot-fingerprint { font: 400 12.5px/1.4 var(--fb-font-mono); color: var(--fb-fg); word-break: break-all; padding: 8px 10px; border-radius: var(--fb-radius-s); background: var(--fb-white); border: 1px solid var(--fb-border); }
 

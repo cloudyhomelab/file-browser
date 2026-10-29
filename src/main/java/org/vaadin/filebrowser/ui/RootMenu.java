@@ -5,10 +5,10 @@ import org.vaadin.filebrowser.data.FsRoot;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.function.SerializableConsumer;
 
-/** The admin "⋯" menu of a drive card: edit or remove the file system. Looks like {@link EntryMenu}. */
+/** The admin "⋯" menu of a drive card: edit, settings and remove. Looks like {@link EntryMenu}. */
 public class RootMenu extends Div {
 
-    private static final int ASSUMED_MENU_HEIGHT = 100;
+    private static final int ASSUMED_MENU_HEIGHT = 140;
     private static final int ASSUMED_MENU_WIDTH = 220;
 
     private final Div menu = Ui.div("fb-menu fb-entry-menu");
@@ -24,7 +24,7 @@ public class RootMenu extends Div {
 
     /** @param onEdit null leaves out "Edit…", e.g. for a type the app can no longer edit */
     public void open(FsRoot root, MenuPosition pos, SerializableConsumer<FsRoot> onEdit,
-                     SerializableConsumer<FsRoot> onRemove) {
+                     SerializableConsumer<FsRoot> onSettings, SerializableConsumer<FsRoot> onRemove) {
         menu.removeAll();
         if (onEdit != null) {
             final var editIcon = new Icon("edit");
@@ -33,9 +33,16 @@ public class RootMenu extends Div {
                 close();
                 onEdit.accept(root);
             }, editIcon, editLabel);
-            final var separator = Ui.divider("fb-menu-sep");
-            menu.add(edit, separator);
+            menu.add(edit);
         }
+        final var settingsIcon = new Icon("cog");
+        final var settingsLabel = Ui.span("", "Settings…");
+        final var settings = Ui.button("fb-menu-item", () -> {
+            close();
+            onSettings.accept(root);
+        }, settingsIcon, settingsLabel);
+        final var separator = Ui.divider("fb-menu-sep");
+        menu.add(settings, separator);
         final var removeIcon = new Icon("trash");
         final var removeLabel = Ui.span("", "Remove…");
         final var remove = Ui.button("fb-menu-item fb-menu-item--danger", () -> {
