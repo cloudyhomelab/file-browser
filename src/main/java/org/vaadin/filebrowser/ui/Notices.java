@@ -15,6 +15,11 @@ public final class Notices {
         NoticeLog.current().add(message, icon, false);
     }
 
+    /** An outcome another panel already showed, such as the upload dock. */
+    public static void seen(String message, String icon) {
+        NoticeLog.current().add(message, icon, true);
+    }
+
     public static void error(String message) {
         NoticeLog.current().add(message, ERROR_ICON, true);
         toast(message);

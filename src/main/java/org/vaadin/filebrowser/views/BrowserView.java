@@ -1121,18 +1121,18 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private static void announce(UploadTask upload) {
         switch (upload.getState()) {
-            case DONE -> Notices.show(upload.getSummary() != null ? "“" + upload.getName() + "”: " + upload.getSummary()
+            case DONE -> Notices.seen(upload.getSummary() != null ? "“" + upload.getName() + "”: " + upload.getSummary()
                     : (upload.isReplace() ? "Replaced “" : "Uploaded “") + upload.getName() + "”", "check");
-            case FAILED -> Notices.error(upload.getError());
+            case FAILED -> Notices.seen(upload.getError(), "warn");
             default -> { }
         }
     }
 
     private static void announce(TransferTask transfer) {
         switch (transfer.getState()) {
-            case DONE -> Notices.show(transfer.getMessage(), transfer.getKind() == TransferTask.Kind.MOVE ? "move" : "copy");
-            case FAILED -> Notices.error(transfer.getMessage());
-            case CANCELLED -> Notices.show(transfer.getMessage(), "cross");
+            case DONE -> Notices.seen(transfer.getMessage(), transfer.getKind() == TransferTask.Kind.MOVE ? "move" : "copy");
+            case FAILED -> Notices.seen(transfer.getMessage(), "warn");
+            case CANCELLED -> Notices.seen(transfer.getMessage(), "cross");
             default -> { }
         }
     }
