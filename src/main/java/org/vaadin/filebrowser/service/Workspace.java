@@ -17,6 +17,7 @@ import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.Located;
+import org.vaadin.filebrowser.data.RootOptions;
 import org.vaadin.filebrowser.data.Sort;
 import org.vaadin.filebrowser.storage.CopyProgress;
 import org.vaadin.filebrowser.storage.StorageConfig;
@@ -144,6 +145,10 @@ public class Workspace implements Serializable {
 
     public void updateRoot(FsRoot root, String name, Access access) {
         registry.update(root.id(), name, access);
+    }
+
+    public void updateOptions(FsRoot root, RootOptions options) {
+        registry.updateOptions(root.id(), options);
     }
 
     public void removeRoot(FsRoot root) {

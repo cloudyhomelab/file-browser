@@ -17,6 +17,7 @@ import org.sqlite.SQLiteDataSource;
 import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.RootStatus;
+import org.vaadin.filebrowser.data.TestRoots;
 import org.vaadin.filebrowser.storage.S3StorageType;
 import org.vaadin.filebrowser.storage.StorageConfig;
 import org.vaadin.filebrowser.storage.StorageException;
@@ -32,7 +33,7 @@ class RootSecretsTest {
     private JdbcClient jdbc;
     private FileSystemRegistry registry;
     private final FsRoot bucket = new FsRoot("b", "Assets", S3StorageType.KEY, "s3://assets/team",
-            Map.of(S3StorageType.REGION, "eu-central-1"), Access.READ_WRITE, RootStatus.UNKNOWN);
+            Map.of(S3StorageType.REGION, "eu-central-1"), Access.READ_WRITE, TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
 
     private static SecretBox box() {
         return new SecretBox(Base64.getEncoder().encodeToString(new byte[32]));
@@ -89,7 +90,8 @@ class RootSecretsTest {
     void storedSecretsOnlyWorkForTheirOwnFileSystemAndKey() {
         final var secrets = new RootSecrets(jdbc, box());
         final var other = new FsRoot("o", "Other", S3StorageType.KEY, "s3://other",
-                Map.of(S3StorageType.REGION, "eu-central-1"), Access.READ_WRITE, RootStatus.UNKNOWN);
+                Map.of(S3StorageType.REGION, "eu-central-1"), Access.READ_WRITE, TestRoots.ALL_ALLOWED,
+                RootStatus.UNKNOWN);
         registry.add(other, Map.of());
         registry.add(bucket, secrets.seal(bucket.id(), KEYS));
         // copy the sealed secrets onto the other file system, as someone with database access could

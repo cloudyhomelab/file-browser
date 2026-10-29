@@ -34,6 +34,7 @@ import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.RootStatus;
+import org.vaadin.filebrowser.data.TestRoots;
 import org.vaadin.filebrowser.service.FileSystemRegistry;
 import org.vaadin.filebrowser.service.StorageService;
 import org.vaadin.filebrowser.storage.LocalDiskProvider;
@@ -75,7 +76,7 @@ class FileStreamControllerTest {
     }
 
     private static FsRoot root(Access access) {
-        return new FsRoot("r1", "Disk", "disk", "/srv", Map.of(), access, RootStatus.UNKNOWN);
+        return new FsRoot("r1", "Disk", "disk", "/srv", Map.of(), access, TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
     }
 
     private ResultActions fetch(String path, String... headers) throws Exception {

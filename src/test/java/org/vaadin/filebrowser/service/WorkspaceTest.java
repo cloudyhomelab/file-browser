@@ -33,6 +33,7 @@ import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.IncomingFile;
 import org.vaadin.filebrowser.data.RootStatus;
+import org.vaadin.filebrowser.data.TestRoots;
 import org.vaadin.filebrowser.storage.DiskStorageType;
 import org.vaadin.filebrowser.storage.S3StorageType;
 import org.vaadin.filebrowser.storage.StorageConfig;
@@ -72,7 +73,7 @@ class WorkspaceTest {
         folder = Files.createDirectory(dir.resolve("projects"));
         Files.writeString(folder.resolve("notes.txt"), "notes");
         final var definition = new FsRoot("a", "Projects", DiskStorageType.KEY, folder.toString(), Map.of(),
-                Access.READ_WRITE, RootStatus.UNKNOWN);
+                Access.READ_WRITE, TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
         registry.add(definition, Map.of());
         held = registry.find("a").orElseThrow();
     }
@@ -154,7 +155,7 @@ class WorkspaceTest {
     private FsRoot archive() throws IOException {
         final var archiveFolder = Files.createDirectories(dir.resolve("archive/Inbox")).getParent();
         final var definition = new FsRoot("b", "Archive", DiskStorageType.KEY, archiveFolder.toString(), Map.of(),
-                Access.READ_WRITE, RootStatus.UNKNOWN);
+                Access.READ_WRITE, TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
         registry.add(definition, Map.of());
         return registry.find("b").orElseThrow();
     }
@@ -320,7 +321,7 @@ class WorkspaceTest {
     @Test
     void aFileSystemWithSecretsIsNotAddedWithoutASecretKey() {
         final var bucket = new FsRoot("b", "Assets", S3StorageType.KEY, "s3://assets", Map.of(), Access.READ_WRITE,
-                RootStatus.UNKNOWN);
+                TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
         final var keys = Map.of(S3StorageType.ACCESS_KEY, "AKIDEXAMPLE", S3StorageType.SECRET_KEY, "wJalrXUtnFEMI");
         assertThatThrownBy(() -> workspace.addRoot(bucket, keys)).isInstanceOf(StorageException.class);
         assertThat(registry.all()).extracting(FsRoot::id).containsExactly("a");
