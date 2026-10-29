@@ -101,6 +101,6 @@ public class SmbStorageType implements StorageType {
 
     @Override
     public String detail(Map<String, String> settings, Optional<MountInfo> mount) {
-        return requireEncryption(settings) ? "Encryption required" : "";
+        return requireEncryption(settings) ? "Encrypted" : "";
     }
 }
