@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter
+        xmlns="https://github.com/spotbugs/filter/3.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/3.1.0/spotbugs/etc/findbugsfilter.xsd">
+
+    <Match>
+        <Source name="target\generated-sources\..*"/>
+    </Match>
+
+    <!--the decoder's message can quote a character of the secret key, so it is not kept as the cause-->
+    <Match>
+        <Class name="org.vaadin.filebrowser.service.SecretBox"/>
+        <Method name="parse"/>
+        <Bug pattern="LEST_LOST_EXCEPTION_STACK_TRACE"/>
+    </Match>
+
+    <Match>
+        <Or>
+            <Bug pattern="ACEM_ABSTRACT_CLASS_EMPTY_METHODS"/>
+            <Bug pattern="EI_EXPOSE_REP"/>
+            <Bug pattern="EI_EXPOSE_REP2"/>
+            <Bug pattern="SE_NO_SERIALVERSIONID"/>
+            <Bug pattern="SA_LOCAL_SELF_COMPARISON"/>
+            <Bug pattern="SE_TRANSIENT_FIELD_NOT_RESTORED"/>
+            <Bug pattern="NFF_NON_FUNCTIONAL_FIELD"/>
+            <Bug pattern="PIS_POSSIBLE_INCOMPLETE_SERIALIZATION"/>
+            <Bug pattern="CE_CLASS_ENVY"/>
+            <Bug pattern="LO_STUTTERED_MESSAGE"/>
+            <Bug pattern="OCP_OVERLY_CONCRETE_PARAMETER"/>
+            <Bug pattern="OCP_OVERLY_CONCRETE_COLLECTION_PARAMETER"/>
+            <Bug pattern="USBR_UNNECESSARY_STORE_BEFORE_RETURN"/>
+            <Bug pattern="FCCD_FIND_CLASS_CIRCULAR_DEPENDENCY"/>
+            <Bug pattern="PCOA_PARTIALLY_CONSTRUCTED_OBJECT_ACCESS"/>
+            <Bug pattern="PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS"/>
+            <Bug pattern="CLI_CONSTANT_LIST_INDEX"/>
+            <Bug pattern="PME_POOR_MANS_ENUM"/>
+            <Bug pattern="EXS_EXCEPTION_SOFTENING_RETURN_FALSE"/>
+            <Bug pattern="ITC_INHERITANCE_TYPE_CHECKING"/>
+
+            <!--checked exceptions become StorageException with a message for users, by design-->
+            <Bug pattern="EXS_EXCEPTION_SOFTENING_NO_CONSTRAINTS"/>
+            <Bug pattern="EXS_EXCEPTION_SOFTENING_NO_CHECKED"/>
+
+            <!--constructors reject invalid input; finalizer attacks need hostile code in the JVM-->
+            <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+
+            <!--issue in spotbugs fb-contrib plugin
+            this is anyhow also covered by pmd-->
+            <Bug pattern="CC_CYCLOMATIC_COMPLEXITY"/>
+
+            <!--environment specific properties required to properly validate this
+            disabled for the time being-->
+            <Bug pattern="UNVALIDATED_REDIRECT"/>
+        </Or>
+    </Match>
+</FindBugsFilter>
