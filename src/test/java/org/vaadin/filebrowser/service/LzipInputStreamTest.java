@@ -75,7 +75,7 @@ class LzipInputStreamTest {
             counting.read();
             counting.read(new byte[3], 0, 3);
             assertThat(counting.skip(4)).isEqualTo(4);
-            assertThat(counting.count()).isEqualTo(8);
+            assertThat(counting.getCount()).isEqualTo(8);
         }
     }
 }
