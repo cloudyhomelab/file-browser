@@ -26,6 +26,8 @@ public record FileBrowserProperties(Path databasePath, Map<String, Provider> oid
     public record Provider(String label, ProviderIcon icon) {
     }
 
+    // PMD reads a compact constructor's reassigned parameters as unused
+    @SuppressWarnings("PMD.UnusedAssignment")
     public FileBrowserProperties {
         oidc = oidc == null ? Map.of() : Map.copyOf(oidc);
         allowedDomains = allowedDomains == null ? List.of() : List.copyOf(allowedDomains);

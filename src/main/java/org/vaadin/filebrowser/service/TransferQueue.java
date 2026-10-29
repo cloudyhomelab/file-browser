@@ -32,6 +32,7 @@ public class TransferQueue implements Serializable {
 
         /** After the check, before the first item: e.g. learns the task's total size. */
         default void prepare(TransferTask task) {
+            // most work needs no preparation
         }
 
         /** Moves or copies one item; sentences worth adding to the outcome go to {@link TransferTask#note}. */
@@ -184,10 +185,10 @@ public class TransferQueue implements Serializable {
     /** The reason, with what was done before it and what was left undone. */
     private static String failed(TransferTask task, String reason) {
         final var total = task.getItems().size();
-        final var done = task.getItemsDone();
         if (total == 1) {
             return reason;
         }
+        final var done = task.getItemsDone();
         if (done == 0) {
             return reason + " Nothing was " + task.getKind().getParticiple() + ".";
         }

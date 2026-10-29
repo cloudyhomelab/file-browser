@@ -61,6 +61,8 @@ public class SecretBox {
         }
     }
 
+    // the decoder's message can quote a character of the secret key, so it is not kept as the cause
+    @SuppressWarnings("PMD.PreserveStackTrace")
     private static SecretKeySpec parse(String base64Key) {
         final byte[] bytes;
         try {

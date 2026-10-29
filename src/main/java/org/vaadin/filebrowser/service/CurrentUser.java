@@ -13,6 +13,8 @@ import com.vaadin.flow.spring.annotation.SpringComponent;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 
 /** The signed-in user, as described by the OIDC provider they signed in with. */
+// holds app-wide services; sessions are never serialized. Remove with #76
+@SuppressWarnings("PMD.NonSerializableClass")
 @SpringComponent
 public class CurrentUser implements Serializable {
 

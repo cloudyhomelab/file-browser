@@ -133,8 +133,10 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
         var broken = false;
         try {
             return work.run(session);
+        } catch (Refusal e) {
+            throw failure(action, e);
         } catch (IOException e) {
-            broken = !(e instanceof Refusal);
+            broken = true;
             throw failure(action, e);
         } catch (RuntimeException e) {
             broken = true;
@@ -225,6 +227,8 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
         return open(path, offset, length);
     }
 
+    // the stream goes back to the caller, who closes it
+    @SuppressWarnings("PMD.CloseResource")
     private InputStream open(String path, long offset, long length) {
         final var action = "read “" + nameOf(path) + "”";
         final S session;
@@ -241,8 +245,11 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
             final var in = readStream(session, remote(path), offset);
             final var limited = length == Long.MAX_VALUE ? in : new LimitedInputStream(in, length);
             return new SessionInputStream(limited, session);
+        } catch (Refusal e) {
+            pool.release(session, false);
+            throw failure(action, e);
         } catch (IOException e) {
-            pool.release(session, !(e instanceof Refusal));
+            pool.release(session, true);
             throw failure(action, e);
         } catch (RuntimeException e) {
             pool.release(session, false);
@@ -408,7 +415,7 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
     private void removeQuietly(String path) {
         try {
             delete(path);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException ignored) {
             // the copy failed already; that is what gets reported
         }
     }
@@ -485,8 +492,11 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
             final var partial = StoragePaths.child(folder, PARTIAL_PREFIX + name + "." + UUID.randomUUID() + PARTIAL_SUFFIX);
             final var stream = writeStream(session, remote(partial));
             return new RemoteWrite(session, stream, partial, path, replace, name);
+        } catch (Refusal e) {
+            pool.release(session, false);
+            throw failure(action, e);
         } catch (IOException e) {
-            pool.release(session, !(e instanceof Refusal));
+            pool.release(session, true);
             throw failure(action, e);
         } catch (RuntimeException e) {
             pool.release(session, false);
@@ -549,10 +559,14 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
                     renameNode(session, remote(partial), remote(target));
                 }
                 broken = false;
-            } catch (IOException e) {
-                broken = !(e instanceof Refusal);
+            } catch (Refusal e) {
                 done = true;
-                pool.release(session, broken);
+                pool.release(session, false);
+                removeQuietly(partial);
+                throw new StorageException("“" + name + "” could not be saved.", e);
+            } catch (IOException e) {
+                done = true;
+                pool.release(session, true);
                 removeQuietly(partial);
                 throw new StorageException("“" + name + "” could not be saved.", e);
             } catch (RuntimeException e) {
@@ -575,7 +589,7 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
                 transfer.close();
                 deleteFile(session, remote(partial));
                 broken = false;
-            } catch (IOException | RuntimeException e) {
+            } catch (IOException | RuntimeException ignored) {
                 // a leftover partial file is hidden from listings
             } finally {
                 pool.release(session, broken);

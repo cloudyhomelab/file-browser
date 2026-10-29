@@ -36,7 +36,7 @@ public class FileSystemRegistry {
             .build();
 
     private final JdbcClient jdbc;
-    private final BooleanSupplier isAdmin;
+    private final BooleanSupplier adminCheck;
     private final Supplier<String> currentEmail;
     private final Clock clock;
     private final Function<FsRoot, RootStatus> status;
@@ -47,11 +47,11 @@ public class FileSystemRegistry {
                 Clock.systemUTC(), storage::status);
     }
 
-    FileSystemRegistry(JdbcClient jdbc, BooleanSupplier isAdmin, Supplier<String> currentEmail, Clock clock,
+    FileSystemRegistry(JdbcClient jdbc, BooleanSupplier adminCheck, Supplier<String> currentEmail, Clock clock,
                        Function<FsRoot, RootStatus> status) {
         this.jdbc = jdbc;
         this.status = status;
-        this.isAdmin = isAdmin;
+        this.adminCheck = adminCheck;
         this.currentEmail = currentEmail;
         this.clock = clock;
     }
@@ -78,7 +78,7 @@ public class FileSystemRegistry {
 
     /** @param sealedSecrets its type's secrets as {@link RootSecrets#seal} returned them; empty for none */
     public void add(FsRoot root, Map<String, String> sealedSecrets) {
-        if (!isAdmin.getAsBoolean()) {
+        if (!adminCheck.getAsBoolean()) {
             throw new AccessDeniedException("Only admins can add file systems");
         }
         jdbc.sql("""
@@ -102,7 +102,7 @@ public class FileSystemRegistry {
 
     /** Renames it and changes its access; the path never changes, since stars are stored relative to it. */
     public void update(String id, String name, Access access) {
-        if (!isAdmin.getAsBoolean()) {
+        if (!adminCheck.getAsBoolean()) {
             throw new AccessDeniedException("Only admins can change file systems");
         }
         jdbc.sql("UPDATE file_system SET name = :name, access = :access WHERE id = :id")
@@ -113,7 +113,7 @@ public class FileSystemRegistry {
     }
 
     public void updateOptions(String id, RootOptions options) {
-        if (!isAdmin.getAsBoolean()) {
+        if (!adminCheck.getAsBoolean()) {
             throw new AccessDeniedException("Only admins can change file systems");
         }
         jdbc.sql("UPDATE file_system SET options = :options WHERE id = :id")
@@ -124,7 +124,7 @@ public class FileSystemRegistry {
 
     /** Unregisters it; the files stay where they are. Stars on it go with it (foreign key cascade). */
     public void remove(String id) {
-        if (!isAdmin.getAsBoolean()) {
+        if (!adminCheck.getAsBoolean()) {
             throw new AccessDeniedException("Only admins can remove file systems");
         }
         jdbc.sql("DELETE FROM file_system WHERE id = :id").param("id", id).update();

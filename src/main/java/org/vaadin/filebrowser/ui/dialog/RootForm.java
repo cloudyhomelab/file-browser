@@ -100,6 +100,8 @@ public abstract class RootForm extends Div {
     }
 
     /** Shows why connecting failed, until the next change. */
+    // update() reads the field while onChange runs
+    @SuppressWarnings("PMD.UnusedAssignment")
     public void showConnectProblem(String connectProblem) {
         this.connectProblem = connectProblem;
         context.onChange().run();
@@ -152,6 +154,7 @@ public abstract class RootForm extends Div {
 
     /** Updates the type's own fields. */
     protected void updateFields() {
+        // types without fields of their own have nothing to update
     }
 
     /** True when the type's own fields are valid. */

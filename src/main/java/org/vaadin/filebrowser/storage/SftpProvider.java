@@ -165,7 +165,7 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     protected void disconnect(Session session) {
         try {
             session.sftp().close();
-        } catch (IOException e) {
+        } catch (IOException ignored) {
             // the session closes it as well
         }
         closeQuietly(session.ssh());
@@ -174,7 +174,7 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     private static void closeQuietly(ClientSession ssh) {
         try {
             ssh.close();
-        } catch (IOException e) {
+        } catch (IOException ignored) {
             // nothing more to do with it
         }
     }

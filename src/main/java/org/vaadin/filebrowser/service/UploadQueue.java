@@ -24,6 +24,8 @@ import org.vaadin.filebrowser.storage.StorageProvider;
  * The session's uploads. Bytes arrive on upload request threads (outside the Vaadin session lock),
  * so everything here is safe to call from any thread.
  */
+// holds app-wide services; sessions are never serialized. Remove with #76
+@SuppressWarnings("PMD.NonSerializableClass")
 public class UploadQueue implements Serializable {
 
     private static final int BUFFER_SIZE = 64 * 1024;
@@ -123,8 +125,7 @@ public class UploadQueue implements Serializable {
         try (var write = provider.openWrite(folder, task.getName(), task.isReplace())) {
             final var buffer = new byte[BUFFER_SIZE];
             long total = 0;
-            int read;
-            while ((read = in.read(buffer)) != -1) {
+            for (var read = in.read(buffer); read != -1; read = in.read(buffer)) {
                 if (task.getState() == UploadTask.State.CANCELLED) {
                     return;
                 }
@@ -187,7 +188,7 @@ public class UploadQueue implements Serializable {
             if (temp != null) {
                 try {
                     Files.deleteIfExists(temp);
-                } catch (IOException e) {
+                } catch (IOException ignored) {
                     // the OS cleans its temp folder eventually
                 }
             }
@@ -199,8 +200,7 @@ public class UploadQueue implements Serializable {
         try (var out = Files.newOutputStream(temp)) {
             final var buffer = new byte[BUFFER_SIZE];
             long total = 0;
-            int read;
-            while ((read = in.read(buffer)) != -1) {
+            for (var read = in.read(buffer); read != -1; read = in.read(buffer)) {
                 if (task.getState() == UploadTask.State.CANCELLED) {
                     return false;
                 }
@@ -230,7 +230,7 @@ public class UploadQueue implements Serializable {
     private static void deleteQuietly(StorageProvider provider, String path) {
         try {
             provider.delete(path);
-        } catch (StorageException e) {
+        } catch (StorageException ignored) {
             // reporting the extraction error matters more
         }
     }
@@ -246,7 +246,7 @@ public class UploadQueue implements Serializable {
         }
         try (in) {
             receive(task.getId(), in, maxBytes);
-        } catch (IOException e) {
+        } catch (IOException ignored) {
             // closing the download; the task's state is already settled
         }
     }

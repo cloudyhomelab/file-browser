@@ -43,6 +43,7 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration REPLY_TIMEOUT = Duration.ofSeconds(30);
     private static final String ANONYMOUS_USER = "anonymous";
+    private static final String ROOT = "/";
     /** Some servers want an e-mail-like password for anonymous sign-in. */
     private static final String ANONYMOUS_PASSWORD = "file-browser@";
 
@@ -267,12 +268,12 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         }
         try {
             ftp.logout();
-        } catch (IOException e) {
+        } catch (IOException ignored) {
             // closed below either way
         }
         try {
             ftp.disconnect();
-        } catch (IOException e) {
+        } catch (IOException ignored) {
             // nothing more to do with it
         }
     }
@@ -335,7 +336,7 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         if (ftp.changeWorkingDirectory(path)) {
             return new Node(name, true, null, null);
         }
-        if ("/".equals(path)) {
+        if (ROOT.equals(path)) {
             throw refusal(ftp);
         }
         final var slash = path.lastIndexOf('/');

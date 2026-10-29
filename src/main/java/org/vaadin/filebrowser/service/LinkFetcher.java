@@ -65,6 +65,8 @@ public class LinkFetcher implements AutoCloseable {
     }
 
     /** @param dns resolves host names before {@code allowed} judges the answers */
+    // the client owns the connection manager and closes it in close()
+    @SuppressWarnings("PMD.CloseResource")
     LinkFetcher(Predicate<InetAddress> allowed, DnsResolver dns) {
         final var connections = PoolingHttpClientConnectionManagerBuilder.create()
                 .setDnsResolver(new CheckingResolver(dns, allowed))
@@ -112,6 +114,8 @@ public class LinkFetcher implements AutoCloseable {
     }
 
     /** The link's content, at most {@code maxBytes}; closing the stream ends the download. */
+    // the entity's content goes back to the caller; Opened.close() releases it
+    @SuppressWarnings("PMD.CloseResource")
     public InputStream fetch(String url, long maxBytes) {
         final Opened opened;
         try {
@@ -129,9 +133,12 @@ public class LinkFetcher implements AutoCloseable {
                 throw new StorageException(REFUSED);
             }
             return new LimitedStream(entity.getContent(), maxBytes, opened);
+        } catch (StorageException e) {
+            opened.close();
+            throw e;
         } catch (IOException | RuntimeException e) {
             opened.close();
-            throw e instanceof StorageException storageException ? storageException : new StorageException(REFUSED, e);
+            throw new StorageException(REFUSED, e);
         }
     }
 
@@ -146,7 +153,7 @@ public class LinkFetcher implements AutoCloseable {
             request.cancel();
             try {
                 response.close();
-            } catch (IOException e) {
+            } catch (IOException ignored) {
                 // the connection is dropped either way
             }
         }

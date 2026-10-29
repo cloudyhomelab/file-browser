@@ -78,6 +78,7 @@ public class UserData {
     }
 
     /** Re-points every user's stars on exactly {@code path} to {@code newPath} on another file system. */
+    @SuppressWarnings("PMD.UseObjectForClearerAPI")
     public void moveStarAcross(String rootId, String path, String newRootId, String newPath) {
         jdbc.sql("""
                         UPDATE OR REPLACE starred_item

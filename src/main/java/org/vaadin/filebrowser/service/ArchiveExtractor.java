@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
@@ -198,14 +199,16 @@ public final class ArchiveExtractor {
     // ---- writing ------------------------------------------------------------------------------
 
     private void accept(Entry entry) throws IOException {
-        if (++entries > limits.maxEntries()) {
+        entries++;
+        if (entries > limits.maxEntries()) {
             throw new LimitException("has more than " + limits.maxEntries() + " entries.");
         }
-        final var segments = segments(entry.name());
-        if (segments == null || !entry.regular()) {
+        final var placed = segments(entry.name());
+        if (placed.isEmpty() || !entry.regular()) {
             skipped++;
             return;
         }
+        final var segments = placed.orElseThrow();
         if (entry.directory()) {
             ensureFolder(segments);
             return;
@@ -218,10 +221,10 @@ public final class ArchiveExtractor {
         writeFile(parent, segments.getLast(), entry);
     }
 
-    /** The entry's path as safe segments, or null when it can't be placed inside the target folder. */
-    static List<String> segments(String name) {
+    /** The entry's path as safe segments; empty when it can't be placed inside the target folder. */
+    static Optional<List<String>> segments(String name) {
         if (name == null) {
-            return null;
+            return Optional.empty();
         }
         final var out = new ArrayList<String>();
         for (final var part : name.replace('\\', '/').split("/")) {
@@ -231,11 +234,11 @@ public final class ArchiveExtractor {
             try {
                 StoragePaths.requireValidName(part);
             } catch (StorageException e) {
-                return null;
+                return Optional.empty();
             }
             out.add(part);
         }
-        return out.isEmpty() ? null : out;
+        return out.isEmpty() ? Optional.empty() : Optional.of(out);
     }
 
     /** Creates the folders on the way down as needed; null when a file is in the way. */
@@ -287,8 +290,7 @@ public final class ArchiveExtractor {
         final var path = StoragePaths.child(folder, finalName);
         try (var write = provider.openWrite(folder, finalName, replace); var in = entry.open()) {
             final var buffer = new byte[BUFFER_SIZE];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
+            for (var read = in.read(buffer); read != -1; read = in.read(buffer)) {
                 bytes += read;
                 if (bytes > limits.maxBytes()) {
                     throw new LimitException("expands to more than the extraction limit.");
@@ -309,14 +311,14 @@ public final class ArchiveExtractor {
         for (final var file : writtenFiles) {
             try {
                 provider.delete(file);
-            } catch (StorageException e) {
+            } catch (StorageException ignored) {
                 // best effort; the error being reported matters more
             }
         }
         for (final var folder : createdFolders.reversed()) {
             try {
                 provider.delete(folder);
-            } catch (StorageException e) {
+            } catch (StorageException ignored) {
                 // as above
             }
         }
@@ -339,6 +341,7 @@ public final class ArchiveExtractor {
 
         @Override
         public void close() {
+            // the archive stream stays open for the next entry
         }
     }
 }

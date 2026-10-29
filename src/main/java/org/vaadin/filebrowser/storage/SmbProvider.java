@@ -163,7 +163,7 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     private static void closeQuietly(SMBClient client) {
         try {
             client.close();
-        } catch (RuntimeException e) {
+        } catch (RuntimeException ignored) {
             // nothing more to do with it
         }
     }

@@ -508,7 +508,7 @@ public class S3Provider implements StorageProvider, AutoCloseable {
             if (uploadId != null) {
                 try {
                     client.abortMultipartUpload(r -> r.bucket(location.bucket()).key(key(path)).uploadId(uploadId));
-                } catch (SdkException e) {
+                } catch (SdkException ignored) {
                     // the store expires abandoned uploads; nothing was made visible
                 }
             }

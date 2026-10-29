@@ -108,6 +108,8 @@ public class FileStreamController {
         send(provider, found.orElseThrow(), request, response);
     }
 
+    // close() reports a failure to close instead of throwing it, and the stream is null for HEAD
+    @SuppressWarnings("PMD.UseTryWithResources")
     private void send(StorageProvider provider, StorageEntry entry, HttpServletRequest request,
                       HttpServletResponse response) throws IOException {
         final var etag = etag(entry);

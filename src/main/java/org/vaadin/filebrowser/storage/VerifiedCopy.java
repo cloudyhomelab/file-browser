@@ -122,8 +122,7 @@ public final class VerifiedCopy {
                                    CopyProgress progress) throws IOException {
         final var digest = sha256();
         final var buffer = new byte[BUFFER_SIZE];
-        int read;
-        while ((read = in.read(buffer)) != -1) {
+        for (var read = in.read(buffer); read != -1; read = in.read(buffer)) {
             if (progress.cancelled()) {
                 throw new CopyCancelledException(name);
             }
@@ -147,7 +146,7 @@ public final class VerifiedCopy {
             if (provider.stat(path).isPresent()) {
                 provider.delete(path);
             }
-        } catch (StorageException e) {
+        } catch (StorageException ignored) {
             // the copy's own failure is what gets reported
         }
     }

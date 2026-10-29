@@ -41,12 +41,15 @@ public interface EntryHandler extends Serializable {
     }
 
     default void dragStarted() {
+        // only views that move entries by dragging react
     }
 
     default void dragEnded() {
+        // only views that move entries by dragging react
     }
 
     /** {@code dragged} was dropped onto the folder {@code folder}. */
     default void dropOnto(Located dragged, Located folder) {
+        // only views that move entries by dragging react
     }
 }

@@ -1,6 +1,7 @@
 package org.vaadin.filebrowser.ui;
 
 import java.util.Locale;
+import java.util.Objects;
 
 import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.FsRoot;
@@ -25,9 +26,8 @@ public class CapacityMeter extends Composite<Div> {
             final var reason = root.online() ? null : root.status().reason();
             final var icon = new Icon(root.online() ? "note" : "warn");
             final var note = reason != null ? reason
-                    : !root.online() ? "Unavailable"
-                    : kind.usageNote() != null ? kind.usageNote()
-                    : "Usage unavailable";
+                    : root.online() ? Objects.requireNonNullElse(kind.usageNote(), "Usage unavailable")
+                    : "Unavailable";
             final var text = new Span(note);
             div.getElement().getClassList().set("fb-capacity--reason", reason != null);
             div.add(icon, text);

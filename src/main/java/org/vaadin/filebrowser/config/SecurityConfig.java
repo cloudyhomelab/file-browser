@@ -43,6 +43,8 @@ public class SecurityConfig {
     private static final String POST_LOGOUT_REDIRECT = "{baseUrl}";
     private static final String[] PUBLIC_RESOURCES = {"/styles.css", "/icons.svg", "/favicon.svg", "/oidc/**"};
 
+    // HttpSecurity.build() declares Exception
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectProvider<ClientRegistrationRepository> repository,
                                                    SignInPolicy policy, FileBrowserProperties properties,

@@ -102,12 +102,14 @@ public class StorageService {
     }
 
     /** Drops the cached provider and status of a file system that was removed. */
+    // closed explicitly: only some providers are closeable
+    @SuppressWarnings("PMD.CloseResource")
     public void forget(FsRoot root) {
         final var key = cacheKey(root);
         if (providers.remove(key) instanceof AutoCloseable closeable) {
             try {
                 closeable.close();
-            } catch (Exception e) {
+            } catch (Exception ignored) {
                 // the file system is gone either way
             }
         }
@@ -223,6 +225,8 @@ public class StorageService {
         return withTimeout(() -> readCheck(type, info, config), Check.failed(info.checkTimeout()), CHECK_TIMEOUT);
     }
 
+    // closed explicitly: only some providers are closeable
+    @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
     private Check readCheck(StorageType type, RootTypeInfo info, StorageConfig config) {
         StorageProvider provider = null;
         try {
@@ -238,7 +242,7 @@ public class StorageService {
             if (provider instanceof AutoCloseable closeable) {
                 try {
                     closeable.close();
-                } catch (Exception e) {
+                } catch (Exception ignored) {
                     // it was only opened for the check
                 }
             }

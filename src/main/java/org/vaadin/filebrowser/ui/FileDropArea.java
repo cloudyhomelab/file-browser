@@ -116,6 +116,8 @@ public class FileDropArea extends Div {
         getElement().executeJs(INSTALL_SCRIPT, pickOnClick);
     }
 
+    // called from the browser
+    @SuppressWarnings("PMD.UnusedPrivateMethod")
     @ClientCallable
     private void filesDropped(String json) {
         final var listType = new TypeReference<List<DroppedFile>>() { };
@@ -131,6 +133,8 @@ public class FileDropArea extends Div {
         }
     }
 
+    // called from the browser
+    @SuppressWarnings("PMD.UnusedPrivateMethod")
     @ClientCallable
     private void uploadLost(String taskId) {
         onUploadLost.accept(taskId);

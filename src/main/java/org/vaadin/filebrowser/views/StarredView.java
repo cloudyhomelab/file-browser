@@ -149,10 +149,12 @@ public class StarredView extends Div implements EntryHandler {
 
     @Override
     public void toggleSelected(Located entry) {
+        // starred items can't be selected
     }
 
     @Override
     public void toggleAll(boolean on) {
+        // starred items can't be selected
     }
 
     @Override

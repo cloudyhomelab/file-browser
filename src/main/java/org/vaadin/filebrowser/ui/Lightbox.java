@@ -123,11 +123,11 @@ public class Lightbox extends Dialog {
         stage.removeAll();
         if (viewer.isEmpty()) {
             showUnavailable(file, "Files of this type can't be previewed.");
-        } else if (!reachable) {
-            showUnavailable(file, "Names with %, ; or \\ in them, or in a folder above them, can't be previewed.");
-        } else {
+        } else if (reachable) {
             final var view = view(viewer.orElseThrow(), file, url);
             stage.add(view);
+        } else {
+            showUnavailable(file, "Names with %, ; or \\ in them, or in a folder above them, can't be previewed.");
         }
         onShown.accept(file);
     }

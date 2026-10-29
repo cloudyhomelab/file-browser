@@ -106,14 +106,14 @@ public final class AddressPolicy {
         if (address instanceof Inet4Address || bytes.length != 16) {
             return bytes;
         }
-        final var mapped = bytes[10] == (byte) 0xff && bytes[11] == (byte) 0xff;
-        final var compatible = bytes[10] == 0 && bytes[11] == 0
-                && !(bytes[12] == 0 && bytes[13] == 0 && bytes[14] == 0 && (bytes[15] == 0 || bytes[15] == 1));
         for (int i = 0; i < 10; i++) {
             if (bytes[i] != 0) {
                 return bytes;
             }
         }
+        final var mapped = bytes[10] == (byte) 0xff && bytes[11] == (byte) 0xff;
+        final var compatible = bytes[10] == 0 && bytes[11] == 0
+                && !(bytes[12] == 0 && bytes[13] == 0 && bytes[14] == 0 && (bytes[15] == 0 || bytes[15] == 1));
         if (address instanceof Inet6Address && (mapped || compatible)) {
             return Arrays.copyOfRange(bytes, 12, 16);
         }

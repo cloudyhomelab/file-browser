@@ -274,6 +274,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         currentUser.signOut();
     }
 
+    // the search field's listener reads it while clearSearch() runs
+    @SuppressWarnings("PMD.UnusedAssignment")
     private void resetView() {
         selectedPaths.clear();
         focusedPath = null;
@@ -1082,12 +1084,12 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                 default -> { }
             }
         }
-        if (!transfersFinished.isEmpty()) {
-            afterChange();
-        } else if (finished.isEmpty()) {
+        if (transfersFinished.isEmpty() && finished.isEmpty()) {
             showDock();
-        } else {
+        } else if (transfersFinished.isEmpty()) {
             refresh();
+        } else {
+            afterChange();
         }
     }
 
