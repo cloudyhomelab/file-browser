@@ -34,14 +34,19 @@ public class FileBrowserOidcUserService implements OAuth2UserService<OidcUserReq
     @Override
     public OidcUser loadUser(OidcUserRequest request) {
         final var user = delegate.loadUser(request);
-        final var refusal = policy.check(user.getEmail(), user.getEmailVerified());
-        if (refusal.isPresent()) {
-            final var error = new OAuth2Error(refusal.get().code());
-            throw new OAuth2AuthenticationException(error);
+        // the contract allows no user at all, which leaves no email to sign in with
+        if (user == null) {
+            throw refused(SignInPolicy.Refusal.MISSING_EMAIL);
+        }
+        final var email = user.getEmail();
+        final var refusal = policy.check(email, user.getEmailVerified());
+        // the policy refuses a missing email; the null check only makes that visible here
+        if (email == null || refusal.isPresent()) {
+            throw refused(refusal.orElse(SignInPolicy.Refusal.MISSING_EMAIL));
         }
         final var provider = request.getClientRegistration().getRegistrationId();
-        accounts.recordSignIn(user.getEmail(), displayName(user), provider);
-        if (!properties.isAdminEmail(user.getEmail())) {
+        accounts.recordSignIn(email, displayName(user), provider);
+        if (!properties.isAdminEmail(email)) {
             return user;
         }
         final var authorities = new HashSet<GrantedAuthority>(user.getAuthorities());
@@ -52,6 +57,11 @@ public class FileBrowserOidcUserService implements OAuth2UserService<OidcUserReq
         return nameAttribute == null || nameAttribute.isBlank()
                 ? new DefaultOidcUser(authorities, user.getIdToken(), user.getUserInfo())
                 : new DefaultOidcUser(authorities, user.getIdToken(), user.getUserInfo(), nameAttribute);
+    }
+
+    private static OAuth2AuthenticationException refused(SignInPolicy.Refusal refusal) {
+        final var error = new OAuth2Error(refusal.code());
+        return new OAuth2AuthenticationException(error);
     }
 
     private static String displayName(OidcUser user) {

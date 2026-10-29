@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarConstants;
 import org.apache.commons.compress.archivers.zip.ZipFile;
@@ -169,11 +170,15 @@ public final class ArchiveExtractor {
             accept(new Entry() {
                 public String name() { return current.getName(); }
                 public boolean directory() { return current.isDirectory(); }
-                // isFile() also says yes to links and devices, so the entry type is checked directly
-                public boolean regular() { return current.isDirectory() || REGULAR_TAR_TYPES.contains(current.getLinkFlag()); }
+                public boolean regular() { return isRegularTarEntry(current); }
                 public InputStream open() { return new Unclosable(tar); }
             });
         }
+    }
+
+    // isFile() also says yes to links and devices, so the entry type is checked directly
+    private static boolean isRegularTarEntry(TarArchiveEntry entry) {
+        return entry.isDirectory() || REGULAR_TAR_TYPES.contains(entry.getLinkFlag());
     }
 
     private void readSevenZ(Path archive) throws IOException {

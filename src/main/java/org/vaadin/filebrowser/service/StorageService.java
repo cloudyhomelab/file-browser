@@ -189,6 +189,11 @@ public class StorageService {
         return withTimeout(() -> readServerFolders(path), List.of());
     }
 
+    private static String name(Path path) {
+        final var fileName = path.getFileName();
+        return fileName == null ? "" : fileName.toString();
+    }
+
     private static List<String> readServerFolders(String path) {
         final var folder = Path.of(path);
         if (!folder.isAbsolute() || !Files.isDirectory(folder) || !Files.isReadable(folder)) {
@@ -196,9 +201,9 @@ public class StorageService {
         }
         try (final var children = Files.list(folder)) {
             return children
-                    .filter(child -> !child.getFileName().toString().startsWith("."))
+                    .filter(child -> !name(child).startsWith("."))
                     .filter(child -> Files.isDirectory(child) && Files.isReadable(child))
-                    .map(child -> child.getFileName().toString())
+                    .map(StorageService::name)
                     .sorted(String.CASE_INSENSITIVE_ORDER)
                     .toList();
         } catch (IOException | UncheckedIOException e) {

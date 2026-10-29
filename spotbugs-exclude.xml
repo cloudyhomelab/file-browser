@@ -15,6 +15,13 @@
         <Bug pattern="LEST_LOST_EXCEPTION_STACK_TRACE"/>
     </Match>
 
+    <!--one daemon thread for every session pool; daemon threads never keep the JVM running-->
+    <Match>
+        <Class name="org.vaadin.filebrowser.storage.remote.SessionPool"/>
+        <Field name="SWEEPER"/>
+        <Bug pattern="HES_EXECUTOR_NEVER_SHUTDOWN"/>
+    </Match>
+
     <Match>
         <Or>
             <Bug pattern="ACEM_ABSTRACT_CLASS_EMPTY_METHODS"/>
