@@ -88,7 +88,7 @@ public class FileStreamController {
             response.setStatus(HttpStatus.NOT_FOUND.value());
             return;
         }
-        if (root.get().locked()) {
+        if (root.get().locked() || !root.get().options().opening()) {
             response.setStatus(HttpStatus.FORBIDDEN.value());
             return;
         }

@@ -549,6 +549,16 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void preview(StorageEntry file) {
+        try {
+            root = workspace.current(root);
+        } catch (StorageException e) {
+            Toasts.error(e.getMessage());
+            return;
+        }
+        if (!root.options().opening()) {
+            Toasts.show("Opening files is turned off for “" + root.name() + "”", "info");
+            return;
+        }
         final var shown = displayEntries().stream().map(Located::entry).toList();
         final var files = Lightbox.files(shown);
         final var lightbox = new Lightbox(workspace.catalog(), root.id(), files, file, f -> setFocused(f.path()),
@@ -599,7 +609,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     @Override
     public void contextMenu(Located entry, MenuPosition position) {
-        entryMenu.open(entry, position, starredView, starred(entry), readOnly(), this::handleAction);
+        entryMenu.open(entry, position, starredView, starred(entry), readOnly(), root.options().opening(),
+                this::handleAction);
     }
 
     @Override
@@ -877,7 +888,9 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             Toasts.readOnly();
             return;
         }
-        final var dialog = new UploadDialog(workspace.catalog(), maxUploadBytes, workspace::inspectLink, this::startUploads);
+        final var now = workspace.current(root);
+        final var dialog = new UploadDialog(workspace.catalog(), now.options(), maxUploadBytes,
+                url -> workspace.inspectLink(now, url), this::startUploads);
         dialog.open();
     }
 

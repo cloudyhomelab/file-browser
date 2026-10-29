@@ -10,6 +10,7 @@ import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.ExtractOptions;
 import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.IncomingFile;
+import org.vaadin.filebrowser.data.RootOptions;
 import org.vaadin.filebrowser.service.LinkFetcher;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.ui.Buttons;
@@ -45,12 +46,19 @@ public class UploadDialog extends FbDialog {
     private final long maxBytes;
     /** Archives the user wants extracted, by file name, with their options. */
     private final Map<String, ExtractOptions> extract = new LinkedHashMap<>();
+    private final boolean extraction;
 
-    /** @param inspectLink reads a link's name and size on the server; throws with a user-facing message if refused */
-    public UploadDialog(Catalog catalog, long maxBytes, SerializableFunction<String, LinkFetcher.LinkInfo> inspectLink,
+    /**
+     * @param options     what the file system allows: without link uploads there is no link field, without
+     *                    extraction no Extract or Decompress
+     * @param inspectLink reads a link's name and size on the server; throws with a user-facing message if refused
+     */
+    public UploadDialog(Catalog catalog, RootOptions options, long maxBytes,
+                        SerializableFunction<String, LinkFetcher.LinkInfo> inspectLink,
                         SerializableConsumer<List<IncomingFile>> onConfirm) {
         super("Upload files", "upload", Tone.ACCENT, Width.MEDIUM);
         this.catalog = catalog;
+        this.extraction = options.extraction();
         this.offered = new ArrayList<>();
         this.maxBytes = maxBytes;
         final var sizeLimit = Formats.size(maxBytes);
@@ -82,6 +90,7 @@ public class UploadDialog extends FbDialog {
 
         final var sectionText = Ui.span("", "Selected files");
         sectionLabel = Ui.div("fb-section-label", sectionText);
+        link.setVisible(options.linkUploads());
         add(zone, link, sectionLabel, list);
         confirm = Buttons.create(Buttons.Kind.PRIMARY, "Upload", "upload", () -> {
             if (!picked.isEmpty()) {
@@ -146,7 +155,7 @@ public class UploadDialog extends FbDialog {
             }
             final var sizeText = Formats.size(f.knownSize());
             final var size = Ui.span("fb-mono fb-muted", sizeText);
-            final var archive = selected ? catalog.archiveFormat(f.name()).orElse(null) : null;
+            final var archive = selected && extraction ? catalog.archiveFormat(f.name()).orElse(null) : null;
             final var row = Ui.div("fb-upload-item" + (selected ? " fb-upload-item--on" : "")
                     + (archive != null ? " fb-upload-item--attached" : ""), glyph, name, size, box);
             row.getElement().setAttribute("role", "checkbox");
