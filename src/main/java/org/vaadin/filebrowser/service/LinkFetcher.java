@@ -9,6 +9,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.net.UnknownHostException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.function.Predicate;
@@ -205,10 +206,12 @@ public class LinkFetcher implements AutoCloseable {
     static String dispositionName(String header) {
         final var star = FILENAME_STAR.matcher(header);
         if (star.find()) {
-            final var charset = star.group(1).isBlank() ? "UTF-8" : star.group(1).trim();
+            final var charsetName = star.group(1).trim();
             try {
+                final var charset = charsetName.isEmpty() ? StandardCharsets.UTF_8 : Charset.forName(charsetName);
                 return validOr(URLDecoder.decode(star.group(2).trim().replace("+", "%2B"), charset), null);
-            } catch (IllegalArgumentException | java.io.UnsupportedEncodingException e) {
+            } catch (IllegalArgumentException e) {
+                // also an unknown or malformed charset name
                 return null;
             }
         }

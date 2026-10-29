@@ -50,8 +50,8 @@ record ByteRange(long start, long end) {
         if (first.isEmpty() || (!lastText.isEmpty() && last.isEmpty())) {
             return new Whole();
         }
-        final long start = first.get();
-        if (last.isPresent() && last.get() < start) {
+        final long start = first.orElseThrow();
+        if (last.isPresent() && last.orElseThrow() < start) {
             return new Whole();
         }
         if (start >= size) {

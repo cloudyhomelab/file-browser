@@ -88,24 +88,24 @@ public class FileStreamController {
             response.setStatus(HttpStatus.NOT_FOUND.value());
             return;
         }
-        if (root.get().locked() || !root.get().options().opening()) {
+        if (root.orElseThrow().locked() || !root.orElseThrow().options().opening()) {
             response.setStatus(HttpStatus.FORBIDDEN.value());
             return;
         }
         final StorageProvider provider;
         final Optional<StorageEntry> found;
         try {
-            provider = storage.provider(root.get());
+            provider = storage.provider(root.orElseThrow());
             found = provider.stat(relative);
         } catch (StorageException e) {
             response.setStatus(HttpStatus.SERVICE_UNAVAILABLE.value());
             return;
         }
-        if (found.isEmpty() || found.get().folder()) {
+        if (found.isEmpty() || found.orElseThrow().folder()) {
             response.setStatus(HttpStatus.NOT_FOUND.value());
             return;
         }
-        send(provider, found.get(), request, response);
+        send(provider, found.orElseThrow(), request, response);
     }
 
     private void send(StorageProvider provider, StorageEntry entry, HttpServletRequest request,

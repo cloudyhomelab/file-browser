@@ -245,7 +245,7 @@ public final class ArchiveExtractor {
             final var child = StoragePaths.child(path, segment);
             if (knownFolders.add(child)) {
                 final var existing = provider.stat(child);
-                if (existing.isPresent() && !existing.get().folder()) {
+                if (existing.isPresent() && !existing.orElseThrow().folder()) {
                     knownFolders.remove(child);
                     return null;
                 }
@@ -274,7 +274,7 @@ public final class ArchiveExtractor {
         var replace = false;
         if (names.contains(name)) {
             final var existing = provider.stat(StoragePaths.child(folder, name));
-            if (existing.isPresent() && existing.get().folder() || clash == ExtractOptions.Clash.SKIP) {
+            if (existing.isPresent() && existing.orElseThrow().folder() || clash == ExtractOptions.Clash.SKIP) {
                 skipped++;
                 return;
             }

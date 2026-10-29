@@ -188,13 +188,13 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         }
         final var newPath = event.getRouteParameters().getWildcard(PATH_PARAM);
         // an unreadable root is shown with its error; only a missing subfolder sends you back to the root
-        if (!newPath.isEmpty() && !workspace.isFolder(target.get(), newPath)) {
-            final var rootParams = params(target.get().id(), List.of());
+        if (!newPath.isEmpty() && !workspace.isFolder(target.orElseThrow(), newPath)) {
+            final var rootParams = params(target.orElseThrow().id(), List.of());
             event.forwardTo(BrowserView.class, rootParams);
             return;
         }
-        final var rootChanged = root == null || !root.id().equals(target.get().id());
-        root = target.get();
+        final var rootChanged = root == null || !root.id().equals(target.orElseThrow().id());
+        root = target.orElseThrow();
         path = List.copyOf(newPath);
         if (rootChanged) {
             // auto refresh is chosen per file system and never carried over

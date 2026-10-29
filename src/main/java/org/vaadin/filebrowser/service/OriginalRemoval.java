@@ -35,7 +35,7 @@ final class OriginalRemoval {
             if (now.isEmpty()) {
                 continue;
             }
-            if (!Objects.equals(now.get().size(), file.size()) || !Objects.equals(now.get().modified(), file.modified())) {
+            if (!Objects.equals(now.orElseThrow().size(), file.size()) || !Objects.equals(now.orElseThrow().modified(), file.modified())) {
                 changed.add(file.name());
                 continue;
             }

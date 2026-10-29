@@ -44,7 +44,7 @@ public final class VerifiedCopy {
                 .orElseThrow(() -> new StorageException("“" + nameOf(path) + "” no longer exists."));
         final var target = StoragePaths.child(folder, name);
         final var existing = to.stat(target);
-        if (existing.isPresent() && (!replace || source.folder() || existing.get().folder())) {
+        if (existing.isPresent() && (!replace || source.folder() || existing.orElseThrow().folder())) {
             throw new StorageException(replace ? "“" + name + "” can't be replaced: only a file replaces a file."
                     : "“" + name + "” already exists in the destination.");
         }

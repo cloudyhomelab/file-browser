@@ -255,9 +255,9 @@ public class Workspace implements Serializable {
                 userData.dropStars(root.id(), path);
                 continue;
             }
-            final var location = entry.get().parent();
+            final var location = entry.orElseThrow().parent();
             final var label = String.join(" / ", Stream.concat(Stream.of(root.name()), location.stream()).toList());
-            final var located = new Located(entry.get(), root.id(), location, label);
+            final var located = new Located(entry.orElseThrow(), root.id(), location, label);
             out.add(located);
         }
         return sort.apply(out);
@@ -488,7 +488,7 @@ public class Workspace implements Serializable {
     private void replaceFile(FsRoot root, StorageProvider provider, StorageEntry entry, String path, String name) {
         final var existing = provider.stat(path);
         if (existing.isPresent()) {
-            if (entry.folder() || existing.get().folder()) {
+            if (entry.folder() || existing.orElseThrow().folder()) {
                 throw new StorageException("“" + name + "” can't be replaced: only a file replaces a file.");
             }
             provider.delete(path);

@@ -126,7 +126,7 @@ public class Lightbox extends Dialog {
         } else if (!reachable) {
             showUnavailable(file, "Names with %, ; or \\ in them, or in a folder above them, can't be previewed.");
         } else {
-            final var view = view(viewer.get(), file, url);
+            final var view = view(viewer.orElseThrow(), file, url);
             stage.add(view);
         }
         onShown.accept(file);
