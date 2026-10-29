@@ -39,5 +39,15 @@
     "namePlaceholder": "Print shop FTP",
     "checkTimeout": "The server didn't answer in time.",
     "checkFailed": "The server can't be reached with these settings."
+  },
+  "smb": {
+    "displayName": "SMB share",
+    "endpointLabel": "Share folder",
+    "endpointPlaceholder": "smb://nas.example.com/share/projects",
+    "endpointPrefix": "smb://",
+    "endpointError": "Use the form smb://host/share/folder or smb://host:port/share/folder",
+    "namePlaceholder": "Office NAS",
+    "checkTimeout": "The server didn't answer in time.",
+    "checkFailed": "The server can't be reached with these settings."
   }
 }

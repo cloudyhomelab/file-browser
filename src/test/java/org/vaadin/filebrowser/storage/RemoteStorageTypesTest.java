@@ -46,4 +46,30 @@ class RemoteStorageTypesTest {
         assertThatThrownBy(() -> FtpStorageType.connection(config("ftp://host/pub", Map.of(), Map.of())))
                 .hasMessageContaining("user name");
     }
+
+    @Test
+    void smbSplitsTheShareFromTheFolder() {
+        final var connection = SmbStorageType.connection(config("smb://nas/media/photos/2024",
+                Map.of(SmbStorageType.REQUIRE_ENCRYPTION, "true"),
+                Map.of(SmbStorageType.USER, "carol", SmbStorageType.PASSWORD, "pw", SmbStorageType.DOMAIN, "OFFICE")));
+        assertThat(connection.share()).isEqualTo("media");
+        assertThat(connection.location().folder()).isEqualTo("/photos/2024");
+        assertThat(connection.location().port()).isEqualTo(445);
+        assertThat(connection.domain()).isEqualTo("OFFICE");
+        assertThat(connection.requireEncryption()).isTrue();
+        assertThat(connection.toString()).doesNotContain("carol", "pw", "OFFICE");
+        assertThat(SmbStorageType.parse("smb://nas:1445/media").folder().folder()).isEqualTo("/");
+        assertThat(SmbStorageType.parse("smb://nas:1445/media").folder().port()).isEqualTo(1445);
+    }
+
+    @Test
+    void smbNeedsAShareAndAUser() {
+        assertThat(SmbStorageType.parse("smb://nas")).isNull();
+        assertThat(SmbStorageType.parse("smb://nas/")).isNull();
+        assertThat(SmbStorageType.parse("smb://user@nas/media")).isNull();
+        assertThatThrownBy(() -> SmbStorageType.connection(config("smb://nas", Map.of(), Map.of())))
+                .hasMessageContaining("smb://host/share/folder");
+        assertThatThrownBy(() -> SmbStorageType.connection(config("smb://nas/media", Map.of(), Map.of())))
+                .hasMessageContaining("user name");
+    }
 }

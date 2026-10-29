@@ -20,6 +20,7 @@
     "sftp":        { "label": "SFTP server",      "icon": "t-server", "tint": "orange" },
     "ftp":         { "label": "FTP server",       "icon": "t-server", "tint": "orange", "usageNote": "Usage not reported" },
     "ftps":        { "label": "FTPS server",      "icon": "t-server", "tint": "orange", "usageNote": "Usage not reported" },
+    "smb-share":   { "label": "SMB share",        "icon": "t-nfs", "tint": "teal" },
     "unsupported": { "label": "Unsupported type", "icon": "warn", "tint": "muted" }
   }
 }
