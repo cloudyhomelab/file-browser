@@ -1,0 +1,2 @@
+# ban entire package - most functionalities are already present in modern java
+com.google.**
