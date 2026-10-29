@@ -219,7 +219,7 @@ public final class ArchiveExtractor {
         }
         final var out = new ArrayList<String>();
         for (final var part : name.replace('\\', '/').split("/")) {
-            if (part.isEmpty() || part.equals(".")) {
+            if (part.isEmpty() || ".".equals(part)) {
                 continue;
             }
             try {

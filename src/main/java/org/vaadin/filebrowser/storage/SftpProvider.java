@@ -198,13 +198,13 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
         try {
             for (final var entry : session.sftp().readDir(folder)) {
                 final var name = entry.getFilename();
-                if (name.equals(".") || name.equals("..")) {
+                if (".".equals(name) || "..".equals(name)) {
                     continue;
                 }
                 var attributes = entry.getAttributes();
                 if (attributes.isSymbolicLink()) {
                     // shown as what it points to; a broken link is left out
-                    final var target = statNode(session, folder.equals("/") ? "/" + name : folder + "/" + name);
+                    final var target = statNode(session, "/".equals(folder) ? "/" + name : folder + "/" + name);
                     if (target != null) {
                         out.add(new Node(name, target.folder(), target.size(), target.modified()));
                     }

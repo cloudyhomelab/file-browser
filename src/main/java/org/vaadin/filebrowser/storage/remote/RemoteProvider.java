@@ -455,7 +455,7 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
             return;
         }
         for (final var child : listNodes(session, path)) {
-            deleteNode(session, path.equals("/") ? "/" + child.name() : path + "/" + child.name(), child.folder());
+            deleteNode(session, "/".equals(path) ? "/" + child.name() : path + "/" + child.name(), child.folder());
         }
         deleteEmptyFolder(session, path);
     }

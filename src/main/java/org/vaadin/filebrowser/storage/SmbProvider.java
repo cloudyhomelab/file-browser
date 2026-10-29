@@ -202,7 +202,7 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
 
     /** The server path as smbj takes it: relative to the share, with backslashes. */
     private static String smb(String path) {
-        return path.equals("/") ? "" : path.substring(1).replace('/', '\\');
+        return "/".equals(path) ? "" : path.substring(1).replace('/', '\\');
     }
 
     @Override
@@ -210,7 +210,7 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
         final var out = new ArrayList<Node>();
         for (final var entry : smb(() -> session.share().list(smb(folder)))) {
             final var name = entry.getFileName();
-            if (!name.equals(".") && !name.equals("..")) {
+            if (!".".equals(name) && !"..".equals(name)) {
                 out.add(node(name, entry.getFileAttributes(), entry.getEndOfFile(), entry.getLastWriteTime()));
             }
         }

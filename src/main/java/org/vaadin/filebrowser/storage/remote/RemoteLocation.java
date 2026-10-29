@@ -40,6 +40,6 @@ public record RemoteLocation(String host, int port, String folder) {
         if (path.isEmpty()) {
             return folder;
         }
-        return folder.equals("/") ? "/" + path : folder + "/" + path;
+        return "/".equals(folder) ? "/" + path : folder + "/" + path;
     }
 }

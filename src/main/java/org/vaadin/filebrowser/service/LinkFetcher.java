@@ -179,7 +179,7 @@ public class LinkFetcher implements AutoCloseable {
             throw new IOException("invalid link", e);
         }
         final var scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-        if (!scheme.equals("http") && !scheme.equals("https") || uri.getHost() == null || uri.getUserInfo() != null) {
+        if (!"http".equals(scheme) && !"https".equals(scheme) || uri.getHost() == null || uri.getUserInfo() != null) {
             throw new IOException("unsupported link");
         }
         return uri;

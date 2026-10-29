@@ -75,7 +75,7 @@ public class SmbStorageType implements StorageType {
     /** @return null when {@code endpoint} names no share */
     public static Location parse(String endpoint) {
         final var server = RemoteLocation.parse(endpoint, SCHEME, DEFAULT_PORT);
-        if (server == null || server.folder().equals("/")) {
+        if (server == null || "/".equals(server.folder())) {
             return null;
         }
         final var path = server.folder().substring(1);

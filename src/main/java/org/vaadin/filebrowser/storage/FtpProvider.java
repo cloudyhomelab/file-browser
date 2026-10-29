@@ -309,7 +309,7 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         }
         final var out = new ArrayList<Node>();
         for (final var file : files) {
-            if (file == null || file.getName() == null || file.getName().equals(".") || file.getName().equals("..")) {
+            if (file == null || file.getName() == null || ".".equals(file.getName()) || "..".equals(file.getName())) {
                 continue;
             }
             out.add(node(file.getName(), file));
@@ -334,7 +334,7 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         if (ftp.changeWorkingDirectory(path)) {
             return new Node(name, true, null, null);
         }
-        if (path.equals("/")) {
+        if ("/".equals(path)) {
             throw refusal(ftp);
         }
         final var slash = path.lastIndexOf('/');

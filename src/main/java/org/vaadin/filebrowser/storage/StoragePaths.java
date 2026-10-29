@@ -24,7 +24,7 @@ public final class StoragePaths {
      * control characters, which some protocols (FTP) would send as part of their command line.
      */
     public static void requireValidName(String name) {
-        if (name == null || name.isBlank() || name.equals(".") || name.equals("..")
+        if (name == null || name.isBlank() || ".".equals(name) || "..".equals(name)
                 || name.contains(SEPARATOR) || name.contains("\\") || hasControlCharacter(name)) {
             throw new StorageException("“" + name + "” is not a valid name.");
         }
