@@ -16,33 +16,37 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 
 /** A folder on an FTP server, over TLS unless the admin turns it off; anonymous sign-in stores no secrets. */
-public class FtpForm extends RemoteForm {
+public class FtpForm extends RootForm {
 
     private static final List<Segmented.Option<Security>> SECURITY = List.of(
             Segmented.Option.text(Security.EXPLICIT, "Explicit TLS"),
             Segmented.Option.text(Security.IMPLICIT, "Implicit TLS"),
             Segmented.Option.text(Security.NONE, "None"));
 
+    private final SignInBox signIn;
+    private final ServerTrust trust;
     private final Div securityPicker = Ui.div("");
     private final Div securityHint = Ui.div("fb-addroot-access-hint");
     private final Switch anonymous;
     private Security security = Security.EXPLICIT;
 
     public FtpForm(Context context) {
-        super(context, FtpStorageType.CERTIFICATE, "certificate");
+        super(context);
+        signIn = new SignInBox(context, this::field);
+        trust = new ServerTrust(context, FtpStorageType.CERTIFICATE, "certificate");
         final var settings = editing() ? context.editing().settings() : Map.<String, String>of();
         anonymous = new Switch("Anonymous sign-in", FtpStorageType.anonymous(settings), on -> context.onChange().run());
         final var securityText = Ui.span("", "Security");
         final var securityLabel = Ui.div("fb-form-label", securityText);
         final var securityGroup = Ui.div("", securityLabel, securityPicker, securityHint);
         add(securityGroup);
-        credentials.add(anonymous, user, password);
-        addCredentials();
+        signIn.fields(anonymous, signIn.user(), signIn.password());
+        add(signIn, trust);
         if (editing()) {
             security = FtpStorageType.security(settings);
             anonymous.locked();
-            lockSecret(user, FtpStorageType.USER);
-            lockSecret(password, FtpStorageType.PASSWORD);
+            signIn.lock(signIn.user(), FtpStorageType.USER);
+            signIn.lock(signIn.password(), FtpStorageType.PASSWORD);
         }
     }
 
@@ -53,12 +57,18 @@ public class FtpForm extends RemoteForm {
     }
 
     @Override
-    protected void updateRemoteFields() {
+    public void offerFingerprint(String fingerprint) {
+        trust.offer(fingerprint, endpoint());
+    }
+
+    @Override
+    protected void updateFields() {
+        trust.update(endpoint());
         securityPicker.removeAll();
         final var choice = new Segmented<>("fb-seg--l", SECURITY, security, picked -> {
             security = picked;
             // a certificate seen over TLS says nothing about the next mode
-            forgetFingerprint();
+            trust.forget();
             context.onChange().run();
         });
         securityPicker.add(editing() ? choice.locked() : choice);
@@ -75,36 +85,39 @@ public class FtpForm extends RemoteForm {
         }
         securityHint.getElement().getClassList().set("fb-field-error-text", security == Security.NONE);
         final var named = !anonymous.isOn();
-        user.setVisible(named);
-        password.setVisible(named);
+        signIn.user().setVisible(named);
+        signIn.password().setVisible(named);
+        final var note = anonymous.isOn() ? "Signs in as “anonymous”; nothing is stored."
+                : SignInBox.STORED;
+        signIn.update(signIn.started(), credentialsProblem(), note);
     }
 
-    @Override
-    protected String credentialsNote() {
-        return anonymous.isOn() ? "Signs in as “anonymous”; nothing is stored." : super.credentialsNote();
-    }
-
-    @Override
-    protected String credentialsProblem() {
+    private String credentialsProblem() {
         if (anonymous.isOn()) {
             return null;
         }
-        if (blank(user)) {
+        if (SignInBox.blank(signIn.user())) {
             return "Enter the user name to sign in with.";
         }
-        if (blank(password)) {
+        if (SignInBox.blank(signIn.password())) {
             return "Enter the password.";
         }
         return null;
     }
 
     @Override
-    protected Map<String, String> remoteSettings() {
+    protected boolean fieldsValid() {
+        return credentialsProblem() == null && trust.valid();
+    }
+
+    @Override
+    public Map<String, String> settings() {
         final var settings = new LinkedHashMap<String, String>();
         settings.put(FtpStorageType.SECURITY, security.key());
         if (anonymous.isOn()) {
             settings.put(FtpStorageType.ANONYMOUS, "true");
         }
+        settings.putAll(trust.settings());
         return settings;
     }
 
@@ -113,6 +126,7 @@ public class FtpForm extends RemoteForm {
         if (anonymous.isOn()) {
             return Map.of();
         }
-        return Map.of(FtpStorageType.USER, user.getValue().trim(), FtpStorageType.PASSWORD, password.getValue());
+        return Map.of(FtpStorageType.USER, signIn.user().getValue().trim(), FtpStorageType.PASSWORD,
+                signIn.password().getValue());
     }
 }

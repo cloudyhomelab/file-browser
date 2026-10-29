@@ -101,6 +101,11 @@ sudo umount /tmp/fb-smb /tmp/fb-nfs
 docker compose -f environment/dev/docker-compose.yml stop smb nfs
 ```
 
+The Samba share can also be added without mounting it: choose SMB share with
+`smb://localhost/share`, user `test`, password `test`. The SMB tests start the same image through
+Testcontainers, including servers without SMB 3 or encryption, and are skipped where Docker isn't
+available.
+
 ## Trying S3 buckets
 
 The development environment runs [RustFS](https://rustfs.com), an S3-compatible server, on port 9000

@@ -33,10 +33,10 @@ services:
     volumes:
       - pocket-id-data:/app/data
 
-  # Test shares for checking NFS/SMB detection.
-  # Mounting them on the host needs root, see the README.
+  # Test shares: SMB can be added in the app as is; checking NFS/SMB mount detection
+  # needs them mounted on the host, which needs root, see CONTRIBUTING.md.
   smb:
-    image: ghcr.io/servercontainers/samba:latest
+    image: ghcr.io/servercontainers/samba@sha256:349779fe8c0c619407adb8dd5dc6940c807ec1bf215ef29932fa18dd287fd66e
     ports:
       - "127.0.0.1:445:445"
     environment:

@@ -7,6 +7,7 @@ import org.vaadin.filebrowser.storage.DiskStorageType;
 import org.vaadin.filebrowser.storage.FtpStorageType;
 import org.vaadin.filebrowser.storage.S3StorageType;
 import org.vaadin.filebrowser.storage.SftpStorageType;
+import org.vaadin.filebrowser.storage.SmbStorageType;
 
 /** The form for each storage type the add dialog offers, by the type's key. */
 final class RootForms {
@@ -15,7 +16,8 @@ final class RootForms {
             DiskStorageType.KEY, DiskForm::new,
             S3StorageType.KEY, S3Form::new,
             SftpStorageType.KEY, SftpForm::new,
-            FtpStorageType.KEY, FtpForm::new);
+            FtpStorageType.KEY, FtpForm::new,
+            SmbStorageType.KEY, SmbForm::new);
 
     private RootForms() {
     }
