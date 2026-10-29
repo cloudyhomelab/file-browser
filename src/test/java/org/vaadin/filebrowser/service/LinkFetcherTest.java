@@ -21,20 +21,21 @@ import com.sun.net.httpserver.HttpServer;
 
 /**
  * Serves on every local address, so a link that slipped past the checks would really be answered.
- * Only 127.0.0.1 counts as allowed here, standing in for "public"; 127.0.0.2 stands in for internal.
+ * Only 127.0.0.1 counts as allowed here, standing in for "public"; ::1 stands in for internal. Both are
+ * loopback addresses on every system, unlike 127.0.0.2, which macOS doesn't route.
  */
 class LinkFetcherTest {
 
-    private static final InetAddress ALLOWED = address(127, 0, 0, 1);
-    private static final InetAddress INTERNAL = address(127, 0, 0, 2);
+    private static final InetAddress ALLOWED = literal("127.0.0.1");
+    private static final InetAddress INTERNAL = literal("::1");
 
     private HttpServer server;
     private LinkFetcher fetcher;
     private int port;
 
-    private static InetAddress address(int a, int b, int c, int d) {
+    private static InetAddress literal(String address) {
         try {
-            return InetAddress.getByAddress(new byte[]{(byte) a, (byte) b, (byte) c, (byte) d});
+            return InetAddress.getByName(address);
         } catch (UnknownHostException e) {
             throw new IllegalStateException(e);
         }
@@ -105,7 +106,7 @@ class LinkFetcherTest {
         // redirects need the port, so they're added once it's known
         serve("/to-allowed", 302, Map.of("Location", url("files.test", "/files/report.pdf")), new byte[0]);
         serve("/to-internal", 302, Map.of("Location", url("internal.test", "/files/report.pdf")), new byte[0]);
-        serve("/to-literal", 302, Map.of("Location", url("127.0.0.2", "/files/report.pdf")), new byte[0]);
+        serve("/to-literal", 302, Map.of("Location", url("[::1]", "/files/report.pdf")), new byte[0]);
         serve("/loop", 302, Map.of("Location", "/loop"), new byte[0]);
     }
 
@@ -159,14 +160,14 @@ class LinkFetcherTest {
     void theInternalAddressReallyAnswersWhenNothingIsChecked() throws IOException {
         // the control for the refusals below: they fail because of the checks, not the network
         try (final var open = new LinkFetcher(address -> true, TEST_DNS)) {
-            assertThat(open.inspect(url("127.0.0.2", "/files/report.pdf")).name()).isEqualTo("report.pdf");
+            assertThat(open.inspect(url("[::1]", "/files/report.pdf")).name()).isEqualTo("report.pdf");
         }
     }
 
     @Test
     void refusesInternalHostsLiteralAddressesAndOddLinks() {
         for (final var link : new String[]{url("internal.test", "/files/report.pdf"),
-                url("127.0.0.2", "/files/report.pdf"), url("[::ffff:127.0.0.2]", "/files/report.pdf"),
+                url("[::1]", "/files/report.pdf"), url("[::ffff:127.0.0.2]", "/files/report.pdf"),
                 "ftp://files.test/report.pdf", "file:///etc/passwd", "http://user:secret@files.test:" + port + "/",
                 "not a link", "http:///nohost"}) {
             assertThatThrownBy(() -> fetcher.inspect(link)).as(link)
