@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -119,7 +120,7 @@ public class ConflictDialog extends FbDialog {
         rows.removeAll();
         for (final var c : clashes) {
             final var choice = choices.get(c.name());
-            final var detail = Ui.div("fb-conflict-detail fb-conflict-detail--" + choice.name().toLowerCase().replace('_', '-'));
+            final var detail = Ui.div("fb-conflict-detail fb-conflict-detail--" + choice.name().toLowerCase(Locale.ROOT).replace('_', '-'));
             detail(detail, c, choice);
             final var glyph = new FileGlyph(c.type(), catalog);
             final var nameText = Ui.span("", c.name());

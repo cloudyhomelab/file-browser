@@ -126,8 +126,8 @@ public class S3Form extends RootForm {
     }
 
     private boolean credentialsIncomplete() {
-        final var hasKey = !keyId.getValue().trim().isEmpty();
-        final var hasSecret = !secret.getValue().trim().isEmpty();
+        final var hasKey = !keyId.getValue().isBlank();
+        final var hasSecret = !secret.getValue().isBlank();
         return hasKey != hasSecret;
     }
 }

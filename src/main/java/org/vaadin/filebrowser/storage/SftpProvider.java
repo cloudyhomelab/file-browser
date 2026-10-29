@@ -201,7 +201,7 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
                 if (".".equals(name) || "..".equals(name)) {
                     continue;
                 }
-                var attributes = entry.getAttributes();
+                final var attributes = entry.getAttributes();
                 if (attributes.isSymbolicLink()) {
                     // shown as what it points to; a broken link is left out
                     final var target = statNode(session, "/".equals(folder) ? "/" + name : folder + "/" + name);
@@ -318,8 +318,8 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
                 return true;
             }
             if (offered.contains(SftpConstants.EXT_COPY_DATA)) {
-                try (final var source = sftp.open(from, SftpClient.OpenMode.Read);
-                     final var target = sftp.open(to, SftpClient.OpenMode.Write, SftpClient.OpenMode.Create,
+                try (var source = sftp.open(from, SftpClient.OpenMode.Read);
+                     var target = sftp.open(to, SftpClient.OpenMode.Write, SftpClient.OpenMode.Create,
                              SftpClient.OpenMode.Exclusive)) {
                     sftp.getExtension(CopyDataExtension.class).copyData(source, 0, COPY_TO_END, target, 0);
                 }

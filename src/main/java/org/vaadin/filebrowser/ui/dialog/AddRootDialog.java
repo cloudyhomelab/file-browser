@@ -141,7 +141,7 @@ public class AddRootDialog extends FbDialog {
         accessHint.setText(writable ? "" : form.readOnlyHint());
         accessHint.setVisible(!writable);
 
-        connect.setEnabled(!name.getValue().trim().isEmpty() && form.complete());
+        connect.setEnabled(!name.getValue().isBlank() && form.complete());
     }
 
     // typing a path passes through parents such as /home that the server can't write to, so the

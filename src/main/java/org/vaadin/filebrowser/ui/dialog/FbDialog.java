@@ -1,5 +1,7 @@
 package org.vaadin.filebrowser.ui.dialog;
 
+import java.util.Locale;
+
 import org.vaadin.filebrowser.ui.Buttons;
 import org.vaadin.filebrowser.ui.Icon;
 import org.vaadin.filebrowser.ui.Ui;
@@ -19,10 +21,10 @@ public abstract class FbDialog extends Dialog {
     private final H2 title = new H2();
 
     protected FbDialog(String titleText, String icon, Tone tone, Width width) {
-        addClassNames("fb-dialog", "fb-dialog--" + width.name().toLowerCase());
+        addClassNames("fb-dialog", "fb-dialog--" + width.name().toLowerCase(Locale.ROOT));
         title.setText(titleText);
         final var chipIcon = new Icon(icon);
-        final var chip = Ui.span("fb-dialog-icon fb-dialog-icon--" + tone.name().toLowerCase(), chipIcon);
+        final var chip = Ui.span("fb-dialog-icon fb-dialog-icon--" + tone.name().toLowerCase(Locale.ROOT), chipIcon);
         final var head = Ui.div("fb-dialog-head", chip, title);
         getHeader().add(head);
     }

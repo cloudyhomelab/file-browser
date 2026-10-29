@@ -199,7 +199,7 @@ public class StorageService {
         if (!folder.isAbsolute() || !Files.isDirectory(folder) || !Files.isReadable(folder)) {
             return List.of();
         }
-        try (final var children = Files.list(folder)) {
+        try (var children = Files.list(folder)) {
             return children
                     .filter(child -> !name(child).startsWith("."))
                     .filter(child -> Files.isDirectory(child) && Files.isReadable(child))

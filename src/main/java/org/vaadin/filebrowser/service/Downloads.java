@@ -33,7 +33,7 @@ public final class Downloads {
                 if (file.size() != null) {
                     event.setContentLength(file.size());
                 }
-                try (final var in = provider.openRead(file.path())) {
+                try (var in = provider.openRead(file.path())) {
                     in.transferTo(event.getOutputStream());
                 }
             };
@@ -46,7 +46,7 @@ public final class Downloads {
     }
 
     static void writeZip(StorageProvider provider, List<StorageEntry> entries, OutputStream out) throws IOException {
-        try (final var zip = new ZipOutputStream(out)) {
+        try (var zip = new ZipOutputStream(out)) {
             for (final var entry : entries) {
                 add(provider, entry, entry.name(), zip);
             }
@@ -66,7 +66,7 @@ public final class Downloads {
         }
         final var fileEntry = new ZipEntry(nameInZip);
         zip.putNextEntry(fileEntry);
-        try (final var in = provider.openRead(entry.path())) {
+        try (var in = provider.openRead(entry.path())) {
             in.transferTo(zip);
         }
         zip.closeEntry();

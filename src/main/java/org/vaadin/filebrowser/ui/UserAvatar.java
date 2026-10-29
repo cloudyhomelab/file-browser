@@ -1,5 +1,7 @@
 package org.vaadin.filebrowser.ui;
 
+import java.util.Locale;
+
 import org.vaadin.filebrowser.data.Formats;
 
 import com.vaadin.flow.component.html.Span;
@@ -14,7 +16,7 @@ public class UserAvatar extends Span {
 
     public UserAvatar(String name, Size size) {
         final var colorClass = "fb-avatar-c" + colorIndex(name);
-        addClassNames("fb-avatar", "fb-avatar--" + size.name().toLowerCase(), colorClass);
+        addClassNames("fb-avatar", "fb-avatar--" + size.name().toLowerCase(Locale.ROOT), colorClass);
         final var initials = Formats.initials(name);
         setText(initials);
         getElement().setAttribute("title", name == null ? "" : name);

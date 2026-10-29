@@ -120,17 +120,17 @@ public final class ArchiveExtractor {
             case ZIP -> readZip(archive);
             case SEVEN_Z -> readSevenZ(archive);
             case TAR, TAR_GZ, TAR_BZ2, TAR_XZ, TAR_LZ -> {
-                try (final var tar = new TarArchiveInputStream(decompress(archive, format))) {
+                try (var tar = new TarArchiveInputStream(decompress(archive, format))) {
                     readTar(tar);
                 }
             }
             case GZ, BZ2, XZ, LZ -> {
-                try (final var in = decompress(archive, format)) {
+                try (var in = decompress(archive, format)) {
                     accept(new Entry() {
-                        public String name() { return singleName; }
-                        public boolean directory() { return false; }
-                        public boolean regular() { return true; }
-                        public InputStream open() { return new Unclosable(in); }
+                        @Override public String name() { return singleName; }
+                        @Override public boolean directory() { return false; }
+                        @Override public boolean regular() { return true; }
+                        @Override public InputStream open() { return new Unclosable(in); }
                     });
                 }
             }
@@ -150,15 +150,15 @@ public final class ArchiveExtractor {
     }
 
     private void readZip(Path archive) throws IOException {
-        try (final var zip = ZipFile.builder().setPath(archive).get()) {
+        try (var zip = ZipFile.builder().setPath(archive).get()) {
             final var all = zip.getEntries();
             while (all.hasMoreElements()) {
                 final var entry = all.nextElement();
                 accept(new Entry() {
-                    public String name() { return entry.getName(); }
-                    public boolean directory() { return entry.isDirectory(); }
-                    public boolean regular() { return !entry.isUnixSymlink(); }
-                    public InputStream open() throws IOException { return zip.getInputStream(entry); }
+                    @Override public String name() { return entry.getName(); }
+                    @Override public boolean directory() { return entry.isDirectory(); }
+                    @Override public boolean regular() { return !entry.isUnixSymlink(); }
+                    @Override public InputStream open() throws IOException { return zip.getInputStream(entry); }
                 });
             }
         }
@@ -168,10 +168,10 @@ public final class ArchiveExtractor {
         for (var entry = tar.getNextEntry(); entry != null; entry = tar.getNextEntry()) {
             final var current = entry;
             accept(new Entry() {
-                public String name() { return current.getName(); }
-                public boolean directory() { return current.isDirectory(); }
-                public boolean regular() { return isRegularTarEntry(current); }
-                public InputStream open() { return new Unclosable(tar); }
+                @Override public String name() { return current.getName(); }
+                @Override public boolean directory() { return current.isDirectory(); }
+                @Override public boolean regular() { return isRegularTarEntry(current); }
+                @Override public InputStream open() { return new Unclosable(tar); }
             });
         }
     }
@@ -182,14 +182,14 @@ public final class ArchiveExtractor {
     }
 
     private void readSevenZ(Path archive) throws IOException {
-        try (final var sevenZ = SevenZFile.builder().setPath(archive).get()) {
+        try (var sevenZ = SevenZFile.builder().setPath(archive).get()) {
             for (var entry = sevenZ.getNextEntry(); entry != null; entry = sevenZ.getNextEntry()) {
                 final var current = entry;
                 accept(new Entry() {
-                    public String name() { return current.getName(); }
-                    public boolean directory() { return current.isDirectory(); }
-                    public boolean regular() { return !current.isAntiItem(); }
-                    public InputStream open() throws IOException { return sevenZ.getInputStream(current); }
+                    @Override public String name() { return current.getName(); }
+                    @Override public boolean directory() { return current.isDirectory(); }
+                    @Override public boolean regular() { return !current.isAntiItem(); }
+                    @Override public InputStream open() throws IOException { return sevenZ.getInputStream(current); }
                 });
             }
         }
@@ -285,7 +285,7 @@ public final class ArchiveExtractor {
             }
         }
         final var path = StoragePaths.child(folder, finalName);
-        try (final var write = provider.openWrite(folder, finalName, replace); final var in = entry.open()) {
+        try (var write = provider.openWrite(folder, finalName, replace); var in = entry.open()) {
             final var buffer = new byte[BUFFER_SIZE];
             int read;
             while ((read = in.read(buffer)) != -1) {

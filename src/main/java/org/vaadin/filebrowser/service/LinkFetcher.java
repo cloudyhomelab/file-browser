@@ -104,7 +104,7 @@ public class LinkFetcher implements AutoCloseable {
 
     /** Reads the name and size a link offers, without downloading it. */
     public LinkInfo inspect(String url) {
-        try (final var opened = open(url)) {
+        try (var opened = open(url)) {
             return new LinkInfo(url, fileName(opened.response(), opened.uri()), size(opened.response()));
         } catch (IOException e) {
             throw new StorageException(REFUSED, e);

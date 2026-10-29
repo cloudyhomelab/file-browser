@@ -120,7 +120,7 @@ public class UploadQueue implements Serializable {
             receiveArchive(task, in, maxBytes, provider, folder);
             return;
         }
-        try (final var write = provider.openWrite(folder, task.name(), task.replace())) {
+        try (var write = provider.openWrite(folder, task.name(), task.replace())) {
             final var buffer = new byte[BUFFER_SIZE];
             long total = 0;
             int read;
@@ -196,7 +196,7 @@ public class UploadQueue implements Serializable {
 
     /** @return false when the upload ended (cancelled or too large) before all of it arrived */
     private static boolean copyToTemp(UploadTask task, InputStream in, long maxBytes, Path temp) throws IOException {
-        try (final var out = Files.newOutputStream(temp)) {
+        try (var out = Files.newOutputStream(temp)) {
             final var buffer = new byte[BUFFER_SIZE];
             long total = 0;
             int read;
@@ -220,8 +220,8 @@ public class UploadQueue implements Serializable {
     }
 
     private static void storeArchive(UploadTask task, Path temp, StorageProvider provider, String folder) throws IOException {
-        try (final var write = provider.openWrite(folder, task.name(), task.replace());
-             final var in = Files.newInputStream(temp)) {
+        try (var write = provider.openWrite(folder, task.name(), task.replace());
+             var in = Files.newInputStream(temp)) {
             in.transferTo(write.stream());
             write.commit();
         }

@@ -260,7 +260,7 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     private static void rename(Session session, String from, String to, boolean replace) throws IOException {
         final var access = EnumSet.of(AccessMask.DELETE, AccessMask.FILE_READ_ATTRIBUTES);
         smb(() -> {
-            try (final var entry = session.share().open(smb(from), access, null, SMB2ShareAccess.ALL,
+            try (var entry = session.share().open(smb(from), access, null, SMB2ShareAccess.ALL,
                     SMB2CreateDisposition.FILE_OPEN, null)) {
                 entry.rename(smb(to), replace);
             }
@@ -307,8 +307,8 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     protected boolean copyOnServer(Session session, String from, String to) throws IOException {
         try {
             smb(() -> {
-                try (final var source = openFile(session, from, AccessMask.GENERIC_READ, SMB2CreateDisposition.FILE_OPEN);
-                     final var target = openFile(session, to, AccessMask.GENERIC_ALL, SMB2CreateDisposition.FILE_CREATE)) {
+                try (var source = openFile(session, from, AccessMask.GENERIC_READ, SMB2CreateDisposition.FILE_OPEN);
+                     var target = openFile(session, to, AccessMask.GENERIC_ALL, SMB2CreateDisposition.FILE_CREATE)) {
                     source.remoteCopyTo(target);
                 } catch (Buffer.BufferException e) {
                     throw new IOException("The server's copy reply can't be read.", e);

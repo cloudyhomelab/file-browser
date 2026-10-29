@@ -5,7 +5,6 @@ import java.io.Serializable;
 import java.io.UncheckedIOException;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -45,10 +44,10 @@ public class Catalog implements Serializable {
         final var mapper = JsonMapper.builder()
                 .disable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
                 .build();
-        this.rootTypes = read(mapper, "data/root-types.json", new TypeReference<LinkedHashMap<String, RootTypeInfo>>() { });
-        this.fileTypes = read(mapper, "data/file-types.json", new TypeReference<LinkedHashMap<String, FileTypeInfo>>() { });
-        this.signInErrors = read(mapper, "data/sign-in-errors.json", new TypeReference<Map<String, String>>() { });
-        this.mountKinds = read(mapper, "data/mount-kinds.json", new TypeReference<MountKinds>() { });
+        this.rootTypes = read(mapper, "data/root-types.json", new TypeReference<>() { });
+        this.fileTypes = read(mapper, "data/file-types.json", new TypeReference<>() { });
+        this.signInErrors = read(mapper, "data/sign-in-errors.json", new TypeReference<>() { });
+        this.mountKinds = read(mapper, "data/mount-kinds.json", new TypeReference<>() { });
         mountKinds.storeTypes().values().stream()
                 .filter(kind -> !mountKinds.kinds().containsKey(kind))
                 .findFirst()
@@ -71,7 +70,7 @@ public class Catalog implements Serializable {
                 .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
                 .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
                 .build();
-        this.rootOptions = read(strict, "data/root-options.json", new TypeReference<RootOptions>() { });
+        this.rootOptions = read(strict, "data/root-options.json", new TypeReference<>() { });
     }
 
     /** What a new file system starts with. */
@@ -90,7 +89,7 @@ public class Catalog implements Serializable {
     }
 
     private static <T> T read(JsonMapper mapper, String path, TypeReference<T> type) {
-        try (final var in = new ClassPathResource(path).getInputStream()) {
+        try (var in = new ClassPathResource(path).getInputStream()) {
             return mapper.readValue(in, type);
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot read " + path, e);

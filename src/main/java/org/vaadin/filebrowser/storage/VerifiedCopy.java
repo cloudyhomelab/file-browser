@@ -85,14 +85,14 @@ public final class VerifiedCopy {
         try {
             final byte[] written;
             progress.phase(name, CopyProgress.Phase.COPYING);
-            try (final var in = from.openRead(path);
-                 final var write = to.openWrite(folder, temporaryName, false)) {
+            try (var in = from.openRead(path);
+                 var write = to.openWrite(folder, temporaryName, false)) {
                 written = transfer(in, write.stream(), name, progress::copied, progress);
                 write.commit();
             }
             final byte[] readBack;
             progress.phase(name, CopyProgress.Phase.VERIFYING);
-            try (final var in = to.openRead(temporary)) {
+            try (var in = to.openRead(temporary)) {
                 readBack = transfer(in, OutputStream.nullOutputStream(), name, progress::verified, progress);
             }
             if (!Arrays.equals(written, readBack)) {

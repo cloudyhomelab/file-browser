@@ -1,5 +1,7 @@
 package org.vaadin.filebrowser.ui;
 
+import java.util.Locale;
+
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.function.SerializableRunnable;
@@ -18,7 +20,7 @@ public final class Buttons {
             final var iconComponent = new Icon(icon);
             button.setIcon(iconComponent);
         }
-        button.addClassNames("fb-btn", "fb-btn--" + kind.name().toLowerCase().replace('_', '-'));
+        button.addClassNames("fb-btn", "fb-btn--" + kind.name().toLowerCase(Locale.ROOT).replace('_', '-'));
         switch (kind) {
             case PRIMARY -> button.addThemeVariants(ButtonVariant.PRIMARY);
             case TERTIARY -> button.addThemeVariants(ButtonVariant.TERTIARY);

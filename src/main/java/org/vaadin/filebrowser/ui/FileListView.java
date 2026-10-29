@@ -2,6 +2,7 @@ package org.vaadin.filebrowser.ui;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.vaadin.filebrowser.data.Catalog;
@@ -13,7 +14,6 @@ import org.vaadin.filebrowser.service.Workspace.Density;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.NativeButton;
 
 /** The design's table: sortable header, rows with hover-revealed checkbox, star and menu. */
 public class FileListView extends Composite<Div> {
@@ -26,7 +26,7 @@ public class FileListView extends Composite<Div> {
         this.handler = handler;
         this.rows = LinkedHashMap.newLinkedHashMap(entries.size());
         final var table = getContent();
-        table.addClassNames("fb-table", "fb-table--" + density.name().toLowerCase());
+        table.addClassNames("fb-table", "fb-table--" + density.name().toLowerCase(Locale.ROOT));
         table.getElement().getClassList().set("fb-table--selectable", handler.selectable());
         table.getElement().setAttribute("role", "table");
 
@@ -72,9 +72,8 @@ public class FileListView extends Composite<Div> {
         final var down = Ui.span("fb-sort-down" + (active && !sort.ascending() ? " fb-sort--on" : ""));
         final var labelText = Ui.span("", label);
         final var arrows = Ui.span("fb-sort-arrows", up, down);
-        final NativeButton button = Ui.button("fb-col-head" + (active ? " fb-col-head--active" : "")
+        return Ui.button("fb-col-head" + (active ? " fb-col-head--active" : "")
                 + (key == SortKey.SIZE ? " fb-col-head--end" : ""), () -> handler.sortBy(key), labelText, arrows);
-        return button;
     }
 
     private static Div row(Located located, EntryHandler handler, Catalog catalog, DragMove.Targets dropTargets) {

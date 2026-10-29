@@ -9,7 +9,7 @@ import java.net.URISyntaxException;
  */
 public record RemoteLocation(String host, int port, String folder) {
 
-    private static final int MAX_PORT = 65535;
+    private static final int MAX_PORT = 65_535;
 
     /** @return null when {@code endpoint} isn't of that form */
     public static RemoteLocation parse(String endpoint, String scheme, int defaultPort) {

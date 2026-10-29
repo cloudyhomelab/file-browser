@@ -57,7 +57,7 @@ public record FileBrowserProperties(Path databasePath, Map<String, Provider> oid
      */
     public static String normalizedEmail(String email) {
         final var out = new StringBuilder(email.length());
-        email.trim().chars().forEach(c -> out.append((char) (c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c)));
+        email.trim().chars().forEach(c -> out.append((char) (c >= 'A' && c <= 'Z' ? c + 'a' - 'A' : c)));
         return out.toString();
     }
 

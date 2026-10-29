@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -55,7 +56,7 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
         NONE;
 
         public String key() {
-            return name().toLowerCase();
+            return name().toLowerCase(Locale.ROOT);
         }
 
         /** @return null for an unknown value */

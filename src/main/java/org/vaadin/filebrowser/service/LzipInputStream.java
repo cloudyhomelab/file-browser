@@ -85,7 +85,7 @@ final class LzipInputStream extends InputStream {
         if (log < MIN_DICT_LOG || log > MAX_DICT_LOG) {
             throw new IOException("Invalid lzip dictionary size.");
         }
-        final var dictSize = (1 << log) - ((1 << log) / 16) * (coded >>> 5);
+        final var dictSize = (1 << log) - (1 << log) / 16 * (coded >>> 5);
         if (dictSize > MAX_DICT_SIZE) {
             throw new IOException("lzip dictionary too large.");
         }

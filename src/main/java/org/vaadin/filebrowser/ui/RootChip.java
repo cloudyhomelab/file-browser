@@ -1,5 +1,7 @@
 package org.vaadin.filebrowser.ui;
 
+import java.util.Locale;
+
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.KindInfo;
@@ -12,7 +14,7 @@ public class RootChip extends Span {
     public enum Size { XS, S, M, L }
 
     public RootChip(KindInfo kind, Size size) {
-        addClassNames("fb-rootchip", kind.tintClass(), "fb-rootchip--" + size.name().toLowerCase());
+        addClassNames("fb-rootchip", kind.tintClass(), "fb-rootchip--" + size.name().toLowerCase(Locale.ROOT));
         final var mark = new Icon(kind.icon());
         add(mark);
     }

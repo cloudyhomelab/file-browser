@@ -117,7 +117,7 @@ public class LocalDiskProvider implements StorageProvider {
         final var dir = existingFolder(folder);
         final var realRoot = realRoot();
         final var out = new ArrayList<StorageEntry>();
-        try (final var children = Files.list(dir)) {
+        try (var children = Files.list(dir)) {
             for (final var child : (Iterable<Path>) children::iterator) {
                 if (escapes(child, realRoot) || isPartialUpload(child)) {
                     continue;
@@ -178,7 +178,7 @@ public class LocalDiskProvider implements StorageProvider {
     }
 
     private static Integer countChildren(Path dir) {
-        try (final var children = Files.list(dir)) {
+        try (var children = Files.list(dir)) {
             return (int) children.count();
         } catch (IOException | UncheckedIOException e) {
             return null;

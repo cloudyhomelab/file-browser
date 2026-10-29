@@ -97,7 +97,7 @@ class SignInBox extends Div {
     }
 
     static boolean blank(TextField field) {
-        return field.getValue().trim().isEmpty();
+        return field.getValue().isBlank();
     }
 
     static boolean blank(PasswordField field) {

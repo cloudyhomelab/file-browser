@@ -41,7 +41,8 @@ public final class Formats {
             return "—";
         }
         if (gb >= UNIT_STEP) {
-            return String.format(Locale.US, "%.1f TB", gb / (double) UNIT_STEP);
+            final double size = gb;
+            return String.format(Locale.US, "%.1f TB", size / UNIT_STEP);
         }
         return gb + " GB";
     }
