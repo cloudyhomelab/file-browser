@@ -40,7 +40,7 @@ public class CurrentUser implements Serializable {
     }
 
     public boolean isAdmin() {
-        return get().map(User::admin).orElse(false);
+        return get().map(User::admin).orElse(Boolean.FALSE);
     }
 
     public void signOut() {

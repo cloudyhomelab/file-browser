@@ -195,7 +195,7 @@ public class Workspace implements Serializable {
             if (folder.isEmpty()) {
                 return provider(root).healthy();
             }
-            return provider(root).stat(StoragePaths.join(folder)).map(StorageEntry::folder).orElse(false);
+            return provider(root).stat(StoragePaths.join(folder)).map(StorageEntry::folder).orElse(Boolean.FALSE);
         } catch (StorageException e) {
             return false;
         }

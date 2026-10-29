@@ -94,7 +94,7 @@ public class S3Provider implements StorageProvider, AutoCloseable {
         if (connection.endpointUrl() != null) {
             // S3-compatible stores: bucket in the path, and only the checksums S3 itself requires
             builder.endpointOverride(connection.endpointUrl())
-                    .forcePathStyle(true)
+                    .forcePathStyle(Boolean.TRUE)
                     .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
         }
         this.client = builder.build();
@@ -361,7 +361,7 @@ public class S3Provider implements StorageProvider, AutoCloseable {
                     .toList();
             try {
                 final var result = client.deleteObjects(r -> r.bucket(location.bucket())
-                        .delete(Delete.builder().objects(batch).quiet(true).build()));
+                        .delete(Delete.builder().objects(batch).quiet(Boolean.TRUE).build()));
                 if (result.hasErrors() && !result.errors().isEmpty()) {
                     throw new StorageException("Could not " + what + ": " + result.errors().size()
                             + " items could not be deleted.");

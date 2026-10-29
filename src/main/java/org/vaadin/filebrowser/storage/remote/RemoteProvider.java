@@ -424,10 +424,10 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
             }
             try {
                 deleteEmptyFolder(session, remote(path));
-                return true;
+                return Boolean.TRUE;
             } catch (Refusal e) {
                 if (!listNodes(session, remote(path)).isEmpty()) {
-                    return false;
+                    return Boolean.FALSE;
                 }
                 throw e;
             }
