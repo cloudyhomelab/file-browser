@@ -2,7 +2,8 @@ package org.vaadin.filebrowser.ui;
 
 import org.vaadin.filebrowser.data.Located;
 
-import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.ClickNotifier;
+import com.vaadin.flow.component.Component;
 
 /** What a card or row does when clicked, double-clicked, right-clicked or dragged; the same in every layout. */
 final class EntryListeners {
@@ -10,7 +11,7 @@ final class EntryListeners {
     private EntryListeners() {
     }
 
-    static void listen(Div component, Located located, EntryHandler handler, DragMove.Targets dropTargets) {
+    static <C extends Component & ClickNotifier<C>> void listen(C component, Located located, EntryHandler handler, DragMove.Targets dropTargets) {
         final var entry = located.entry();
         component.addClickListener(e -> {
             if (entry.folder()) {

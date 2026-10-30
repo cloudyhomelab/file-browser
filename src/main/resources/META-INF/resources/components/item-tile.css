@@ -1,0 +1,55 @@
+/* Defaults have zero specificity, so a plain .item-tile rule in the application overrides them. */
+:where(.item-tile) {
+  --item-tile-gap: 12px;                            /* space between media and text */
+  --item-tile-padding: 20px 12px 14px;              /* more room on top for the corner controls */
+  --item-tile-radius: var(--vaadin-radius-l);
+  --item-tile-border-color: var(--vaadin-border-color-secondary);
+  --item-tile-background: var(--vaadin-background-color);
+  --item-tile-shadow: none;
+  --item-tile-hover-shadow: 0 4px 12px rgb(0 0 0 / 0.08); /* lift on hover */
+  --item-tile-hover-lift: -2px;                     /* vertical move on hover */
+  --item-tile-selected-border-color: var(--vaadin-focus-ring-color);
+  --item-tile-selected-background: var(--vaadin-background-container);
+  --item-tile-media-height: 70px;                   /* media is centred in a box of this height */
+  --item-tile-start-offset: 9px;                    /* start control inset from the top-left corner */
+  --item-tile-indicator-offset: 8px;                /* indicator inset from the top-left corner */
+  --item-tile-indicator-color: var(--vaadin-focus-ring-color);
+  --item-tile-end-offset: 6px;                      /* end controls inset from the top-right corner */
+  --item-tile-title-font-size: 13.5px;
+  --item-tile-title-font-weight: 500;
+  --item-tile-title-line-height: 1.3;
+  --item-tile-title-color: var(--vaadin-text-color);
+  --item-tile-subtitle-gap: 3px;                    /* space between title and subtitle */
+  --item-tile-subtitle-font-size: 12px;
+  --item-tile-subtitle-color: var(--vaadin-text-color-secondary);
+  --item-tile-transition: 200ms ease;               /* hover lift and shadow */
+}
+
+.item-tile {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--item-tile-gap);
+  padding: var(--item-tile-padding); text-align: center; cursor: var(--vaadin-clickable-cursor, pointer);
+  border: 1px solid var(--item-tile-border-color); border-radius: var(--item-tile-radius);
+  background: var(--item-tile-background); box-shadow: var(--item-tile-shadow);
+  transition: transform var(--item-tile-transition), box-shadow var(--item-tile-transition);
+}
+.item-tile:hover { box-shadow: var(--item-tile-hover-shadow); transform: translateY(var(--item-tile-hover-lift)); }
+.item-tile--selected { border-color: var(--item-tile-selected-border-color); background: var(--item-tile-selected-background); }
+
+.item-tile-media { height: var(--item-tile-media-height); display: flex; align-items: center; }
+.item-tile-text { min-width: 0; width: 100%; }
+.item-tile-title, .item-tile-subtitle { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-tile-title {
+  font-size: var(--item-tile-title-font-size); font-weight: var(--item-tile-title-font-weight);
+  line-height: var(--item-tile-title-line-height); color: var(--item-tile-title-color);
+}
+.item-tile-subtitle {
+  margin-top: var(--item-tile-subtitle-gap); font-size: var(--item-tile-subtitle-font-size); line-height: 1;
+  color: var(--item-tile-subtitle-color);
+}
+
+.item-tile-start { position: absolute; top: var(--item-tile-start-offset); left: var(--item-tile-start-offset); display: inline-flex; visibility: hidden; }
+.item-tile:hover .item-tile-start, .item-tile--selected .item-tile-start { visibility: visible; }
+.item-tile-indicator { position: absolute; top: var(--item-tile-indicator-offset); left: var(--item-tile-indicator-offset); display: inline-flex; color: var(--item-tile-indicator-color); }
+.item-tile:has(.item-tile-start):is(:hover, .item-tile--selected) .item-tile-indicator { display: none; }
+.item-tile-end { position: absolute; top: var(--item-tile-end-offset); right: var(--item-tile-end-offset); display: inline-flex; align-items: center; visibility: hidden; }
+.item-tile:hover .item-tile-end { visibility: visible; }
