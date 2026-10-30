@@ -25,7 +25,7 @@ public class FolderTreeGrid extends Composite<TreeGrid<List<String>>> {
     private static final String TEMPLATE = """
             <span class="fb-folder-tree-row">
               <vaadin-grid-tree-toggle .leaf=${!item.children} .expanded=${model.expanded} .level=${model.level}
-                  @click=${toggle}></vaadin-grid-tree-toggle>
+                  @click=${toggle} @dblclick=${e => e.stopPropagation()}></vaadin-grid-tree-toggle>
               <span class="fb-icon" aria-hidden="true"><svg><use href="icons.svg#${item.icon}"></use></svg></span>
               <span class="fb-ellipsis">${item.label}</span>
               <vaadin-badge ?hidden=${!item.badge}>${item.badge}</vaadin-badge>
@@ -58,6 +58,8 @@ public class FolderTreeGrid extends Composite<TreeGrid<List<String>>> {
                 .withProperty("badge", p -> badged.test(p) ? badge : "")
                 .withFunction("toggle", this::toggle);
         grid.addColumn(renderer);
+        // the toggle's own clicks already toggled it twice, so its double-click must not reach the row
+        grid.addItemDoubleClickListener(e -> toggle(e.getItem()));
         grid.setPartNameGenerator(p -> {
             final var parts = new ArrayList<String>(2);
             if (p.equals(active)) {
@@ -86,6 +88,7 @@ public class FolderTreeGrid extends Composite<TreeGrid<List<String>>> {
 
     /** Highlights {@code path} and opens its ancestors; null highlights nothing. */
     public void setActive(List<String> path) {
+        final var previous = active;
         active = path;
         if (path != null) {
             final var ancestors = new ArrayList<List<String>>();
@@ -94,7 +97,13 @@ public class FolderTreeGrid extends Composite<TreeGrid<List<String>>> {
             }
             getContent().expand(ancestors);
         }
-        refresh();
+        // a refreshAll here would drop the row keys while the second click of a double-click is still on its way
+        if (previous != null) {
+            folders.refreshItem(previous);
+        }
+        if (path != null) {
+            folders.refreshItem(path);
+        }
     }
 
     public List<String> getActive() {

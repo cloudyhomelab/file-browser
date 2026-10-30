@@ -603,8 +603,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     @Override
     public void selectRow(Located entry) {
+        // the details panel shows entries of the open folder only
         if (starredView || entry.elsewhere()) {
-            open(entry);
             return;
         }
         setFocused(entry.entry().path().equals(focusedPath) ? null : entry.entry().path());

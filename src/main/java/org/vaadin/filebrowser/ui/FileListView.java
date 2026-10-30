@@ -15,6 +15,8 @@ import org.vaadin.filebrowser.service.Workspace.Density;
 import org.vaadin.filebrowser.storage.StorageEntry;
 
 import com.vaadin.flow.component.Composite;
+import com.vaadin.flow.component.Key;
+import com.vaadin.flow.component.Shortcuts;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridSortOrder;
@@ -64,6 +66,8 @@ public class FileListView extends Composite<Grid<Located>> {
     private final GridListDataView<Located> dataView;
     private final Map<SortKey, Grid.Column<Located>> sortColumns = new EnumMap<>(SortKey.class);
     private Located dragged;
+    /** The row holding keyboard focus, which Enter opens. */
+    private Located focusedRow;
 
     public FileListView(List<Located> entries, EntryHandler handler, Density density, Catalog catalog) {
         this.handler = handler;
@@ -154,18 +158,14 @@ public class FileListView extends Composite<Grid<Located>> {
 
     private void addClicks(Grid<Located> grid) {
         grid.setPartNameGenerator(l -> handler.focused(l) ? "fb-focused" : null);
-        grid.addItemClickListener(e -> {
-            if (e.getItem().entry().folder()) {
-                handler.open(e.getItem());
-            } else {
-                handler.selectRow(e.getItem());
+        grid.addItemClickListener(e -> handler.selectRow(e.getItem()));
+        grid.addItemDoubleClickListener(e -> handler.open(e.getItem()));
+        grid.addCellFocusListener(e -> focusedRow = e.getItem().orElse(null));
+        Shortcuts.addShortcutListener(grid, () -> {
+            if (focusedRow != null) {
+                handler.open(focusedRow);
             }
-        });
-        grid.addItemDoubleClickListener(e -> {
-            if (!e.getItem().entry().folder()) {
-                handler.open(e.getItem());
-            }
-        });
+        }, Key.ENTER).listenOn(grid);
         final var menu = grid.addContextMenu();
         menu.setDynamicContentHandler(l -> {
             if (l == null) {
