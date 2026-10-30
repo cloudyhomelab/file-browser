@@ -118,6 +118,11 @@ Deleting files and folders in the app is permanent. Uploads are streamed straigh
 and appear only when complete; the limit per file is `FILEBROWSER_MAX_UPLOAD_SIZE` (default
 `5GB`). Downloading a folder or several items produces a zip built on the fly.
 
+Whole folders can be uploaded by dropping them or with "Choose folder" in the upload dialog; their
+structure is kept, including empty folders when dropped (the browser's folder picker doesn't list
+those). The folders are created first, then the files are sent. One drop or pick may hold at most
+`FILEBROWSER_MAX_FOLDER_UPLOAD_ENTRIES` files and folders (default 10000).
+
 Files can also be uploaded from web links: the server downloads them straight into the folder, under
 the name the link's server suggests (or the last part of its path), with the same size limit. Only
 `http`/`https` links to public internet addresses are fetched; loopback, link-local (including cloud

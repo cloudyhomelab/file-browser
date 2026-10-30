@@ -53,16 +53,20 @@ public class ConflictDialog extends FbDialog {
     /**
      * A name that already exists in the destination.
      *
-     * @param type   the incoming item's file type, for its glyph
-     * @param folder whether a folder is involved on either side; for an upload, the new folder an
-     *               archive would be extracted into
+     * @param type       the incoming item's file type, for its glyph
+     * @param folder     whether a folder is involved on either side
+     * @param extraction for an upload, the name is the new folder an archive would be extracted into
      */
-    public record Clash(String name, String type, boolean folder) implements Serializable {
+    public record Clash(String name, String type, boolean folder, boolean extraction) implements Serializable {
+
+        public Clash(String name, String type, boolean folder) {
+            this(name, type, folder, false);
+        }
     }
 
     public ConflictDialog(Purpose purpose, Catalog catalog, List<Clash> clashes, int totalCount, Set<String> existingNames,
                           SerializableConsumer<Map<String, ConflictChoice>> onResolve) {
-        super(title(purpose, clashes.size()), "warn", Tone.DANGER, Width.WIDE);
+        super(title(purpose, clashes), "warn", Tone.DANGER, Width.WIDE);
         this.purpose = purpose;
         this.catalog = catalog;
         this.clashes = clashes;
@@ -71,7 +75,7 @@ public class ConflictDialog extends FbDialog {
         clashes.forEach(c -> choices.put(c.name(), ConflictChoice.KEEP_BOTH));
 
         final var introText = switch (purpose) {
-            case UPLOAD -> clashes.size() + " of " + totalCount + " uploaded file" + (totalCount > 1 ? "s" : "")
+            case UPLOAD -> clashes.size() + " of " + totalCount + " uploaded " + uploadNoun(clashes) + (totalCount > 1 ? "s" : "")
                     + " match names already in this folder. Choose what to do with each.";
             case MOVE, COPY -> clashes.size() + " of " + totalCount + " item" + (totalCount > 1 ? "s" : "")
                     + " being " + (purpose == Purpose.MOVE ? "moved" : "copied")
@@ -100,10 +104,16 @@ public class ConflictDialog extends FbDialog {
         render();
     }
 
-    private static String title(Purpose purpose, int count) {
-        final var noun = purpose == Purpose.UPLOAD ? "file" : "item";
+    private static String title(Purpose purpose, List<Clash> clashes) {
+        final var count = clashes.size();
+        final var noun = purpose == Purpose.UPLOAD ? uploadNoun(clashes) : "item";
         final var where = purpose == Purpose.UPLOAD ? "here" : "in the destination";
         return count + " " + noun + (count > 1 ? "s" : "") + " already exist" + (count > 1 ? "" : "s") + " " + where;
+    }
+
+    /** "item" once an uploaded folder is among them, else "file": an archive's new folder still counts as its file. */
+    private static String uploadNoun(List<Clash> clashes) {
+        return clashes.stream().anyMatch(c -> c.folder() && !c.extraction()) ? "item" : "file";
     }
 
     private void render() {
@@ -159,7 +169,7 @@ public class ConflictDialog extends FbDialog {
     }
 
     private void detail(Div detail, Clash clash, ConflictChoice choice) {
-        final var extraction = purpose == Purpose.UPLOAD && clash.folder();
+        final var extraction = clash.extraction();
         switch (choice) {
             case REPLACE -> detail.add("Overwrites the existing file");
             case KEEP_BOTH -> {

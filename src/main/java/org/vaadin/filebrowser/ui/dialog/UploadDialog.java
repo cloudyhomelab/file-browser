@@ -9,9 +9,12 @@ import org.vaadin.filebrowser.data.ArchiveFormat;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.ExtractOptions;
 import org.vaadin.filebrowser.data.Formats;
+import org.vaadin.filebrowser.data.Incoming;
 import org.vaadin.filebrowser.data.IncomingFile;
+import org.vaadin.filebrowser.data.IncomingFolder;
 import org.vaadin.filebrowser.data.RootOptions;
 import org.vaadin.filebrowser.service.LinkFetcher;
+import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.ui.Buttons;
 import org.vaadin.filebrowser.ui.FileDropArea;
@@ -25,20 +28,23 @@ import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.checkbox.Switch;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.function.SerializableFunction;
 
 /**
- * Pick files to upload by dropping them, browsing, or giving web links the server downloads; every
- * picked file starts selected.
+ * Pick files and folders to upload by dropping them, browsing, or giving web links the server downloads;
+ * every picked item starts selected.
  */
 public class UploadDialog extends FbDialog {
 
     private final Catalog catalog;
     private final Map<String, IncomingFile> picked = new LinkedHashMap<>();
     private final List<IncomingFile> offered;
+    private final Map<String, IncomingFolder> pickedFolders = new LinkedHashMap<>();
+    private final List<IncomingFolder> offeredFolders = new ArrayList<>();
     private final Div list = Ui.div("fb-upload-list");
     private final Div sectionLabel;
     private final Button confirm;
@@ -51,11 +57,12 @@ public class UploadDialog extends FbDialog {
     /**
      * @param options     what the file system allows: without link uploads there is no link field, without
      *                    extraction no Extract or Decompress
+     * @param maxEntries  the most files and folders one drop or pick may hold
      * @param inspectLink reads a link's name and size on the server; throws with a user-facing message if refused
      */
-    public UploadDialog(Catalog catalog, RootOptions options, long maxBytes,
+    public UploadDialog(Catalog catalog, RootOptions options, long maxBytes, int maxEntries,
                         SerializableFunction<String, LinkFetcher.LinkInfo> inspectLink,
-                        SerializableConsumer<List<IncomingFile>> onConfirm) {
+                        SerializableConsumer<Incoming> onConfirm) {
         super("Upload files", "upload", Tone.ACCENT, Width.MEDIUM);
         this.catalog = catalog;
         this.extraction = options.extraction();
@@ -63,17 +70,21 @@ public class UploadDialog extends FbDialog {
         this.maxBytes = maxBytes;
         final var sizeLimit = Formats.size(maxBytes);
 
-        final var zone = new FileDropArea(catalog, true);
+        final var zone = new FileDropArea(catalog, true, maxEntries);
         zone.addClassName("fb-upload-zone");
         zone.getElement().setAttribute("role", "button");
         zone.getElement().setAttribute("tabindex", "0");
         final var uploadIcon = new Icon("upload");
         final var zoneIcon = Ui.span("fb-upload-zone-icon", uploadIcon);
-        final var zoneTitle = Ui.span("fb-upload-zone-title", "Drag files here, or click to browse");
+        final var zoneTitle = Ui.span("fb-upload-zone-title", "Drag files or folders here, or click to browse");
         final var zoneSub = Ui.span("fb-upload-zone-sub", "Up to " + sizeLimit + " per file");
-        zone.add(zoneIcon, zoneTitle, zoneSub);
-        zone.setOnFiles(files -> {
-            files.forEach(this::offer);
+        final var chooseFolder = Buttons.create(Buttons.Kind.SECONDARY, "Choose folder", "folder", () -> { });
+        chooseFolder.addClassName("fb-upload-zone-folder");
+        zone.addFolderPicker(chooseFolder);
+        zone.add(zoneIcon, zoneTitle, zoneSub, chooseFolder);
+        zone.setOnFiles(incoming -> {
+            incoming.files().forEach(this::offer);
+            incoming.folders().forEach(this::offerFolder);
             render();
         });
 
@@ -88,17 +99,19 @@ public class UploadDialog extends FbDialog {
         link.setSuffixComponent(add);
         link.addKeyPressListener(Key.ENTER, e -> addLink(inspectLink));
 
-        final var sectionText = Ui.span("", "Selected files");
+        final var sectionText = Ui.span("", "Selected");
         sectionLabel = Ui.div("fb-section-label", sectionText);
         link.setVisible(options.linkUploads());
         add(zone, link, sectionLabel, list);
         confirm = Buttons.create(Buttons.Kind.PRIMARY, "Upload", "upload", () -> {
-            if (!picked.isEmpty()) {
+            if (!picked.isEmpty() || !pickedFolders.isEmpty()) {
                 close();
                 final var files = picked.values().stream()
                         .map(f -> extract.containsKey(f.name()) ? f.withExtract(extract.get(f.name())) : f)
                         .toList();
-                onConfirm.accept(files);
+                final var folders = List.copyOf(pickedFolders.values());
+                final var incoming = new Incoming(files, folders);
+                onConfirm.accept(incoming);
             }
         });
         final var cancel = cancelButton();
@@ -110,6 +123,12 @@ public class UploadDialog extends FbDialog {
         offered.removeIf(o -> o.name().equals(file.name()));
         offered.addFirst(file);
         picked.put(file.name(), file);
+    }
+
+    private void offerFolder(IncomingFolder folder) {
+        offeredFolders.removeIf(o -> o.name().equals(folder.name()));
+        offeredFolders.addFirst(folder);
+        pickedFolders.put(folder.name(), folder);
     }
 
     private void addLink(SerializableFunction<String, LinkFetcher.LinkInfo> inspectLink) {
@@ -136,8 +155,11 @@ public class UploadDialog extends FbDialog {
     }
 
     private void render() {
-        sectionLabel.setVisible(!offered.isEmpty());
+        sectionLabel.setVisible(!offered.isEmpty() || !offeredFolders.isEmpty());
         list.removeAll();
+        for (final var folder : offeredFolders) {
+            list.add(folderRow(folder, pickedFolders.containsKey(folder.name())));
+        }
         for (final var file : offered) {
             final var selected = picked.containsKey(file.name());
             final var archive = selected && extraction ? catalog.archiveFormat(file.name()).orElse(null) : null;
@@ -146,17 +168,43 @@ public class UploadDialog extends FbDialog {
                 list.add(extractOptions(file, archive));
             }
         }
-        confirm.setText(picked.isEmpty() ? "Upload" : "Upload " + picked.size());
-        confirm.setEnabled(!picked.isEmpty());
+        final var count = picked.size() + pickedFolders.size();
+        confirm.setText(count == 0 ? "Upload" : "Upload " + count);
+        confirm.setEnabled(count > 0);
     }
 
-    /** One offered file; clicking it picks or unpicks it. */
-    private Div row(IncomingFile file, boolean selected, boolean attached) {
+    /** One offered folder with everything in it; clicking it picks or unpicks all of it. */
+    private Div folderRow(IncomingFolder folder, boolean selected) {
+        final var glyph = new FileGlyph(StorageEntry.FOLDER_TYPE, catalog);
+        final var name = Ui.span("fb-upload-item-name", folder.name());
+        final var sizeText = Formats.plural(folder.files().size(), "file") + " · " + Formats.size(folder.size());
+        final var size = Ui.span("fb-mono fb-muted", sizeText);
+        final var row = Ui.div("fb-upload-item" + (selected ? " fb-upload-item--on" : ""), glyph, name, size,
+                checkBox(selected));
+        row.getElement().setAttribute("role", "checkbox");
+        final var ariaChecked = String.valueOf(selected);
+        row.getElement().setAttribute("aria-checked", ariaChecked);
+        row.addClickListener(e -> {
+            if (pickedFolders.remove(folder.name()) == null) {
+                pickedFolders.put(folder.name(), folder);
+            }
+            render();
+        });
+        return row;
+    }
+
+    private static Span checkBox(boolean selected) {
         final var box = Ui.span("fb-check fb-check--l" + (selected ? " fb-check--on" : ""));
         if (selected) {
             final var checkIcon = new Icon("check");
             box.add(checkIcon);
         }
+        return box;
+    }
+
+    /** One offered file; clicking it picks or unpicks it. */
+    private Div row(IncomingFile file, boolean selected, boolean attached) {
+        final var box = checkBox(selected);
         final var glyph = new FileGlyph(file.type(), catalog);
         final var name = Ui.span("fb-upload-item-name", file.name());
         if (file.fromLink()) {

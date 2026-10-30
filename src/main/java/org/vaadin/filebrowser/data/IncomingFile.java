@@ -1,6 +1,7 @@
 package org.vaadin.filebrowser.data;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * A file the user picked, dropped or gave as a web link, before it is uploaded.
@@ -10,22 +11,33 @@ import java.io.Serializable;
  * @param size     bytes, or {@link #UNKNOWN_SIZE} for a link that doesn't say
  * @param url      the web link the server downloads it from; null for a file from the browser
  * @param extract  how to extract it, for an archive the user wants unpacked; null to store it as is
+ * @param folder   for a file in an {@link IncomingFolder}, the folders it sits in below that folder; else empty
  */
-public record IncomingFile(String clientId, String name, String type, long size, String url, ExtractOptions extract)
-        implements Serializable {
+public record IncomingFile(String clientId, String name, String type, long size, String url, ExtractOptions extract,
+                           List<String> folder) implements Serializable {
 
     public static final long UNKNOWN_SIZE = -1;
 
+    // PMD reads a compact constructor's reassigned parameters as unused
+    @SuppressWarnings("PMD.UnusedAssignment")
+    public IncomingFile {
+        folder = folder == null ? List.of() : List.copyOf(folder);
+    }
+
     public IncomingFile(String clientId, String name, String type, long size) {
-        this(clientId, name, type, size, null, null);
+        this(clientId, name, type, size, null, null, List.of());
     }
 
     public static IncomingFile link(String url, String name, String type, Long size) {
-        return new IncomingFile(null, name, type, size == null ? UNKNOWN_SIZE : size, url, null);
+        return new IncomingFile(null, name, type, size == null ? UNKNOWN_SIZE : size, url, null, List.of());
     }
 
     public IncomingFile withExtract(ExtractOptions options) {
-        return new IncomingFile(clientId, name, type, size, url, options);
+        return new IncomingFile(clientId, name, type, size, url, options, folder);
+    }
+
+    public IncomingFile inFolder(List<String> segments) {
+        return new IncomingFile(clientId, name, type, size, url, extract, segments);
     }
 
     public boolean fromLink() {

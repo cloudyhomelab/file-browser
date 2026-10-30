@@ -17,6 +17,7 @@ import org.vaadin.filebrowser.data.ArchiveFormat;
 import org.vaadin.filebrowser.data.AutoRefresh;
 import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.FsRoot;
+import org.vaadin.filebrowser.data.Incoming;
 import org.vaadin.filebrowser.data.IncomingFile;
 import org.vaadin.filebrowser.data.Located;
 import org.vaadin.filebrowser.data.MoveCheck;
@@ -102,6 +103,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
 
     private final Workspace workspace;
     private final long maxUploadBytes;
+    private final int maxFolderUploadEntries;
     private final ArchiveExtractor.Limits extractLimits;
     private final CurrentUser currentUser;
 
@@ -141,6 +143,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         this.workspace = workspace;
         this.currentUser = currentUser;
         this.maxUploadBytes = properties.maxUploadSize().toBytes();
+        this.maxFolderUploadEntries = properties.maxFolderUploadEntries();
         this.extractLimits = new ArchiveExtractor.Limits(properties.maxExtractBytes(), properties.maxExtractEntries());
         setClassName("fb-browser");
 
@@ -149,7 +152,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         toolbar = new Toolbar(toolbarCallbacks);
         dock = new UploadDock(workspace.getCatalog(), this::clearUploads, this::cancelTransfer);
 
-        main = new FileDropArea(workspace.getCatalog(), false);
+        main = new FileDropArea(workspace.getCatalog(), false, maxFolderUploadEntries);
         main.addClassName("fb-main");
         main.setOnFiles(this::onFilesDropped);
         final var queue = workspace.getUploads();
@@ -163,7 +166,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         main.setOnUploadLost(this::uploadLost);
         final var uploadIcon = new Icon("upload");
         final var dropIcon = Ui.span("fb-drop-overlay-icon", uploadIcon);
-        final var dropTitle = Ui.span("fb-drop-overlay-title", "Drop files to upload");
+        final var dropTitle = Ui.span("fb-drop-overlay-title", "Drop files or folders to upload");
         final var dropSub = Ui.span("fb-drop-overlay-sub", "They'll be added to this folder");
         final var dropOverlay = Ui.div("fb-drop-overlay", dropIcon, dropTitle, dropSub);
         final var header = Ui.div("fb-header", titleRow, toolbar);
@@ -274,7 +277,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void showDock() {
-        dock.show(workspace.getUploads().all(), workspace.getTransfers().all());
+        final var uploads = workspace.getUploads();
+        dock.show(uploads.loose(), uploads.folders(), workspace.getTransfers().all());
     }
 
     private void backToRoots() {
@@ -913,12 +917,12 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return;
         }
         final var now = workspace.current(root);
-        final var dialog = new UploadDialog(workspace.getCatalog(), now.options(), maxUploadBytes,
+        final var dialog = new UploadDialog(workspace.getCatalog(), now.options(), maxUploadBytes, maxFolderUploadEntries,
                 url -> workspace.inspectLink(now, url), this::startUploads);
         dialog.open();
     }
 
-    private void onFilesDropped(List<IncomingFile> files) {
+    private void onFilesDropped(Incoming files) {
         if (starredView) {
             return;
         }
@@ -929,11 +933,12 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         startUploads(files);
     }
 
-    private void startUploads(List<IncomingFile> picked) {
-        final var files = withinLimit(picked);
-        if (files.isEmpty()) {
+    private void startUploads(Incoming picked) {
+        final var incoming = withinLimit(picked);
+        if (incoming.isEmpty()) {
             return;
         }
+        final var files = incoming.files();
         final var destination = path;
         final Set<String> existingFiles;
         final Set<String> existing;
@@ -945,24 +950,27 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             return;
         }
         final var conflicts = uploadClashes(files, existingFiles, existing);
+        incoming.folders().stream()
+                .filter(f -> existing.contains(f.name()))
+                .forEach(f -> conflicts.add(new ConflictDialog.Clash(f.name(), StorageEntry.FOLDER_TYPE, true)));
         if (conflicts.isEmpty()) {
-            resolveConflicts(files, destination, existing, Map.of());
+            resolveConflicts(incoming, destination, existing, Map.of());
             return;
         }
-        final var dialog = new ConflictDialog(ConflictDialog.Purpose.UPLOAD, workspace.getCatalog(), conflicts, files.size(),
-                existing, choices -> resolveConflicts(files, destination, existing, choices));
+        final var dialog = new ConflictDialog(ConflictDialog.Purpose.UPLOAD, workspace.getCatalog(), conflicts,
+                incoming.itemCount(), existing, choices -> resolveConflicts(incoming, destination, existing, choices));
         dialog.open();
     }
 
-    /** The files within the upload limit; the rest are reported and dropped. */
-    private List<IncomingFile> withinLimit(List<IncomingFile> picked) {
-        final var tooLarge = picked.stream().filter(f -> f.size() > maxUploadBytes).toList();
+    /** The files within the upload limit, in folders too; the rest are reported and dropped. */
+    private Incoming withinLimit(Incoming picked) {
+        final var tooLarge = picked.filesOver(maxUploadBytes);
         if (!tooLarge.isEmpty()) {
             final var limit = Formats.size(maxUploadBytes);
             final var names = tooLarge.size() == 1 ? "“" + tooLarge.getFirst().name() + "” is" : tooLarge.size() + " files are";
             Notices.error(names + " larger than " + limit + " and won't be uploaded");
         }
-        return picked.stream().filter(f -> f.size() <= maxUploadBytes).toList();
+        return picked.withoutFilesOver(maxUploadBytes);
     }
 
     /** A stored file clashes with a file of the same name; a new folder for an archive with anything. */
@@ -975,7 +983,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             }
             final var folderName = newFolderName(file);
             if (folderName != null && existing.contains(folderName)) {
-                conflicts.add(new ConflictDialog.Clash(folderName, StorageEntry.FOLDER_TYPE, true));
+                conflicts.add(new ConflictDialog.Clash(folderName, StorageEntry.FOLDER_TYPE, true, true));
             }
         }
         return conflicts;
@@ -997,20 +1005,25 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                 .orElse(null);
     }
 
-    private void resolveConflicts(List<IncomingFile> files, List<String> destination, Set<String> existing,
+    private void resolveConflicts(Incoming incoming, List<String> destination, Set<String> existing,
                                   Map<String, ConflictChoice> choices) {
         final var taken = new HashSet<>(existing);
         final var planned = new ArrayList<Planned>();
-        for (final var file : files) {
+        for (final var file : incoming.files()) {
             plan(file, choices, taken).ifPresent(planned::add);
         }
-        final var skipped = files.size() - planned.size();
-        if (planned.isEmpty() && skipped > 0) {
-            Notices.show(skipped + " file" + (skipped > 1 ? "s" : "") + " skipped", "info");
+        final var folders = UploadQueue.PlannedFolder.plan(incoming.folders(), choices, taken);
+        // never empty here, so nothing planned means everything was skipped
+        if (planned.isEmpty() && folders.isEmpty()) {
+            final var skipped = incoming.itemCount();
+            final var noun = incoming.folders().isEmpty() ? "file" : "item";
+            Notices.show(Formats.plural(skipped, noun) + " skipped", "info");
             return;
         }
-        enqueue(destination, planned);
+        enqueue(destination, planned, folders);
     }
+
+
 
     /** How the upload itself is stored after the user's choice. */
     private record Storing(boolean store, String finalName, boolean replace) {
@@ -1054,10 +1067,11 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         return new Storing(choice != ConflictChoice.SKIP, finalName, choice == ConflictChoice.REPLACE);
     }
 
-    private void enqueue(List<String> destination, List<Planned> planned) {
+    private void enqueue(List<String> destination, List<Planned> planned, List<UploadQueue.PlannedFolder> folders) {
         try {
             final var tasks = workspace.upload(root, destination, planned, maxUploadBytes);
             main.upload(tasks);
+            folders.forEach(f -> workspace.uploadFolder(root, destination, f));
         } catch (StorageException e) {
             Notices.error(e.getMessage());
             return;
@@ -1106,16 +1120,23 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void onTaskPoll() {
-        final var finished = workspace.getUploads().takeFinished();
+        final var uploads = workspace.getUploads();
+        final var ready = uploads.takeReady();
+        main.upload(ready);
+        final var finished = uploads.takeFinished();
         finished.forEach(BrowserView::announce);
+        final var foldersFinished = uploads.takeFinishedFolders();
+        foldersFinished.forEach(f -> Notices.seen(f.outcome(), f.firstError() == null ? "check" : "warn"));
         final var transfersFinished = workspace.getTransfers().takeFinished();
         transfersFinished.forEach(BrowserView::announce);
-        if (transfersFinished.isEmpty() && finished.isEmpty()) {
-            showDock();
-        } else if (transfersFinished.isEmpty()) {
-            refresh();
-        } else {
+        // transfers and folder uploads add folders, which the sidebar tree shows too
+        final var treeChanged = !transfersFinished.isEmpty() || !ready.isEmpty() || !foldersFinished.isEmpty();
+        if (treeChanged) {
             afterChange();
+        } else if (finished.isEmpty()) {
+            showDock();
+        } else {
+            refresh();
         }
     }
 

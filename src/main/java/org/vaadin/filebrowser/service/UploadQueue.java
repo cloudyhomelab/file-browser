@@ -7,7 +7,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -16,6 +18,7 @@ import org.vaadin.filebrowser.data.ExtractOptions;
 import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.IncomingFile;
+import org.vaadin.filebrowser.data.IncomingFolder;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.storage.StoragePaths;
 import org.vaadin.filebrowser.storage.StorageProvider;
@@ -32,6 +35,7 @@ public class UploadQueue implements Serializable {
 
     private final StorageService storage;
     private final List<UploadTask> tasks = new CopyOnWriteArrayList<>();
+    private final List<FolderUpload> folderUploads = new CopyOnWriteArrayList<>();
 
     /**
      * @param finalName  the name the file is stored under (for an extracted archive: if kept)
@@ -42,6 +46,27 @@ public class UploadQueue implements Serializable {
 
         public Planned(IncomingFile file, String finalName, boolean replace) {
             this(file, finalName, replace, null);
+        }
+    }
+
+    /** A folder to upload, under the name chosen for it in the destination. */
+    public record PlannedFolder(String name, IncomingFolder folder) implements Serializable {
+
+        /** The folders left after the user's choices, each under a name not in {@code taken}, which it is added to. */
+        public static List<PlannedFolder> plan(List<IncomingFolder> folders, Map<String, Workspace.ConflictChoice> choices,
+                                               Set<String> taken) {
+            final var planned = new ArrayList<PlannedFolder>();
+            for (final var folder : folders) {
+                final var choice = choices.get(folder.name());
+                if (choice == Workspace.ConflictChoice.SKIP) {
+                    continue;
+                }
+                final var name = choice == Workspace.ConflictChoice.KEEP_BOTH
+                        ? Workspace.keepBothName(folder.name(), taken) : folder.name();
+                taken.add(name);
+                planned.add(new PlannedFolder(name, folder));
+            }
+            return planned;
         }
     }
 
@@ -67,29 +92,99 @@ public class UploadQueue implements Serializable {
         for (final var p : planned) {
             final var task = new UploadTask(UUID.randomUUID().toString(), p.file().clientId(), p.finalName(),
                     p.file().type(), p.file().size(), root, List.copyOf(folder), p.replace(), p.file().url(),
-                    p.extraction());
+                    p.extraction(), null);
             added.add(task);
         }
         tasks.addAll(added);
         return added;
     }
 
+    /**
+     * Queues a folder and its files under {@code name} in {@code destination}; nothing is created yet. Its
+     * files wait until {@link #prepare} has created the folders.
+     */
+    public FolderUpload enqueueFolder(FsRoot root, List<String> destination, PlannedFolder planned) {
+        final var name = planned.name();
+        final var folder = planned.folder();
+        if (root.readOnly()) {
+            throw new StorageException("This file system is read only.");
+        }
+        final var id = UUID.randomUUID().toString();
+        final var files = new ArrayList<UploadTask>();
+        for (final var file : folder.files()) {
+            final var where = new ArrayList<>(destination);
+            where.add(name);
+            where.addAll(file.folder());
+            final var task = new UploadTask(UUID.randomUUID().toString(), file.clientId(), file.name(), file.type(),
+                    file.size(), root, List.copyOf(where), false, null, null, id);
+            files.add(task);
+        }
+        final var upload = new FolderUpload(id, name, root, List.copyOf(destination), folder.folders(),
+                List.copyOf(files));
+        tasks.addAll(files);
+        folderUploads.add(upload);
+        return upload;
+    }
+
+    /**
+     * Creates a folder upload's folders, parents first, then lets its files be sent. On a failure the
+     * folders created so far stay, and the upload and all its files fail.
+     */
+    public void prepare(FolderUpload upload) {
+        final var provider = storage.provider(upload.getRoot());
+        final var parent = StoragePaths.join(upload.getDestination());
+        try {
+            if (upload.getState() != FolderUpload.State.PREPARING) {
+                return;
+            }
+            provider.createFolder(parent, upload.getName());
+            final var top = StoragePaths.child(parent, upload.getName());
+            for (final var folder : upload.getFolders()) {
+                if (upload.getState() != FolderUpload.State.PREPARING) {
+                    return;
+                }
+                final var above = folder.subList(0, folder.size() - 1);
+                final var inside = above.isEmpty() ? top : StoragePaths.child(top, StoragePaths.join(above));
+                provider.createFolder(inside, folder.getLast());
+            }
+        } catch (StorageException e) {
+            if (upload.transition(FolderUpload.State.PREPARING, FolderUpload.State.FAILED, e.getMessage())) {
+                upload.getFiles().forEach(t -> t.transition(UploadTask.State.PREPARING, UploadTask.State.FAILED, e.getMessage()));
+            }
+            return;
+        }
+        // files first: the browser may send them as soon as the upload is ready
+        upload.getFiles().forEach(t -> t.transition(UploadTask.State.PREPARING, UploadTask.State.QUEUED, null));
+        upload.transition(FolderUpload.State.PREPARING, FolderUpload.State.READY, null);
+    }
+
     public List<UploadTask> all() {
         return List.copyOf(tasks);
     }
 
+    /** Uploads of single files, outside any folder upload. */
+    public List<UploadTask> loose() {
+        return tasks.stream().filter(t -> t.getFolderUploadId() == null).toList();
+    }
+
+    public List<FolderUpload> folders() {
+        return List.copyOf(folderUploads);
+    }
+
     public boolean active() {
-        return tasks.stream().anyMatch(t -> !t.finished());
+        return tasks.stream().anyMatch(t -> !t.finished()) || folderUploads.stream().anyMatch(f -> !f.finished());
     }
 
     /** Cancels unfinished uploads and forgets all of them. */
     public void clear() {
+        folderUploads.forEach(f -> f.transition(FolderUpload.State.PREPARING, FolderUpload.State.CANCELLED, "Cancelled"));
         tasks.forEach(t -> {
             if (!t.finished()) {
                 t.transition(UploadTask.State.CANCELLED, "Cancelled");
             }
         });
         tasks.clear();
+        folderUploads.clear();
     }
 
     /** The browser no longer has the file (e.g. the page was reloaded before the upload started). */
@@ -98,9 +193,22 @@ public class UploadQueue implements Serializable {
                 "“" + task.getName() + "” is no longer available to upload.");
     }
 
-    /** Finished uploads not yet reported to the user; each is returned once. UI thread only. */
+    /** Finished single-file uploads not yet reported to the user; each is returned once. UI thread only. */
     public List<UploadTask> takeFinished() {
-        return tasks.stream().filter(UploadTask::announce).toList();
+        return tasks.stream().filter(t -> t.getFolderUploadId() == null).filter(UploadTask::announce).toList();
+    }
+
+    /** Finished folder uploads not yet reported to the user; each is returned once. UI thread only. */
+    public List<FolderUpload> takeFinishedFolders() {
+        return folderUploads.stream().filter(FolderUpload::announce).toList();
+    }
+
+    /** Files of folder uploads whose folders now exist, for the browser to send; each is returned once. UI thread only. */
+    public List<UploadTask> takeReady() {
+        return folderUploads.stream()
+                .flatMap(f -> f.takeReady().stream())
+                .flatMap(List::stream)
+                .toList();
     }
 
     private Optional<UploadTask> find(String id) {

@@ -102,7 +102,7 @@ class WorkspaceTest {
         final var authorities = List.of(new SimpleGrantedAuthority(Roles.ADMIN_AUTHORITY));
         final var user = new DefaultOidcUser(authorities, idToken);
         SecurityContextHolder.getContext().setAuthentication(new OAuth2AuthenticationToken(user, authorities, "dex"));
-        final var properties = new FileBrowserProperties(null, null, null, null, true, null, null, null, null, null, null);
+        final var properties = new FileBrowserProperties(null, null, null, null, true, null, null, null, null, null, null, null);
         return new CurrentUser(null, properties);
     }
 

@@ -28,6 +28,7 @@ import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.ExtractOptions;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.IncomingFile;
+import org.vaadin.filebrowser.data.IncomingFolder;
 import org.vaadin.filebrowser.data.RootStatus;
 import org.vaadin.filebrowser.data.TestRoots;
 import org.vaadin.filebrowser.storage.DiskStorageType;
@@ -164,6 +165,60 @@ class UploadQueueTest {
         } finally {
             server.stop(0);
         }
+    }
+
+    private static IncomingFolder photos() {
+        final var beach = new IncomingFile("c1", "beach.jpg", "image", 5).inFolder(List.of("2024", "summer"));
+        final var notes = new IncomingFile("c2", "notes.txt", "text", 5);
+        return IncomingFolder.of("photos", List.of(List.of("empty")), List.of(beach, notes));
+    }
+
+    @Test
+    void folderUploadsCreateTheirFoldersBeforeTheFilesAreSent() throws IOException {
+        final var upload = queue.enqueueFolder(root, List.of(), new UploadQueue.PlannedFolder("photos", photos()));
+        assertThat(upload.getFiles()).allMatch(t -> t.getState() == UploadTask.State.PREPARING);
+        assertThat(queue.takeReady()).isEmpty();
+
+        queue.prepare(upload);
+
+        assertThat(dir.resolve("photos/empty")).isDirectory();
+        assertThat(dir.resolve("photos/2024/summer")).isDirectory();
+        final var ready = queue.takeReady();
+        assertThat(ready).hasSize(2).allMatch(t -> t.getState() == UploadTask.State.QUEUED);
+        assertThat(queue.takeReady()).isEmpty();
+        ready.forEach(t -> queue.receive(t.getId(), bytes("hello"), LIMIT));
+        assertThat(Files.readString(dir.resolve("photos/2024/summer/beach.jpg"))).isEqualTo("hello");
+        assertThat(Files.readString(dir.resolve("photos/notes.txt"))).isEqualTo("hello");
+        assertThat(queue.takeFinished()).isEmpty();
+        assertThat(queue.takeFinishedFolders()).containsExactly(upload);
+        assertThat(upload.progress()).isEqualTo(100);
+        assertThat(queue.active()).isFalse();
+    }
+
+    @Test
+    void aFolderThatCannotBeCreatedFailsAllItsFiles() throws IOException {
+        Files.createDirectory(dir.resolve("photos"));
+        final var upload = queue.enqueueFolder(root, List.of(), new UploadQueue.PlannedFolder("photos", photos()));
+
+        queue.prepare(upload);
+
+        assertThat(upload.getState()).isEqualTo(FolderUpload.State.FAILED);
+        assertThat(upload.getFiles()).allMatch(t -> t.getState() == UploadTask.State.FAILED);
+        assertThat(upload.firstError()).contains("already exists");
+        assertThat(queue.takeReady()).isEmpty();
+        assertThat(queue.takeFinishedFolders()).containsExactly(upload);
+    }
+
+    @Test
+    void clearingBeforeTheFoldersExistStopsCreatingThem() {
+        final var upload = queue.enqueueFolder(root, List.of(), new UploadQueue.PlannedFolder("photos", photos()));
+        queue.clear();
+
+        queue.prepare(upload);
+
+        assertThat(dir.resolve("photos")).doesNotExist();
+        assertThat(upload.getState()).isEqualTo(FolderUpload.State.CANCELLED);
+        assertThat(upload.getFiles()).allMatch(t -> t.getState() == UploadTask.State.CANCELLED);
     }
 
     private static byte[] zipOf(Map<String, String> entries) throws IOException {

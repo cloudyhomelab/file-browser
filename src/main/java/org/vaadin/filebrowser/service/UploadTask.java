@@ -16,7 +16,8 @@ import lombok.Setter;
 @Getter
 public final class UploadTask implements Serializable {
 
-    public enum State { QUEUED, RECEIVING, EXTRACTING, DONE, FAILED, CANCELLED }
+    /** {@code PREPARING}: waiting for the folders of its {@link FolderUpload} to be created. */
+    public enum State { PREPARING, QUEUED, RECEIVING, EXTRACTING, DONE, FAILED, CANCELLED }
 
     private static final int PERCENT = 100;
 
@@ -32,19 +33,21 @@ public final class UploadTask implements Serializable {
     private final String url;
     /** How to unpack it once received; null to store it as is. */
     private final UploadQueue.Extraction extraction;
+    /** The {@link FolderUpload} it belongs to; null for a loose file. */
+    private final String folderUploadId;
     /** What came of it, e.g. how many files an extraction wrote; null for a plain upload. */
     @Setter(AccessLevel.PACKAGE)
     private volatile String summary;
     @Getter(AccessLevel.NONE)
     @Setter(AccessLevel.PACKAGE)
     private volatile long received;
-    private volatile State state = State.QUEUED;
+    private volatile State state;
     private volatile String error;
     @Getter(AccessLevel.NONE)
     private boolean announced;
 
     UploadTask(String id, String clientId, String name, String type, long size, FsRoot root, List<String> folder,
-               boolean replace, String url, UploadQueue.Extraction extraction) {
+               boolean replace, String url, UploadQueue.Extraction extraction, String folderUploadId) {
         this.id = id;
         this.clientId = clientId;
         this.name = name;
@@ -55,6 +58,8 @@ public final class UploadTask implements Serializable {
         this.replace = replace;
         this.url = url;
         this.extraction = extraction;
+        this.folderUploadId = folderUploadId;
+        this.state = folderUploadId == null ? State.QUEUED : State.PREPARING;
     }
 
     /** For display: null when unknown (a link that didn't say). */
@@ -91,6 +96,11 @@ public final class UploadTask implements Serializable {
 
     public boolean complete() {
         return state == State.DONE;
+    }
+
+    /** Bytes received so far; all of them once done. */
+    public long receivedBytes() {
+        return state == State.DONE ? Math.max(size, received) : received;
     }
 
     public int progress() {
