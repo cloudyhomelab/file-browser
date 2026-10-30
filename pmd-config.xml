@@ -19,12 +19,13 @@
         <exclude name="OnlyOneReturn"/>
         <exclude name="FinalParameterInAbstractMethod"/>
         <exclude name="CommentDefaultAccessModifier"/>
+        <!--Java declares a local where it is first used-->
+        <exclude name="LocalVariableDeclarationShouldBeAtStartOfBlock"/>
     </rule>
 
     <rule ref="category/java/design.xml">
         <exclude name="LawOfDemeter"/>
         <exclude name="SimplifyBooleanReturns"/>
-        <exclude name="AvoidCatchingGenericException"/>
         <!--a catch that releases a session or removes a partial file, then rethrows, is cleanup, not flow control-->
         <exclude name="ExceptionAsFlowControl"/>
         <exclude name="LoosePackageCoupling"/>
@@ -45,6 +46,7 @@
         <!--Vaadin components build themselves in their constructors-->
         <exclude name="ConstructorCallsOverridableMethod"/>
         <exclude name="MissingSerialVersionUID"/>
+        <exclude name="AvoidCatchingGenericException"/>
     </rule>
 
     <rule ref="category/java/multithreading.xml">

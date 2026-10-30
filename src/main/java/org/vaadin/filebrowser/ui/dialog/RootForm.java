@@ -82,14 +82,7 @@ public abstract class RootForm extends Div {
     /** Checks the fields again and shows what is wrong; the dialog calls it on every change. */
     public void update() {
         final var ep = endpoint();
-        final var shape = ep.isEmpty() ? null : shapeProblem(ep);
-        final var dupe = !ep.isEmpty() && !editing() && context.workspace().endpointTaken(ep);
-        // an existing file system may be offline right now; that must not block renaming it
-        final var live = ep.isEmpty() || shape != null || dupe || editing() ? null : endpointProblem(ep);
-        problem = dupe ? "This file system is already connected"
-                : shape != null ? shape
-                : live != null ? live
-                : connectProblem;
+        problem = findProblem(ep);
         endpointError.removeAll();
         endpointError.setVisible(problem != null);
         final var warnIcon = new Icon("warn");
@@ -97,6 +90,23 @@ public abstract class RootForm extends Div {
         endpointError.add(warnIcon, errorText);
         endpointField.getElement().getClassList().set("fb-field--invalid", problem != null);
         updateFields();
+    }
+
+    /** The first thing wrong with {@code ep}, else why connecting failed, if it did. */
+    private String findProblem(String ep) {
+        if (ep.isEmpty()) {
+            return connectProblem;
+        }
+        if (!editing() && context.workspace().endpointTaken(ep)) {
+            return "This file system is already connected";
+        }
+        final var shape = shapeProblem(ep);
+        if (shape != null) {
+            return shape;
+        }
+        // an existing file system may be offline right now; that must not block renaming it
+        final var live = editing() ? null : endpointProblem(ep);
+        return live != null ? live : connectProblem;
     }
 
     /** Shows why connecting failed, until the next change. */

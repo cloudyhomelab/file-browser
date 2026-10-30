@@ -34,7 +34,9 @@ public final class NoticeLog implements Serializable {
     }
 
     public void add(String message, String icon, boolean read) {
-        final var notice = new Notice(nextId++, message, icon, Instant.now(), read);
+        final var id = nextId;
+        nextId++;
+        final var notice = new Notice(id, message, icon, Instant.now(), read);
         entries.addFirst(notice);
         if (entries.size() > MAX_NOTICES) {
             entries.removeLast();

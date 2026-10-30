@@ -47,7 +47,7 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
     }
 
     /** Something the server refused; the session is still usable after it. */
-    protected static class Refusal extends IOException {
+    public static class Refusal extends IOException {
         public Refusal(String message) {
             super(message);
         }
