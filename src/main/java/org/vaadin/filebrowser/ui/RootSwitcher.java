@@ -6,6 +6,8 @@ import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 
 import com.vaadin.flow.component.Composite;
+import com.vaadin.flow.component.badge.Badge;
+import com.vaadin.flow.component.badge.BadgeVariant;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.NativeButton;
 import com.vaadin.flow.component.popover.Popover;
@@ -51,7 +53,8 @@ public class RootSwitcher extends Composite<Div> {
                 }
             }, itemChip, itemText);
             if (root.readOnly()) {
-                final var readOnlyBadge = new Badge(Badge.Tone.WARNING, "RO");
+                final var readOnlyBadge = new Badge("RO");
+                readOnlyBadge.addThemeVariants(BadgeVariant.WARNING);
                 item.add(readOnlyBadge);
             }
             if (active) {

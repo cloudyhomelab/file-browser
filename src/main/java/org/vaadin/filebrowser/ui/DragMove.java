@@ -23,7 +23,7 @@ public final class DragMove {
         final var source = DragSource.create(component);
         source.setEffectAllowed(EffectAllowed.MOVE);
         source.setDragData(located);
-        source.addDragStartListener(e -> handler.dragStarted());
+        source.addDragStartListener(e -> handler.dragStarted(located));
         source.addDragEndListener(e -> handler.dragEnded());
     }
 
@@ -39,10 +39,11 @@ public final class DragMove {
         public void add(Component component, SerializableConsumer<Located> onDrop) {
             final var target = DropTarget.configure(component, false);
             target.setDropEffect(DropEffect.MOVE);
-            target.addDropListener(e -> e.getDragData()
-                    .filter(Located.class::isInstance)
-                    .map(Located.class::cast)
-                    .ifPresent(onDrop));
+            // a row dragged out of a Grid carries no server-side drag data; the receiver falls back to what it was told at drag start
+            target.addDropListener(e -> {
+                final var dragged = e.getDragData().filter(Located.class::isInstance).map(Located.class::cast).orElse(null);
+                onDrop.accept(dragged);
+            });
             dropTargets.add(target);
         }
 

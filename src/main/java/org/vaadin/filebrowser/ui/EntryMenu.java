@@ -5,17 +5,16 @@ import java.util.List;
 
 import org.vaadin.filebrowser.data.Located;
 
+import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.grid.contextmenu.GridContextMenu;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.popover.Popover;
+import com.vaadin.flow.component.popover.PopoverPosition;
+import com.vaadin.flow.component.popover.PopoverVariant;
 import com.vaadin.flow.function.SerializableBiConsumer;
 
-/**
- * Right-click / "⋯" menu for an entry, positioned at the pointer like the design's. A full-screen
- * backdrop closes it on any outside click.
- */
-public class EntryMenu extends Div {
-
-    private static final int ASSUMED_MENU_HEIGHT = 320;
-    private static final int ASSUMED_MENU_WIDTH = 220;
+/** Right-click / "⋯" menu for an entry. One instance serves every row or tile of a view. */
+public class EntryMenu extends Popover {
 
     private final Div menu = Ui.div("fb-menu fb-entry-menu");
 
@@ -23,16 +22,20 @@ public class EntryMenu extends Div {
     }
 
     public EntryMenu() {
-        setClassName("fb-entry-menu-layer");
-        setVisible(false);
-        final var backdrop = Ui.div("fb-entry-menu-backdrop");
-        backdrop.addClickListener(e -> close());
-        backdrop.getElement().addEventListener("contextmenu", e -> close()).preventDefault();
-        add(backdrop, menu);
+        setPosition(PopoverPosition.BOTTOM_END);
+        addThemeVariants(PopoverVariant.NO_PADDING);
+        setAriaRole("menu");
+        setAriaLabel("Actions");
+        // opened from the row, tile or "⋯" button, which also have to stop the click or right-click going further
+        setOpenOnClick(false);
+        add(menu);
     }
 
-    /** @param canPreview whether a file offers Preview; its file system may not allow opening files */
-    public void open(Located located, MenuPosition pos, boolean starredMode, boolean starred, boolean readOnly,
+    /**
+     * @param anchor     the entry's "⋯" button; right-click opens the menu there too
+     * @param canPreview whether a file offers Preview; its file system may not allow opening files
+     */
+    public void open(Located located, Component anchor, boolean starredMode, boolean starred, boolean readOnly,
                      boolean canPreview, SerializableBiConsumer<EntryAction, Located> onAction) {
         final var items = items(located.entry().folder(), starredMode, starred, canPreview);
         menu.removeAll();
@@ -52,14 +55,26 @@ public class EntryMenu extends Div {
             button.setEnabled(!disabled);
             menu.add(button);
         }
-        final var top = Math.max(0, Math.min(pos.clientY(), pos.viewportHeight() - ASSUMED_MENU_HEIGHT));
-        final var left = Math.max(0, Math.min(pos.clientX(), pos.viewportWidth() - ASSUMED_MENU_WIDTH));
-        menu.getStyle().setTop(top + "px").setLeft(left + "px");
-        setVisible(true);
+        setTarget(anchor);
+        open();
     }
 
-    public void close() {
-        setVisible(false);
+    /** Fills a list's right-click menu with the same items as this menu. */
+    public static void fill(GridContextMenu<Located> menu, Located located, boolean starredMode, boolean starred,
+                            boolean readOnly, boolean canPreview, SerializableBiConsumer<EntryAction, Located> onAction) {
+        menu.removeAll();
+        for (final var item : items(located.entry().folder(), starredMode, starred, canPreview)) {
+            if (item == null) {
+                menu.addSeparator();
+                continue;
+            }
+            final var icon = new Icon(item.icon());
+            final var label = Ui.span("", item.label());
+            final var content = Ui.span("fb-context-item", icon, label);
+            final var menuItem = menu.addItem(content, e -> onAction.accept(item.action(), located));
+            menuItem.setEnabled(!(readOnly && item.action().writes()));
+            menuItem.getElement().getClassList().set("fb-context-item--danger", item.danger());
+        }
     }
 
     /** The menu's items in order; null stands for a separator. */

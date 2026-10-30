@@ -1,11 +1,8 @@
 package org.vaadin.filebrowser.ui.dialog;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 
 import org.vaadin.filebrowser.data.Catalog;
@@ -13,6 +10,7 @@ import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.MoveCheck;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.ui.Buttons;
+import org.vaadin.filebrowser.ui.FolderTreeGrid;
 import org.vaadin.filebrowser.ui.Icon;
 import org.vaadin.filebrowser.ui.RootChip;
 import org.vaadin.filebrowser.ui.Ui;
@@ -37,17 +35,16 @@ public class DestinationDialog extends FbDialog {
     private final List<FsRoot> targets;
     private final Catalog catalog;
     private final SerializableBiFunction<FsRoot, List<String>, List<String>> loader;
-    private final Map<String, List<String>> loaded = new HashMap<>();
     private final List<String> currentPath;
     private final Set<String> movedFolderKeys = new HashSet<>();
-    private final Set<String> expanded = new HashSet<>();
     private final Div rootPicker = Ui.div("fb-switcher-wrap fb-move-roots");
     private final Div intro = Ui.div("fb-dialog-text fb-dialog-text--s");
-    private final Div picker = Ui.div("fb-move-tree");
+    private final Div picker = Ui.div("fb-move-tree-slot");
     private final Div status = Ui.div("fb-move-status");
     private final Button confirm;
     private FsRoot target;
     private List<String> dest = List.of();
+    private FolderTreeGrid tree;
 
     /**
      * @param source  the file system the items are in
@@ -77,6 +74,7 @@ public class DestinationDialog extends FbDialog {
         });
         final var cancel = cancelButton();
         footer(cancel, confirm);
+        renderTree();
         render();
     }
 
@@ -92,12 +90,6 @@ public class DestinationDialog extends FbDialog {
         return String.join("/", path);
     }
 
-    private static List<String> append(List<String> path, String name) {
-        final var out = new ArrayList<>(path);
-        out.add(name);
-        return List.copyOf(out);
-    }
-
     private boolean sameFileSystem() {
         return target.id().equals(source.id());
     }
@@ -110,9 +102,33 @@ public class DestinationDialog extends FbDialog {
     private void pick(FsRoot root) {
         target = root;
         dest = List.of();
-        loaded.clear();
-        expanded.clear();
+        renderTree();
         render();
+    }
+
+    /** A new tree for each file system, since its folders come from that file system. */
+    private void renderTree() {
+        picker.removeAll();
+        final var root = target;
+        tree = new FolderTreeGrid(path -> loader.apply(root, path), root.name() + " (root)", "home");
+        tree.addClassName("fb-move-tree");
+        tree.setDisabled(this::disabled);
+        tree.addFolderClickListener(path -> {
+            dest = path;
+            render();
+        });
+        picker.add(tree);
+    }
+
+    /** The root when the items are already there, and the folders being moved, can't take them. */
+    private boolean disabled(List<String> path) {
+        if (!sameFileSystem()) {
+            return false;
+        }
+        if (path.isEmpty()) {
+            return mode == Mode.MOVE && currentPath.isEmpty();
+        }
+        return movedFolderKeys.contains(key(path));
     }
 
     private void renderRootPicker() {
@@ -170,15 +186,7 @@ public class DestinationDialog extends FbDialog {
         final var introEnd = new Span(".");
         intro.add(introLead, introRoot, introEnd);
 
-        picker.removeAll();
-        final var homeIcon = new Icon("home");
-        final var rootRow = row(List.of(), 0, homeIcon, target.name() + " (root)",
-                mode == Mode.MOVE && sameFileSystem() && currentPath.isEmpty());
-        rootRow.addClassName("fb-move-row--root");
-        picker.add(rootRow);
-        for (final var name : subfolders(List.of())) {
-            addNode(List.of(name), 0);
-        }
+        tree.setActive(dest);
 
         status.removeAll();
         final var check = check();
@@ -201,59 +209,5 @@ public class DestinationDialog extends FbDialog {
             status.add(label, destName);
         }
         confirm.setEnabled(valid());
-    }
-
-    private List<String> subfolders(List<String> path) {
-        return loaded.computeIfAbsent(key(path), k -> {
-            try {
-                return loader.apply(target, path);
-            } catch (RuntimeException e) {
-                return List.of();
-            }
-        });
-    }
-
-    private void addNode(List<String> path, int depth) {
-        final var pathKey = key(path);
-        final var open = expanded.contains(pathKey);
-        final var subfolders = open ? subfolders(path) : null;
-        final var leaf = subfolders != null && subfolders.isEmpty();
-        final var folderIcon = new Icon("folder");
-        final var row = row(path, depth, folderIcon, path.getLast(), sameFileSystem() && movedFolderKeys.contains(pathKey));
-        if (leaf) {
-            final var noCaret = Ui.span("fb-caret fb-caret--none", "");
-            row.addComponentAsFirst(noCaret);
-        } else {
-            final var caretIcon = new Icon("angle-right");
-            final var caret = Ui.button("fb-caret" + (open ? " fb-caret--open" : ""), () -> {
-                if (!expanded.remove(pathKey)) {
-                    expanded.add(pathKey);
-                }
-                render();
-            }, caretIcon);
-            caret.getElement().setAttribute("aria-label", open ? "Collapse" : "Expand");
-            row.addComponentAsFirst(caret);
-        }
-        picker.add(row);
-        if (subfolders != null) {
-            subfolders.forEach(sub -> addNode(append(path, sub), depth + 1));
-        }
-    }
-
-    private Div row(List<String> path, int depth, Icon icon, String label, boolean disabled) {
-        final var text = Ui.span("fb-ellipsis", label);
-        final var row = Ui.div("fb-move-row", icon, text);
-        final var depthValue = String.valueOf(depth);
-        row.getStyle().set("--depth", depthValue);
-        final var selected = key(path).equals(key(dest));
-        row.getElement().getClassList().set("fb-move-row--selected", selected);
-        row.getElement().getClassList().set("fb-move-row--disabled", disabled);
-        if (!disabled) {
-            row.addClickListener(e -> {
-                dest = path;
-                render();
-            });
-        }
-        return row;
     }
 }

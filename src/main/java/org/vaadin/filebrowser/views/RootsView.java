@@ -14,19 +14,20 @@ import org.vaadin.filebrowser.ui.AppHeader;
 import org.vaadin.filebrowser.ui.Buttons;
 import org.vaadin.filebrowser.ui.DriveCard;
 import org.vaadin.filebrowser.ui.Icon;
-import org.vaadin.filebrowser.ui.MenuPosition;
 import org.vaadin.filebrowser.ui.RootMenu;
 import org.vaadin.filebrowser.ui.StarredBanner;
-import org.vaadin.filebrowser.ui.Switch;
 import org.vaadin.filebrowser.ui.Notices;
 import org.vaadin.filebrowser.ui.Ui;
+import org.vaadin.filebrowser.ui.components.AddTile;
 import org.vaadin.filebrowser.ui.dialog.AddRootDialog;
 import org.vaadin.filebrowser.ui.dialog.RemoveRootDialog;
 import org.vaadin.filebrowser.ui.dialog.RootSettingsDialog;
 
 import jakarta.annotation.security.PermitAll;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.checkbox.Switch;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Main;
@@ -87,8 +88,8 @@ public class RootsView extends Div {
         final var spacer = Ui.spacer();
         final var titlebar = Ui.div("fb-page-titlebar", title, spacer);
         if (!roots.isEmpty()) {
-            final var groupSwitch = new Switch("Group by type", workspace.isGroupByType(), on -> {
-                workspace.setGroupByType(on);
+            final var groupSwitch = new Switch("Group by type", workspace.isGroupByType(), e -> {
+                workspace.setGroupByType(e.getValue());
                 render();
             });
             titlebar.add(groupSwitch);
@@ -129,10 +130,9 @@ public class RootsView extends Div {
         accessible.forEach(r -> grid.add(card(r)));
         if (admin) {
             final var plusIcon = new Icon("plus");
-            final var addCardIcon = Ui.span("fb-addroot-card-icon", plusIcon);
-            final var addCardTitle = Ui.span("fb-addroot-card-title", "Add file system");
-            final var addCardSub = Ui.span("fb-addroot-card-sub", "Connect a folder on the server: a local disk or a mounted share");
-            final var addCard = Ui.button("fb-addroot-card", this::openAddDialog, addCardIcon, addCardTitle, addCardSub);
+            final var addCard = new AddTile(plusIcon, "Add file system",
+                    "Connect a folder on the server: a local disk or a mounted share");
+            addCard.addClickListener(e -> openAddDialog());
             grid.add(addCard);
         }
         if (grid.getComponentCount() > 0) {
@@ -162,8 +162,8 @@ public class RootsView extends Div {
         // a file system of a type the app no longer has a form for can only be removed
         final SerializableConsumer<FsRoot> onEdit = AddRootDialog.canEdit(workspace, root.type())
                 ? this::openEditDialog : null;
-        final SerializableConsumer<MenuPosition> onMenu = currentUser.isAdmin()
-                ? pos -> rootMenu.open(root, pos, onEdit, this::openSettingsDialog, this::openRemoveDialog)
+        final SerializableConsumer<Component> onMenu = currentUser.isAdmin()
+                ? anchor -> rootMenu.open(root, anchor, onEdit, this::openSettingsDialog, this::openRemoveDialog)
                 : null;
         return new DriveCard(root, kind,
                 () -> UI.getCurrent().navigate(BrowserView.class, rootParams),

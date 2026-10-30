@@ -3,11 +3,15 @@ package org.vaadin.filebrowser.ui;
 import java.util.List;
 
 import com.vaadin.flow.component.Composite;
-import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
+import com.vaadin.flow.component.radiobutton.RadioGroupVariant;
+import com.vaadin.flow.component.shared.Tooltip;
+import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.function.SerializableConsumer;
 
 /** Pill-shaped single-choice toggle. {@code value} may be null (no option selected). */
-public class Segmented<T> extends Composite<Div> {
+public class Segmented<T> extends Composite<RadioButtonGroup<T>> {
 
     public record Option<T>(T value, String label, String icon, String title) {
 
@@ -21,35 +25,40 @@ public class Segmented<T> extends Composite<Div> {
     }
 
     public Segmented(String className, List<Option<T>> options, T value, SerializableConsumer<T> onChange) {
-        getContent().addClassNames("fb-seg", className);
-        getContent().getElement().setAttribute("role", "radiogroup");
-        for (final var option : options) {
-            final var on = option.value().equals(value);
-            final var button = Ui.button("fb-seg-btn" + (on ? " fb-seg-btn--on" : ""), () -> onChange.accept(option.value()));
-            if (option.icon() != null) {
-                final var icon = new Icon(option.icon());
-                button.add(icon);
-            }
-            if (option.label() != null) {
-                button.setText(option.label());
-            }
-            if (option.title() != null) {
-                button.getElement().setAttribute("title", option.title());
-                button.getElement().setAttribute("aria-label", option.title());
-            }
-            button.getElement().setAttribute("role", "radio");
-            final var checked = String.valueOf(on);
-            button.getElement().setAttribute("aria-checked", checked);
-            final var dataValue = String.valueOf(option.value());
-            button.getElement().setAttribute("data-value", dataValue);
-            getContent().add(button);
-        }
+        final var group = getContent();
+        group.addClassNames("fb-seg", className);
+        group.addThemeVariants(RadioGroupVariant.AURA_HORIZONTAL);
+        final var values = options.stream().map(Option::value).toList();
+        group.setItems(values);
+        final var renderer = new ComponentRenderer<Span, T>(v -> label(option(options, v)));
+        group.setRenderer(renderer);
+        group.setValue(value);
+        group.addValueChangeListener(e -> onChange.accept(e.getValue()));
     }
 
     /** Shows the choice without letting it change. */
     public Segmented<T> locked() {
-        getContent().addClassName("fb-seg--locked");
-        getContent().getChildren().forEach(button -> button.getElement().setAttribute("disabled", true));
+        getContent().setReadOnly(true);
         return this;
+    }
+
+    private static <T> Option<T> option(List<Option<T>> options, T value) {
+        return options.stream().filter(o -> o.value().equals(value)).findFirst().orElseThrow();
+    }
+
+    private static <T> Span label(Option<T> option) {
+        final var label = Ui.span("fb-seg-label");
+        final var dataValue = String.valueOf(option.value());
+        label.getElement().setAttribute("data-value", dataValue);
+        if (option.icon() != null) {
+            final var icon = new Icon(option.icon());
+            // the icon is hidden from screen readers, so the option is named by text they can read
+            final var name = Ui.span("fb-sr-only", option.title());
+            label.add(icon, name);
+            Tooltip.forComponent(label).setText(option.title());
+        } else {
+            label.setText(option.label());
+        }
+        return label;
     }
 }

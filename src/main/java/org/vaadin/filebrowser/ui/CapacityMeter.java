@@ -11,9 +11,12 @@ import org.vaadin.filebrowser.data.KindInfo;
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.progressbar.ProgressBar;
 
 /** Usage line and bar. Storage without a fixed size gets a striped bar; unknown usage gets a note instead. */
 public class CapacityMeter extends Composite<Div> {
+
+    private static final int PERCENT = 100;
 
     public enum Style { CARD, SIDEBAR }
 
@@ -32,14 +35,9 @@ public class CapacityMeter extends Composite<Div> {
             final var percent = Ui.span("fb-capacity-pct", pct + "%");
             line.add(percent);
         }
-        final var bar = Ui.div("fb-capacity-bar");
-        if (pct != null) {
-            final var fill = Ui.div("fb-capacity-fill");
-            fill.getStyle().setWidth(pct + "%");
-            bar.add(fill);
-        } else {
-            bar.addClassName("fb-capacity-bar--striped");
-        }
+        final var bar = new ProgressBar(0, PERCENT, pct == null ? 0 : pct);
+        bar.addClassName("fb-capacity-bar");
+        bar.getElement().getClassList().set("fb-capacity-bar--striped", pct == null);
         div.add(line, bar);
     }
 

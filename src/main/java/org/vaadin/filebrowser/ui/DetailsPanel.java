@@ -10,6 +10,8 @@ import org.vaadin.filebrowser.storage.StorageEntry;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Composite;
+import com.vaadin.flow.component.badge.Badge;
+import com.vaadin.flow.component.badge.BadgeVariant;
 import com.vaadin.flow.component.html.Aside;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H3;
@@ -46,16 +48,18 @@ public class DetailsPanel extends Composite<Aside> {
     }
 
     private static Div badges(String kind, boolean starred, boolean readOnly) {
-        final var kindBadge = new Badge(Badge.Tone.ACCENT, kind);
+        final var kindBadge = new Badge(kind);
+        kindBadge.addClassName("fb-badge-accent");
         final var badges = Ui.div("fb-details-badges", kindBadge);
         if (starred) {
-            final var starBadge = new Badge(Badge.Tone.ACCENT, "Starred");
             final var starIcon = new Icon("star");
-            starBadge.addComponentAsFirst(starIcon);
+            final var starBadge = new Badge("Starred", starIcon);
+            starBadge.addClassName("fb-badge-accent");
             badges.add(starBadge);
         }
         if (readOnly) {
-            final var readOnlyBadge = new Badge(Badge.Tone.WARNING, "Read only");
+            final var readOnlyBadge = new Badge("Read only");
+            readOnlyBadge.addThemeVariants(BadgeVariant.WARNING);
             badges.add(readOnlyBadge);
         }
         return badges;

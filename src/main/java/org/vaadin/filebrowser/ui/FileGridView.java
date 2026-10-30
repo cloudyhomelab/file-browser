@@ -5,6 +5,7 @@ import java.util.List;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.Formats;
 import org.vaadin.filebrowser.data.Located;
+import org.vaadin.filebrowser.ui.components.ItemTile;
 
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Div;
@@ -25,41 +26,30 @@ public class FileGridView extends Composite<Div> {
         dropTargets.setActive(on);
     }
 
-    private static Div card(Located located, EntryHandler handler, Catalog catalog, DragMove.Targets dropTargets) {
+    private static ItemTile card(Located located, EntryHandler handler, Catalog catalog, DragMove.Targets dropTargets) {
         final var entry = located.entry();
         final var selected = handler.selectable() && handler.selected(located);
         final var starred = handler.starred(located);
-        final var card = Ui.div("fb-card");
-        card.getElement().getClassList().set("fb-card--selected", selected);
-        card.getElement().getClassList().set("fb-card--starred", starred);
+        final var fileTile = new FileTile(entry, catalog);
+        final var sub = subtitle(located);
+        final var card = new ItemTile(fileTile, entry.name(), sub);
+        card.setSelected(selected);
 
         if (handler.selectable()) {
-            final var check = new CheckMark(selected, false, () -> handler.toggleSelected(located));
-            final var checkCorner = Ui.span("fb-card-check", check);
-            card.add(checkCorner);
+            final var check = Ui.checkbox(selected, "Select " + entry.name(), () -> handler.toggleSelected(located));
+            card.setStartControl(check);
         }
         if (starred) {
             final var starIcon = new Icon("star");
-            final var starMark = Ui.span("fb-card-starmark", starIcon);
-            card.add(starMark);
+            card.setStartIndicator(starIcon);
         }
-        final var dotsIcon = new Icon("dots");
-        final var dots = Ui.button("fb-icon-btn fb-icon-btn--s", () -> { }, dotsIcon);
-        dots.getElement().setAttribute("aria-label", "More actions");
-        MenuPosition.onClick(dots, pos -> handler.contextMenu(located, pos));
+        final var dots = Ui.iconButton("dots", "More actions");
+        dots.addClassName("fb-icon-btn--s");
+        dots.addClickListener(e -> handler.contextMenu(located, dots));
         final var star = new StarToggle(starred, () -> handler.toggleStar(located));
-        final var actions = Ui.span("fb-card-actions", star, dots);
-        card.add(actions);
+        card.setEndControls(star, dots);
 
-        final var sub = subtitle(located);
-        final var tile = new FileTile(entry, catalog);
-        final var tileFrame = Ui.span("fb-card-tile", tile);
-        final var name = Ui.span("fb-card-name", entry.name());
-        final var subLine = Ui.span("fb-card-sub", sub);
-        final var text = Ui.div("fb-card-text", name, subLine);
-        card.add(tileFrame, text);
-
-        EntryListeners.listen(card, located, handler, dropTargets);
+        EntryListeners.listen(card, dots, located, handler, dropTargets);
         return card;
     }
 

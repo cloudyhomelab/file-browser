@@ -19,7 +19,6 @@ import org.vaadin.filebrowser.ui.EntryMenu;
 import org.vaadin.filebrowser.ui.FileGridView;
 import org.vaadin.filebrowser.ui.FileListView;
 import org.vaadin.filebrowser.ui.Icon;
-import org.vaadin.filebrowser.ui.MenuPosition;
 import org.vaadin.filebrowser.ui.RootChip;
 import org.vaadin.filebrowser.ui.Segmented;
 import org.vaadin.filebrowser.ui.Notices;
@@ -27,7 +26,9 @@ import org.vaadin.filebrowser.ui.Ui;
 
 import jakarta.annotation.security.PermitAll;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.grid.contextmenu.GridContextMenu;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Main;
@@ -72,9 +73,8 @@ public class StarredView extends Div implements EntryHandler {
                 .toList();
         final var total = groups.stream().mapToInt(g -> g.entries().size()).sum();
 
-        final var backIcon = new Icon("angle-left");
-        final var backLabel = Ui.span("", "All file systems");
-        final var back = Ui.button("fb-back-link", () -> UI.getCurrent().navigate(RootsView.class), backIcon, backLabel);
+        final var back = Ui.textButton("fb-back-link", "All file systems", "angle-left",
+                () -> UI.getCurrent().navigate(RootsView.class));
         final var starIcon = new Icon("star");
         final var titleText = Ui.span("", "Starred");
         final var title = new H1();
@@ -114,10 +114,14 @@ public class StarredView extends Div implements EntryHandler {
             final var line = Ui.divider("fb-group-line");
             final var head = Ui.div("fb-group-head", chip, name, count, line);
             final var section = new Section(head);
-            final var entries = workspace.getLayout() == Layout.GRID
-                    ? new FileGridView(g.entries(), this, workspace.getCatalog())
-                    : new FileListView(g.entries(), this, workspace.getDensity(), workspace.getCatalog());
-            section.add(entries);
+            if (workspace.getLayout() == Layout.GRID) {
+                final var tiles = new FileGridView(g.entries(), this, workspace.getCatalog());
+                section.add(tiles);
+            } else {
+                final var list = new FileListView(g.entries(), this, workspace.getDensity(), workspace.getCatalog());
+                list.setAllRowsVisible();
+                section.add(list);
+            }
             sections.add(section);
         }
         main.add(sections);
@@ -173,16 +177,23 @@ public class StarredView extends Div implements EntryHandler {
     }
 
     @Override
-    public void contextMenu(Located entry, MenuPosition position) {
-        entryMenu.open(entry, position, true, starred(entry), false, true, (action, located) -> {
-            if (action == EntryAction.OPEN) {
-                open(located);
-            } else if (action == EntryAction.DOWNLOAD) {
-                Notices.show("Downloading “" + located.entry().name() + "”…", "download");
-            } else if (action == EntryAction.STAR) {
-                toggleStar(located);
-            }
-        });
+    public void contextMenu(Located entry, Component anchor) {
+        entryMenu.open(entry, anchor, true, starred(entry), false, true, this::onMenuAction);
+    }
+
+    @Override
+    public void fillContextMenu(GridContextMenu<Located> menu, Located entry) {
+        EntryMenu.fill(menu, entry, true, starred(entry), false, true, this::onMenuAction);
+    }
+
+    private void onMenuAction(EntryAction action, Located located) {
+        if (action == EntryAction.OPEN) {
+            open(located);
+        } else if (action == EntryAction.DOWNLOAD) {
+            Notices.show("Downloading “" + located.entry().name() + "”…", "download");
+        } else if (action == EntryAction.STAR) {
+            toggleStar(located);
+        }
     }
 
     @Override

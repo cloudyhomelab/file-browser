@@ -11,9 +11,11 @@ import org.vaadin.filebrowser.service.FolderUpload;
 import org.vaadin.filebrowser.service.TransferTask;
 import org.vaadin.filebrowser.service.UploadTask;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.progressbar.ProgressBar;
 import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.function.SerializableRunnable;
 
@@ -24,6 +26,7 @@ import com.vaadin.flow.function.SerializableRunnable;
 public class UploadDock extends Composite<Div> {
 
     private static final int GLYPH_LABEL_CHARS = 3;
+    private static final int PERCENT = 100;
 
     private final Catalog catalog;
     private final SerializableRunnable onDismiss;
@@ -116,7 +119,7 @@ public class UploadDock extends Composite<Div> {
         return row;
     }
 
-    private static Div folderStatus(FolderUpload folder) {
+    private static Component folderStatus(FolderUpload folder) {
         if (folder.getState() == FolderUpload.State.PREPARING) {
             return line("fb-dock-done", "Creating folders…");
         }
@@ -131,9 +134,7 @@ public class UploadDock extends Composite<Div> {
             }
             return line("fb-dock-done", Formats.plural(total, "file") + " · " + Formats.size(folder.size()) + " · Done");
         }
-        final var fill = Ui.div("fb-dock-fill");
-        fill.getStyle().setWidth(folder.progress() + "%");
-        return Ui.div("fb-dock-bar", fill);
+        return bar(folder.progress());
     }
 
     private Div uploadRow(UploadTask upload) {
@@ -167,7 +168,7 @@ public class UploadDock extends Composite<Div> {
         return badge;
     }
 
-    private static Div uploadStatus(UploadTask upload) {
+    private static Component uploadStatus(UploadTask upload) {
         if (upload.complete()) {
             final var sizeText = upload.getSummary() != null ? upload.getSummary()
                     : Formats.size(upload.knownSize()) + " · Done";
@@ -179,9 +180,7 @@ public class UploadDock extends Composite<Div> {
         if (upload.getState() == UploadTask.State.EXTRACTING) {
             return line("fb-dock-done", "Extracting…");
         }
-        final var fill = Ui.div("fb-dock-fill");
-        fill.getStyle().setWidth(upload.progress() + "%");
-        return Ui.div("fb-dock-bar", fill);
+        return bar(upload.progress());
     }
 
     private static String title(Outcome uploads, List<TransferTask> transfers) {
@@ -253,11 +252,8 @@ public class UploadDock extends Composite<Div> {
             case QUEUED -> body.add(line("fb-dock-note", "Queued"));
             case RUNNING -> {
                 final var progress = task.progress();
-                final var fill = Ui.div("fb-dock-fill");
-                if (progress != null) {
-                    fill.getStyle().setWidth(progress + "%");
-                }
-                final var bar = Ui.div("fb-dock-bar" + (progress == null ? " fb-dock-bar--busy" : ""), fill);
+                final var bar = bar(progress == null ? 0 : progress);
+                bar.setIndeterminate(progress == null);
                 body.add(bar);
                 if (task.getStatus() != null) {
                     body.add(line("fb-dock-note", task.getStatus()));
@@ -265,6 +261,12 @@ public class UploadDock extends Composite<Div> {
             }
         }
         return body;
+    }
+
+    private static ProgressBar bar(int percent) {
+        final var bar = new ProgressBar(0, PERCENT, percent);
+        bar.addClassName("fb-dock-bar");
+        return bar;
     }
 
     private static Div line(String className, String text) {

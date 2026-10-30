@@ -36,7 +36,6 @@ import org.vaadin.filebrowser.service.Workspace;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.storage.StoragePaths;
-import org.vaadin.filebrowser.ui.Badge;
 import org.vaadin.filebrowser.ui.BulkBar;
 import org.vaadin.filebrowser.ui.DetailsPanel;
 import org.vaadin.filebrowser.ui.EmptyState;
@@ -49,7 +48,6 @@ import org.vaadin.filebrowser.ui.FileListView;
 import org.vaadin.filebrowser.ui.HeaderBulkActions;
 import org.vaadin.filebrowser.ui.Icon;
 import org.vaadin.filebrowser.ui.Lightbox;
-import org.vaadin.filebrowser.ui.MenuPosition;
 import org.vaadin.filebrowser.ui.RootChip;
 import org.vaadin.filebrowser.ui.Segmented;
 import org.vaadin.filebrowser.ui.Sidebar;
@@ -68,8 +66,13 @@ import org.vaadin.filebrowser.ui.dialog.UploadDialog;
 import jakarta.annotation.security.PermitAll;
 
 import com.vaadin.flow.component.AttachEvent;
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.badge.BadgeVariant;
+import com.vaadin.flow.component.breadcrumbs.Breadcrumbs;
+import com.vaadin.flow.component.breadcrumbs.BreadcrumbsItem;
+import com.vaadin.flow.component.grid.contextmenu.GridContextMenu;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
@@ -126,6 +129,10 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private boolean starredView;
     /** Between a drag start and its end; drop targets are active and auto refresh waits meanwhile. */
     private boolean dragging;
+    /** What a drag carries when its drop target gets no server-side data, as for a row dragged out of the list. */
+    private Located draggedEntry;
+    /** Which folder, search and density the list was built for; while it stays the same the list is updated in place. */
+    private String listViewKey;
     private boolean resetting;
     private Registration pollRegistration;
     private Registration taskRegistration;
@@ -397,7 +404,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             final var crumbs = breadcrumb();
             titleRow.add(crumbs);
             if (readOnly()) {
-                final var readOnlyBadge = new Badge(Badge.Tone.WARNING, "Read only", true);
+                final var readOnlyBadge = Ui.dotBadge("Read only", BadgeVariant.WARNING);
                 titleRow.add(readOnlyBadge);
             }
         }
@@ -414,25 +421,36 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         }
     }
 
-    private Div breadcrumb() {
-        final var crumbs = Ui.div("fb-breadcrumb");
+    private Breadcrumbs breadcrumb() {
+        final var crumbs = new Breadcrumbs(Breadcrumbs.Mode.MANUAL);
+        crumbs.addClassName("fb-breadcrumb");
+        final var rootItem = crumb(root.name(), List.of());
         final var rootChip = RootChip.of(root, workspace.getCatalog(), RootChip.Size.XS);
-        final var rootName = Ui.span("", root.name());
-        final var rootCrumb = Ui.button("fb-crumb fb-crumb--root", () -> navTo(List.of()), rootChip, rootName);
-        crumbs.add(rootCrumb);
+        rootItem.setPrefixComponent(rootChip);
+        crumbs.add(rootItem);
         for (int i = 0; i < path.size(); i++) {
             final var target = List.copyOf(path.subList(0, i + 1));
-            final var last = i == path.size() - 1;
-            final var separatorIcon = new Icon("angle-right");
-            final var separator = Ui.span("fb-crumb-sep", separatorIcon);
-            final var segmentName = Ui.span("", path.get(i));
-            final var crumb = Ui.button("fb-crumb" + (last ? " fb-crumb--current" : ""), () -> navTo(target), segmentName);
-            crumbs.add(separator, crumb);
+            final var item = crumb(path.get(i), target);
+            crumbs.add(item);
         }
         return crumbs;
     }
 
+    /** The current folder is the last item and is not a link. */
+    private BreadcrumbsItem crumb(String name, List<String> target) {
+        if (target.equals(path)) {
+            return new BreadcrumbsItem(name);
+        }
+        final var params = params(root.id(), target);
+        return new BreadcrumbsItem(name, BrowserView.class, params);
+    }
+
     private void renderContent(List<Located> entries) {
+        final var key = String.join("|", root.id(), String.join("/", path), query, workspace.getDensity().name());
+        if (canUpdateList(entries, key)) {
+            listView.update(entries);
+            return;
+        }
         content.removeAll();
         listView = null;
         gridView = null;
@@ -451,11 +469,18 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         }
         if (workspace.getLayout() == Layout.LIST) {
             listView = new FileListView(entries, this, workspace.getDensity(), workspace.getCatalog());
+            listViewKey = key;
             content.add(listView);
         } else {
             gridView = new FileGridView(entries, this, workspace.getCatalog());
             content.add(gridView);
         }
+    }
+
+    /** Whether the list on show is for the same folder, search and density, so it can be updated in place. */
+    private boolean canUpdateList(List<Located> entries, String key) {
+        return listView != null && workspace.getLayout() == Layout.LIST && loadError == null && !entries.isEmpty()
+                && key.equals(listViewKey);
     }
 
     private void renderDetails() {
@@ -558,7 +583,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     @Override
-    public void dragStarted() {
+    public void dragStarted(Located dragged) {
+        draggedEntry = dragged;
         dragging = true;
         setDropTargetsActive(true);
     }
@@ -594,9 +620,14 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     @Override
-    public void contextMenu(Located entry, MenuPosition position) {
-        entryMenu.open(entry, position, starredView, starred(entry), readOnly(), root.options().opening(),
+    public void contextMenu(Located entry, Component anchor) {
+        entryMenu.open(entry, anchor, starredView, starred(entry), readOnly(), root.options().opening(),
                 this::handleAction);
+    }
+
+    @Override
+    public void fillContextMenu(GridContextMenu<Located> menu, Located entry) {
+        EntryMenu.fill(menu, entry, starredView, starred(entry), readOnly(), root.options().opening(), this::handleAction);
     }
 
     @Override
@@ -758,10 +789,12 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     /** {@code dragged} was dropped onto a folder in the list, the grid or the tree. */
-    private void dropInto(Located dragged, List<String> dest) {
+    private void dropInto(Located dropped, List<String> dest) {
         setDropTargetsActive(false);
         dragging = false;
-        if (!draggable()) {
+        final var dragged = dropped != null ? dropped : draggedEntry;
+        draggedEntry = null;
+        if (!draggable() || dragged == null) {
             return;
         }
         final var targets = selected(dragged)

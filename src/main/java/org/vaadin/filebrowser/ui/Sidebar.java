@@ -17,7 +17,7 @@ import com.vaadin.flow.function.SerializableRunnable;
 
 public class Sidebar extends Composite<Aside> {
 
-    private final FolderTree folderTree;
+    private final FolderTreeGrid folderTree;
     private final Div starredSlot = Ui.div("fb-sidebar-starred-slot");
     private final SerializableRunnable onStarred;
 
@@ -30,7 +30,11 @@ public class Sidebar extends Composite<Aside> {
                    Callbacks callbacks) {
         final var aside = getContent();
         aside.setClassName("fb-sidebar");
-        folderTree = new FolderTree(folders, callbacks.onNavigate(), callbacks.onDropInto());
+        folderTree = new FolderTreeGrid(folders, "All files", "home");
+        folderTree.setAllRowsVisible();
+        folderTree.addFolderClickListener(callbacks.onNavigate());
+        // the dragged entry is known to the view from the drag start; a tree row carries no drag data
+        folderTree.addFolderDropListener(path -> callbacks.onDropInto().accept(null, path));
         onStarred = callbacks.onStarred();
 
         final var nav = new Nav(folderTree);
@@ -57,7 +61,7 @@ public class Sidebar extends Composite<Aside> {
 
     /** @param path the browsed folder, or null while the starred view is shown */
     public void update(List<String> path, boolean starredView, int starredCount) {
-        folderTree.show(starredView ? null : path);
+        folderTree.setActive(starredView ? null : path);
         starredSlot.removeAll();
         final var lit = starredView || starredCount > 0;
         final var starIcon = new Icon(lit ? "star" : "star-outline");

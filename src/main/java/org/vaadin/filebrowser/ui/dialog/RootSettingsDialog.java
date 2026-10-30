@@ -6,9 +6,9 @@ import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.RootOptionLimits;
 import org.vaadin.filebrowser.data.RootOptions;
 import org.vaadin.filebrowser.ui.Buttons;
-import org.vaadin.filebrowser.ui.Switch;
 import org.vaadin.filebrowser.ui.Ui;
 
+import com.vaadin.flow.component.checkbox.Switch;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.tabs.TabSheet;
 import com.vaadin.flow.component.tabs.TabSheetVariant;
@@ -51,9 +51,9 @@ public class RootSettingsDialog extends FbDialog {
                 + "that the browser stops reading is closed after the idle timeout.");
         final var connections = Ui.div("fb-settings-panel", connectionFields, connectionsHint);
 
-        linkUploads = new Switch("Allow uploads from web links", options.linkUploads(), on -> { });
-        extraction = new Switch("Allow archive extraction", options.extraction(), on -> { });
-        opening = new Switch("Allow opening files", options.opening(), on -> { });
+        linkUploads = new Switch("Allow uploads from web links", options.linkUploads());
+        extraction = new Switch("Allow archive extraction", options.extraction());
+        opening = new Switch("Allow opening files", options.opening());
         final var features = Ui.div("fb-settings-panel",
                 option(linkUploads, "The server downloads files from links people paste into the upload dialog."),
                 option(extraction, "Archives can be extracted, and compressed files decompressed, as they are "
@@ -70,7 +70,7 @@ public class RootSettingsDialog extends FbDialog {
                 return;
             }
             close();
-            final var saved = new RootOptions(linkUploads.isOn(), extraction.isOn(), opening.isOn(),
+            final var saved = new RootOptions(linkUploads.getValue(), extraction.getValue(), opening.getValue(),
                     maxConnections.getValue(), browsingReserve.getValue(), idleStream.getValue());
             onSave.accept(saved);
         });
