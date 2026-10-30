@@ -3,7 +3,7 @@ ARG JAVA_VERSION="21"
 FROM maven:3.9-eclipse-temurin-${JAVA_VERSION} AS build
 WORKDIR /app
 COPY . .
-RUN mvn --batch-mode --no-transfer-progress -Pproduction clean package
+RUN mvn --batch-mode --no-transfer-progress clean package
 
 
 FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine

@@ -30,7 +30,7 @@ jobs:
           cache: maven
 
       - name: maven verify
-        run: mvn --batch-mode --no-transfer-progress -Pproduction clean verify
+        run: mvn --batch-mode --no-transfer-progress clean verify
 
   docker:
     name: build and publish docker image
