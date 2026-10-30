@@ -29,7 +29,6 @@ import org.vaadin.filebrowser.service.Downloads;
 import org.vaadin.filebrowser.service.UploadQueue.Planned;
 import org.vaadin.filebrowser.service.TransferTask;
 import org.vaadin.filebrowser.service.UploadQueue;
-import org.vaadin.filebrowser.service.UploadTask;
 import org.vaadin.filebrowser.service.Workspace.ConflictChoice;
 import org.vaadin.filebrowser.service.Workspace.Density;
 import org.vaadin.filebrowser.service.Workspace.Layout;
@@ -58,7 +57,6 @@ import org.vaadin.filebrowser.ui.Notices;
 import org.vaadin.filebrowser.ui.NotificationBell;
 import org.vaadin.filebrowser.ui.Toolbar;
 import org.vaadin.filebrowser.ui.Ui;
-import org.vaadin.filebrowser.ui.UploadDock;
 import org.vaadin.filebrowser.ui.dialog.ConflictDialog;
 import org.vaadin.filebrowser.ui.dialog.DeleteDialog;
 import org.vaadin.filebrowser.ui.dialog.DestinationDialog;
@@ -83,7 +81,6 @@ import com.vaadin.flow.router.HasDynamicTitle;
 import com.vaadin.flow.router.QueryParameters;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteParameters;
-import com.vaadin.flow.server.streams.UploadHandler;
 import com.vaadin.flow.shared.Registration;
 
 /** Browses one file system: sidebar tree, header with breadcrumb and toolbar, list/grid, details. */
@@ -96,8 +93,6 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private static final String ROOT_PARAM = "rootId";
     private static final String PATH_PARAM = "path";
     private static final String FOCUS_PARAM = "focus";
-    /** How often the dock is updated while uploads or transfers run. */
-    private static final int TASK_POLL_MS = 320;
     /** Poll ticks don't land exactly on the interval; one this close to it counts as due. */
     private static final Duration AUTO_REFRESH_SLACK = Duration.ofSeconds(1);
 
@@ -115,7 +110,6 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private final Div content = Ui.div("fb-content");
     private final Div detailsSlot = Ui.div("fb-details-slot");
     private final Div bulkSlot = Ui.div("fb-bulk-slot");
-    private final UploadDock dock;
     private final EntryMenu entryMenu = new EntryMenu();
     private final Anchor downloadLink = new Anchor();
 
@@ -134,6 +128,9 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private boolean dragging;
     private boolean resetting;
     private Registration pollRegistration;
+    private Registration taskRegistration;
+    /** Set while attached. */
+    private MainLayout layout;
     private AutoRefresh autoRefresh = AutoRefresh.OFF;
     private Instant lastLoad = Instant.MIN;
     /** What the last render showed, so an auto refresh that finds no change renders nothing. */
@@ -150,22 +147,10 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var toolbarCallbacks = new Toolbar.Callbacks(this::onQuery, this::sortBy, this::setAutoRefresh,
                 this::toggleDensity, this::setLayout, this::newFolder, this::openUploadDialog);
         toolbar = new Toolbar(toolbarCallbacks);
-        dock = new UploadDock(workspace.getCatalog(), this::clearUploads, this::cancelTransfer);
 
         main = new FileDropArea(workspace.getCatalog(), false, maxFolderUploadEntries);
         main.addClassName("fb-main");
         main.setOnFiles(this::onFilesDropped);
-        final var queue = workspace.getUploads();
-        final var maxBytes = maxUploadBytes;
-        // runs on the upload request thread, outside the session lock: only touch the thread-safe queue here
-        final UploadHandler uploadHandler = event -> {
-            final var taskId = event.getRequest().getParameter("task");
-            queue.receive(taskId, event.getInputStream(), maxBytes);
-        };
-        main.setUploadHandler(uploadHandler);
-        main.setOnUploadLost(queue::lost);
-        main.setOnUploadFailed(queue::notSent);
-        main.setWaiting(queue::waitingForBrowser);
         final var uploadIcon = new Icon("upload");
         final var dropIcon = Ui.span("fb-drop-overlay-icon", uploadIcon);
         final var dropTitle = Ui.span("fb-drop-overlay-title", "Drop files or folders to upload");
@@ -176,7 +161,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         final var footerSpacer = Ui.spacer();
         final var bell = new NotificationBell(PopoverPosition.TOP_END);
         final var footer = Ui.div("fb-footer", footerCount, footerSpacer, bell);
-        main.add(header, body, footer, dropOverlay, bulkSlot, dock);
+        main.add(header, body, footer, dropOverlay, bulkSlot);
 
         downloadLink.getElement().setAttribute("download", true);
         downloadLink.getStyle().setDisplay(Style.Display.NONE);
@@ -264,23 +249,6 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private void setLayout(Layout layout) {
         workspace.setLayout(layout);
         refresh();
-    }
-
-    private void clearUploads() {
-        workspace.getUploads().clear();
-        workspace.getTransfers().clear();
-        main.cancelUploads();
-        refresh();
-    }
-
-    private void cancelTransfer(TransferTask task) {
-        workspace.getTransfers().cancel(task);
-        showDock();
-    }
-
-    private void showDock() {
-        final var uploads = workspace.getUploads();
-        dock.show(uploads.loose(), uploads.folders(), workspace.getTransfers().all());
     }
 
     private void backToRoots() {
@@ -412,7 +380,6 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             final var bulkBar = new BulkBar(selectedPaths.size(), readOnly(), a -> handleAction(a, null), this::clearSelection);
             bulkSlot.add(bulkBar);
         }
-        showDock();
     }
 
     private void renderTitleRow(int count) {
@@ -842,7 +809,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             Notices.error(e.getMessage());
         }
         refresh();
-        updatePollInterval();
+        tasksChanged();
     }
 
     /**
@@ -1072,21 +1039,31 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private void enqueue(List<String> destination, List<Planned> planned, List<UploadQueue.PlannedFolder> folders) {
         try {
             final var tasks = workspace.upload(root, destination, planned, maxUploadBytes);
-            main.upload(tasks);
             folders.forEach(f -> workspace.uploadFolder(root, destination, f));
+            if (layout != null) {
+                layout.upload(tasks);
+            }
         } catch (StorageException e) {
             Notices.error(e.getMessage());
             return;
         }
-        updatePollInterval();
         refresh();
     }
 
     @Override
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
-        final var ui = attachEvent.getUI();
-        pollRegistration = ui.addPollListener(e -> onPoll());
+        pollRegistration = attachEvent.getUI().addPollListener(e -> autoRefreshTick());
+        layout = MainLayout.of(this).orElse(null);
+        if (layout != null) {
+            taskRegistration = layout.addTaskListener(foldersChanged -> {
+                if (foldersChanged) {
+                    afterChange();
+                } else {
+                    refresh();
+                }
+            });
+        }
         updatePollInterval();
     }
 
@@ -1096,60 +1073,27 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             pollRegistration.remove();
             pollRegistration = null;
         }
-        detachEvent.getUI().setPollInterval(-1);
+        if (taskRegistration != null) {
+            taskRegistration.remove();
+            taskRegistration = null;
+        }
+        if (layout != null) {
+            layout.setViewPollInterval(-1);
+            layout = null;
+        }
         super.onDetach(detachEvent);
     }
 
-    /** One timer for all: fast while uploads or transfers run, else at the auto refresh interval, else off. */
+    /** Polls at the auto refresh interval, or not at all; the layout polls faster while tasks run. */
     private void updatePollInterval() {
-        final var interval = workspace.getUploads().active() || workspace.getTransfers().pending() ? TASK_POLL_MS
-                : autoRefresh.on() ? (int) autoRefresh.getInterval().toMillis()
-                : -1;
-        getUI().ifPresent(ui -> ui.setPollInterval(interval));
-    }
-
-    private void onPoll() {
-        onTaskPoll();
-        autoRefreshTick();
-        updatePollInterval();
-    }
-
-    private void onTaskPoll() {
-        final var uploads = workspace.getUploads();
-        final var ready = uploads.takeReady();
-        main.upload(ready);
-        final var finished = uploads.takeFinished();
-        finished.forEach(BrowserView::announce);
-        final var foldersFinished = uploads.takeFinishedFolders();
-        foldersFinished.forEach(f -> Notices.seen(f.outcome(), f.firstError() == null ? "check" : "warn"));
-        final var transfersFinished = workspace.getTransfers().takeFinished();
-        transfersFinished.forEach(BrowserView::announce);
-        // transfers and folder uploads add folders, which the sidebar tree shows too
-        final var treeChanged = !transfersFinished.isEmpty() || !ready.isEmpty() || !foldersFinished.isEmpty();
-        if (treeChanged) {
-            afterChange();
-        } else if (finished.isEmpty()) {
-            showDock();
-        } else {
-            refresh();
+        if (layout != null) {
+            layout.setViewPollInterval(autoRefresh.on() ? (int) autoRefresh.getInterval().toMillis() : -1);
         }
     }
 
-    private static void announce(UploadTask upload) {
-        switch (upload.getState()) {
-            case DONE -> Notices.seen(upload.getSummary() != null ? "“" + upload.getName() + "”: " + upload.getSummary()
-                    : (upload.isReplace() ? "Replaced “" : "Uploaded “") + upload.getName() + "”", "check");
-            case FAILED -> Notices.seen(upload.getError(), "warn");
-            default -> { }
-        }
-    }
-
-    private static void announce(TransferTask transfer) {
-        switch (transfer.getState()) {
-            case DONE -> Notices.seen(transfer.getMessage(), transfer.getKind() == TransferTask.Kind.MOVE ? "move" : "copy");
-            case FAILED -> Notices.seen(transfer.getMessage(), "warn");
-            case CANCELLED -> Notices.seen(transfer.getMessage(), "cross");
-            default -> { }
+    private void tasksChanged() {
+        if (layout != null) {
+            layout.tasksChanged();
         }
     }
 
