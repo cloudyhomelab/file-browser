@@ -238,6 +238,7 @@ public class UploadDock extends Composite<Div> {
                 ? task.destinationName() + " · " + task.getDestinationRoot().name() : task.destinationName();
         final var nameText = new Span(verb + task.label() + " → " + where);
         final var name = Ui.div("fb-dock-name", nameText);
+        name.getElement().setAttribute("title", nameText.getText());
         final var body = Ui.div("fb-dock-body", name);
         switch (task.getState()) {
             case DONE -> body.add(line("fb-dock-done", task.getMessage()));

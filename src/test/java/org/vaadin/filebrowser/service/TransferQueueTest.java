@@ -96,6 +96,16 @@ class TransferQueueTest {
     }
 
     @Test
+    void destinationsNameTheWholePath() throws InterruptedException {
+        final var queue = new TransferQueue(new FakeWork());
+        final var task = queue.enqueue(TransferTask.Kind.COPY, ROOT, ROOT, List.of("trip", "Inbox"), items("c"));
+        finish(task);
+
+        assertThat(task.destinationName()).isEqualTo("trip/Inbox");
+        assertThat(task.getMessage()).isEqualTo("Copied “c” to “trip/Inbox”");
+    }
+
+    @Test
     void tasksRunOneAtATimeInTheOrderTheyWereQueued() throws InterruptedException {
         final var work = new FakeWork();
         work.blockOn = "a";
