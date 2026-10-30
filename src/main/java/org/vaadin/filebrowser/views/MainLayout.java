@@ -1,7 +1,10 @@
 package org.vaadin.filebrowser.views;
 
 import java.io.Serializable;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -149,11 +152,16 @@ public class MainLayout extends Div implements RouterLayout {
         final var ready = uploads.takeReady();
         sender.upload(ready);
         final var finished = uploads.takeFinished();
-        finished.forEach(MainLayout::announce);
         final var foldersFinished = uploads.takeFinishedFolders();
-        foldersFinished.forEach(f -> Notices.seen(f.outcome(), f.firstError() == null ? "check" : "warn"));
         final var transfersFinished = workspace.getTransfers().takeFinished();
-        transfersFinished.forEach(MainLayout::announce);
+        // in the order they were queued, so the newest ends up on top of the notifications, as in the dock
+        final var announcements = new ArrayList<Map.Entry<Instant, Runnable>>();
+        finished.forEach(u -> announcements.add(Map.entry(u.getQueuedAt(), () -> announce(u))));
+        foldersFinished.forEach(f -> announcements.add(Map.entry(f.getQueuedAt(),
+                () -> Notices.seen(f.outcome(), f.firstError() == null ? "check" : "warn"))));
+        transfersFinished.forEach(t -> announcements.add(Map.entry(t.getQueuedAt(), () -> announce(t))));
+        announcements.sort(Map.Entry.comparingByKey());
+        announcements.forEach(a -> a.getValue().run());
         showDock();
         updatePollInterval();
         // transfers and folder uploads add folders, which the folder tree shows too

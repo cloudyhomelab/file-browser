@@ -1,6 +1,7 @@
 package org.vaadin.filebrowser.service;
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -25,6 +26,9 @@ public final class TransferTask implements Serializable {
 
     @Getter
     private final String id;
+    /** When it was queued, so the newest can be shown first. */
+    @Getter
+    private final Instant queuedAt = Instant.now();
     @Getter
     private final Kind kind;
     @Getter

@@ -1,7 +1,9 @@
 package org.vaadin.filebrowser.ui;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.Formats;
@@ -50,10 +52,14 @@ public class UploadDock extends Composite<Div> {
         if (collapsed) {
             return;
         }
+        final var rows = new ArrayList<Map.Entry<Instant, Div>>();
+        folders.forEach(folder -> rows.add(Map.entry(folder.getQueuedAt(), folderRow(folder))));
+        uploads.forEach(upload -> rows.add(Map.entry(upload.getQueuedAt(), uploadRow(upload))));
+        transfers.forEach(transfer -> rows.add(Map.entry(transfer.getQueuedAt(), transferRow(transfer))));
+        // newest first; the sort is stable, so what was queued together keeps its order
+        rows.sort(Map.Entry.<Instant, Div>comparingByKey().reversed());
         final var list = Ui.div("fb-dock-list");
-        folders.forEach(folder -> list.add(folderRow(folder)));
-        uploads.forEach(upload -> list.add(uploadRow(upload)));
-        transfers.forEach(transfer -> list.add(transferRow(transfer)));
+        rows.forEach(row -> list.add(row.getValue()));
         div.add(list);
     }
 

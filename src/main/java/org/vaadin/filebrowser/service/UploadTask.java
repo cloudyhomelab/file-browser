@@ -1,6 +1,7 @@
 package org.vaadin.filebrowser.service;
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.List;
 
 import org.vaadin.filebrowser.data.FsRoot;
@@ -23,6 +24,8 @@ public final class UploadTask implements Serializable {
     private static final int PERCENT = 100;
 
     private final String id;
+    /** When it was queued, so the newest can be shown first. */
+    private final Instant queuedAt = Instant.now();
     private final String clientId;
     private final String name;
     private final String type;

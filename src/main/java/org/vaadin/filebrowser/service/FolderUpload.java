@@ -1,6 +1,7 @@
 package org.vaadin.filebrowser.service;
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +23,8 @@ public final class FolderUpload implements Serializable {
     private static final int PERCENT = 100;
 
     private final String id;
+    /** When it was queued, so the newest can be shown first. */
+    private final Instant queuedAt = Instant.now();
     /** The name it is stored under in {@link #destination}. */
     private final String name;
     private final FsRoot root;
