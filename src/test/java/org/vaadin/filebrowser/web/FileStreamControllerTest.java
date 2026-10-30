@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -55,6 +56,7 @@ class FileStreamControllerTest {
     private FileSystemRegistry registry;
     private StorageService storage;
     private MockMvc mvc;
+    private FileStreamController controller;
 
     @BeforeEach
     void setUp() throws IOException {
@@ -72,8 +74,13 @@ class FileStreamControllerTest {
         final var provider = new LocalDiskProvider(dir, name -> "generic", type -> "disk");
         when(storage.provider(any())).thenReturn(provider);
         final var catalog = new Catalog();
-        final var controller = new FileStreamController(registry, storage, catalog);
+        controller = new FileStreamController(registry, storage, catalog);
         mvc = MockMvcBuilders.standaloneSetup(controller).build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        controller.destroy();
     }
 
     private static FsRoot root(Access access) {

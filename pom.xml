@@ -35,6 +35,7 @@
         <smbj.version>0.14.0</smbj.version>
         <bouncycastle.version>1.84</bouncycastle.version>
         <vcf-pdf-viewer.version>6.1.3</vcf-pdf-viewer.version>
+        <pmd.version>7.29.0</pmd.version>
     </properties>
 
     <repositories>
@@ -309,7 +310,19 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
-                <version>3.26.0</version>
+                <version>3.28.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>net.sourceforge.pmd</groupId>
+                        <artifactId>pmd-core</artifactId>
+                        <version>${pmd.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>net.sourceforge.pmd</groupId>
+                        <artifactId>pmd-java</artifactId>
+                        <version>${pmd.version}</version>
+                    </dependency>
+                </dependencies>
                 <configuration>
                     <linkXRef>false</linkXRef>
                     <rulesets>

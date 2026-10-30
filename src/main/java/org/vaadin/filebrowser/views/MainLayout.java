@@ -144,7 +144,8 @@ public class MainLayout extends Div implements RouterLayout {
 
     /** One timer for all: fast while uploads or transfers run, else as the view asks, else off. */
     private void updatePollInterval() {
-        final var busy = workspace.getUploads().active() || workspace.getTransfers().pending() || workspace.deletesWaiting();
+        final var busy = workspace.getUploads().active() || workspace.getTransfers().pending()
+                || workspace.getDeletes().anyWaiting();
         final var interval = busy ? TASK_POLL_MS : viewPollMs;
         getUI().ifPresent(ui -> ui.setPollInterval(interval));
     }
@@ -156,7 +157,7 @@ public class MainLayout extends Div implements RouterLayout {
         final var finished = uploads.takeFinished();
         final var foldersFinished = uploads.takeFinishedFolders();
         final var transfersFinished = workspace.getTransfers().takeFinished();
-        final var deletesFinished = workspace.takeFinishedDeletes();
+        final var deletesFinished = workspace.getDeletes().takeFinished();
         // in the order they were queued, so the newest ends up on top of the notifications, as in the dock
         final var announcements = new ArrayList<Map.Entry<Instant, Runnable>>();
         finished.forEach(u -> announcements.add(Map.entry(u.getQueuedAt(), () -> announce(u))));

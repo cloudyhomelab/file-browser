@@ -194,7 +194,9 @@ public class FolderTreeGrid extends Composite<TreeGrid<List<String>>> {
             return false;
         }
 
+        // the empty path is the root row, and the data provider contract marks a top-level row with a null parent
         @Override
+        @SuppressWarnings("PMD.ReturnEmptyCollectionRatherThanNull")
         public List<String> getParent(List<String> path) {
             return path.isEmpty() ? null : List.copyOf(path.subList(0, path.size() - 1));
         }

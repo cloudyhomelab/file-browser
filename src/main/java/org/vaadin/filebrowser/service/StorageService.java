@@ -105,15 +105,11 @@ public class StorageService {
         return providers.computeIfAbsent(cacheKey(root), k -> create(root));
     }
 
-    /** Drops the cached provider and status of a file system that was removed. */
-    // closed explicitly: the provider may hold sessions
-    @SuppressWarnings("PMD.CloseResource")
+    /** Drops the cached provider and status of a file system that was removed; closing ends its sessions. */
     public void forget(FsRoot root) {
         final var key = cacheKey(root);
-        final var provider = providers.remove(key);
-        if (provider != null) {
-            provider.close();
-        }
+        final var removed = Optional.ofNullable(providers.remove(key));
+        removed.ifPresent(LimitedProvider::close);
         statuses.remove(key);
         savedOptions.remove(root.id());
     }
@@ -122,14 +118,11 @@ public class StorageService {
      * New requests get a provider with the new options at once. The old one is retired: what runs on it finishes,
      * and it closes after.
      */
-    // retired, not closed: it closes itself once its last stream ends
-    @SuppressWarnings("PMD.CloseResource")
     public void optionsChanged(FsRoot root, RootOptions options) {
         savedOptions.put(root.id(), options);
-        final var old = providers.remove(cacheKey(root));
-        if (old != null) {
-            old.retire();
-        }
+        // retired, not closed: it closes itself once its last stream ends
+        final var old = Optional.ofNullable(providers.remove(cacheKey(root)));
+        old.ifPresent(LimitedProvider::retire);
     }
 
     private static String cacheKey(FsRoot root) {

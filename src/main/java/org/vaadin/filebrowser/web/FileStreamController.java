@@ -7,7 +7,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -35,7 +38,7 @@ import jakarta.servlet.http.HttpServletResponse;
  * {@code data/view-types.json}, unlisted types are sent as attachments, and every response is sandboxed.
  */
 @Controller
-public class FileStreamController {
+public class FileStreamController implements DisposableBean {
 
     public static final String BASE_PATH = "/files";
     /** Requests that reach this controller, for the security configuration. */
@@ -60,11 +63,19 @@ public class FileStreamController {
     private final FileSystemRegistry registry;
     private final StorageService storage;
     private final Catalog catalog;
+    /** Watches every file being sent for a client that stopped reading; see {@link IdleTransfer}. */
+    private final ScheduledExecutorService idleWatcher = Executors.newSingleThreadScheduledExecutor(
+            Thread.ofPlatform().daemon().name("idle-stream-watcher").factory());
 
     public FileStreamController(FileSystemRegistry registry, StorageService storage, Catalog catalog) {
         this.registry = registry;
         this.storage = storage;
         this.catalog = catalog;
+    }
+
+    @Override
+    public void destroy() {
+        idleWatcher.shutdownNow();
     }
 
     @RequestMapping(value = BASE_PATH + "/{rootId}/{*path}", method = {RequestMethod.GET, RequestMethod.HEAD})
@@ -159,7 +170,7 @@ public class FileStreamController {
             describe(entry, viewType, response);
             setLength(range, size, response);
             if (in != null) {
-                IdleTransfer.transfer(in, response.getOutputStream(), idleLimit);
+                IdleTransfer.transfer(in, response.getOutputStream(), idleLimit, idleWatcher);
             }
         } finally {
             close(in, entry);

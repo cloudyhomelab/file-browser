@@ -687,7 +687,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             case COPY -> pickDestination(Mode.COPY, targets);
             case DELETE -> {
                 final var entries = targets.stream().map(Located::entry).toList();
-                final var delay = workspace.deletesUndoable() ? workspace.deleteDelay() : null;
+                final var delay = workspace.getDeletes().undoable() ? workspace.getDeletes().delay() : null;
                 final var dialog = new DeleteDialog(entries, delay, () -> delete(targets));
                 dialog.open();
             }
@@ -874,7 +874,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void delete(List<Located> targets) {
-        if (workspace.deletesUndoable()) {
+        if (workspace.getDeletes().undoable()) {
             deleteLater(targets);
             return;
         }
@@ -893,11 +893,12 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     /** Hides the targets now; the delete runs on the server once the toast's Undo has expired. */
     private void deleteLater(List<Located> targets) {
         final var entries = targets.stream().map(Located::entry).toList();
+        final var deletes = workspace.getDeletes();
         try {
-            final var pending = workspace.deleteLater(root, entries);
+            final var pending = deletes.schedule(root, entries);
             final var label = pending.label();
-            Notices.undoable("Deleted " + label, "trash", workspace.deleteDelay(), () -> {
-                if (workspace.undoDelete(pending)) {
+            Notices.undoable("Deleted " + label, "trash", deletes.delay(), () -> {
+                if (deletes.undo(pending)) {
                     Notices.show("Restored " + label, "refresh");
                     tasksChanged();
                     afterChange();

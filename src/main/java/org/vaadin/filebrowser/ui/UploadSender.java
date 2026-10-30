@@ -127,17 +127,15 @@ public class UploadSender extends Div {
         upload(stillWaiting);
     }
 
-    // called from the browser
-    @SuppressWarnings("PMD.UnusedPrivateMethod")
+    // called from the browser; not private, so PMD doesn't take it for unused
     @ClientCallable
-    private void uploadLost(String taskId) {
+    void uploadLost(String taskId) {
         onUploadLost.accept(taskId);
     }
 
-    // called from the browser
-    @SuppressWarnings("PMD.UnusedPrivateMethod")
+    // called from the browser; not private, so PMD doesn't take it for unused
     @ClientCallable
-    private void uploadFailed(String taskId) {
+    void uploadFailed(String taskId) {
         onUploadFailed.accept(taskId);
     }
 }

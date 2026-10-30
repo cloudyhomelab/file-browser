@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Duration;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -20,11 +19,10 @@ final class IdleTransfer {
     private static final int BUFFER_SIZE = 64 * 1024;
     private static final long NOT_WRITING = Long.MIN_VALUE;
     private static final System.Logger LOG = System.getLogger(IdleTransfer.class.getName());
-    private static final ScheduledExecutorService WATCHER = Executors.newSingleThreadScheduledExecutor(
-            Thread.ofPlatform().daemon().name("idle-stream-watcher").factory());
 
     private final InputStream in;
     private final Duration idleLimit;
+    private final ScheduledExecutorService watcher;
     /** When the write that is under way started, or {@link #NOT_WRITING}. */
     private final AtomicLong writingSince = new AtomicLong(NOT_WRITING);
     /** Guarded by {@code this}. */
@@ -32,14 +30,20 @@ final class IdleTransfer {
     private boolean done;
     private boolean closedIdle;
 
-    private IdleTransfer(InputStream in, Duration idleLimit) {
+    private IdleTransfer(InputStream in, Duration idleLimit, ScheduledExecutorService watcher) {
         this.in = in;
         this.idleLimit = idleLimit;
+        this.watcher = watcher;
     }
 
-    /** Copies {@code in} to {@code out}; returns early, without an error, when the client stopped reading. */
-    static void transfer(InputStream in, OutputStream out, Duration idleLimit) throws IOException {
-        new IdleTransfer(in, idleLimit).run(out);
+    /**
+     * Copies {@code in} to {@code out}; returns early, without an error, when the client stopped reading.
+     *
+     * @param watcher runs the idle checks; one serves every transfer
+     */
+    static void transfer(InputStream in, OutputStream out, Duration idleLimit, ScheduledExecutorService watcher)
+            throws IOException {
+        new IdleTransfer(in, idleLimit, watcher).run(out);
     }
 
     private void run(OutputStream out) throws IOException {
@@ -62,7 +66,7 @@ final class IdleTransfer {
 
     private synchronized void schedule(long delayNanos) {
         if (!done) {
-            check = WATCHER.schedule(this::checkIdle, delayNanos, TimeUnit.NANOSECONDS);
+            check = watcher.schedule(this::checkIdle, delayNanos, TimeUnit.NANOSECONDS);
         }
     }
 

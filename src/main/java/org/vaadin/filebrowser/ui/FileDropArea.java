@@ -165,10 +165,9 @@ public class FileDropArea extends Div {
                 "$0.addEventListener('click', e => { e.stopPropagation(); this.__fbPickFolder(); })", trigger));
     }
 
-    // called from the browser
-    @SuppressWarnings("PMD.UnusedPrivateMethod")
+    // called from the browser; not private, so PMD doesn't take it for unused
     @ClientCallable
-    private void filesDropped(String json) {
+    void filesDropped(String json) {
         final var dropped = JSON.readValue(json, Dropped.class);
         final var files = dropped.files().stream().map(this::incoming).toList();
         final var folders = dropped.folders().stream()
@@ -194,17 +193,15 @@ public class FileDropArea extends Div {
         return dropped.path() == null ? file : file.inFolder(dropped.path());
     }
 
-    // called from the browser
-    @SuppressWarnings("PMD.UnusedPrivateMethod")
+    // called from the browser; not private, so PMD doesn't take it for unused
     @ClientCallable
-    private void tooManyEntries() {
+    void tooManyEntries() {
         Notices.error("At most " + maxEntries + " files and folders can be uploaded at once");
     }
 
-    // called from the browser
-    @SuppressWarnings("PMD.UnusedPrivateMethod")
+    // called from the browser; not private, so PMD doesn't take it for unused
     @ClientCallable
-    private void unreadable() {
+    void unreadable() {
         Notices.error("The dropped folder couldn't be read");
     }
 }
