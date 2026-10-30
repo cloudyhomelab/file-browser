@@ -385,17 +385,21 @@ vaadin-popover::part(content) { padding: 0; }
 .fb-menu-item--danger, .fb-menu-item--danger > .fb-icon { color: var(--fb-red); }
 .fb-menu-item--danger:hover:not([disabled]) { background: rgba(219, 55, 58, 0.08); }
 .fb-menu-item--muted { color: var(--fb-fg-secondary); font-size: 13px; gap: 8px; }
-.fb-menu-item-mark { color: var(--fb-accent); --icon-size: 14px; display: inline-flex; }
 
 .fb-entry-menu, .fb-root-menu { min-width: 200px; padding: 5px; gap: 0; }
 .fb-entry-menu .fb-menu-sep, .fb-root-menu .fb-menu-sep { margin: 5px 6px; }
 
-.fb-sort-wrap { display: inline-flex; }
-.fb-sort-menu { min-width: 180px; padding: 5px; gap: 0; }
-.fb-sort-menu .fb-menu-item { gap: 9px; }
+vaadin-menu-bar-button.fb-toolbar-menu {
+  height: 34px; margin: 0; padding: 0 9px 0 11px; border: 1px solid var(--fb-border); border-radius: var(--fb-radius-m);
+  background: transparent; font: var(--fb-weight-medium) 13.5px/1 var(--fb-font-sans); color: var(--fb-fg);
+}
+vaadin-menu-bar-button.fb-toolbar-menu:hover { background: var(--fb-bg-subtle); }
+.fb-toolbar-menu-content { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.fb-toolbar-menu-content > .fb-icon:first-child { color: var(--fb-fg-secondary); }
+.fb-toolbar-menu-content > .fb-icon:last-child:not(:first-child) { --icon-size: 13px; color: var(--fb-fg-tertiary); }
 .fb-menu-heading { padding: 6px 8px 4px; font: var(--fb-weight-semibold) 11.5px/1 var(--fb-font-sans); color: var(--fb-fg-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
-.fb-ghost-btn--on, .fb-ghost-btn--on > .fb-icon:first-child { color: var(--fb-accent-text); }
-.fb-ghost-btn--on { border-color: rgba(50, 102, 228, 0.35); background: var(--fb-accent-bg-subtle); }
+vaadin-menu-bar-button.fb-toolbar-menu--on, .fb-toolbar-menu--on .fb-toolbar-menu-content > .fb-icon:first-child { color: var(--fb-accent-text); }
+vaadin-menu-bar-button.fb-toolbar-menu--on { border-color: rgba(50, 102, 228, 0.35); background: var(--fb-accent-bg-subtle); }
 
 /* ---- notification bell ---- */
 .fb-bell-wrap { display: inline-flex; }

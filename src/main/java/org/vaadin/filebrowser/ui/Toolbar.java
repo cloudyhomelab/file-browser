@@ -12,10 +12,7 @@ import org.vaadin.filebrowser.service.Workspace.Layout;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.NativeButton;
-import com.vaadin.flow.component.popover.Popover;
-import com.vaadin.flow.component.popover.PopoverPosition;
-import com.vaadin.flow.component.popover.PopoverVariant;
+import com.vaadin.flow.component.menubar.MenuBar;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.function.SerializableConsumer;
@@ -91,70 +88,42 @@ public class Toolbar extends Composite<Div> {
     }
 
     private Component sortMenu(Sort sort) {
-        final var trigger = new NativeButton();
-        trigger.setClassName("fb-ghost-btn");
         final var sortIcon = new Icon("sort");
         final var label = Ui.span("", sort.key().getLabel());
         final var direction = new Icon(sort.ascending() ? "angle-up" : "angle-down");
-        trigger.add(sortIcon, label, direction);
-        trigger.getElement().setAttribute("aria-label", "Sort by");
-
-        final var popover = new Popover();
-        popover.setTarget(trigger);
-        popover.setPosition(PopoverPosition.BOTTOM_END);
-        popover.addThemeVariants(PopoverVariant.NO_PADDING);
-        final var menu = Ui.div("fb-menu fb-sort-menu");
+        final var trigger = Ui.span("fb-toolbar-menu-content", sortIcon, label, direction);
+        final var menuBar = new MenuBar();
+        final var top = menuBar.addItem(trigger, "Sort by");
+        top.addClassName("fb-toolbar-menu");
+        final var subMenu = top.getSubMenu();
         for (final var key : SortKey.values()) {
-            final var keyLabel = Ui.span("fb-grow", key.getLabel());
-            final var item = Ui.button("fb-menu-item", () -> {
-                popover.close();
-                callbacks.onSort().accept(key);
-            }, keyLabel);
-            if (sort.key() == key) {
-                final var markIcon = new Icon(sort.ascending() ? "angle-up" : "angle-down");
-                final var mark = Ui.span("fb-menu-item-mark", markIcon);
-                item.add(mark);
-            }
-            menu.add(item);
+            final var item = subMenu.addItem(key.getLabel(), e -> callbacks.onSort().accept(key));
+            item.setCheckable(true);
+            item.setChecked(sort.key() == key);
         }
-        popover.add(menu);
-        return Ui.span("fb-sort-wrap", trigger, popover);
+        return menuBar;
     }
 
     private Component autoRefreshMenu(AutoRefresh current) {
-        final var trigger = new NativeButton();
-        trigger.setClassName("fb-ghost-btn" + (current.on() ? " fb-ghost-btn--on" : ""));
         final var refreshIcon = new Icon("refresh");
         final var label = Ui.span("", current.getLabel());
-        trigger.add(refreshIcon, label);
-        trigger.getElement().setAttribute("aria-label", "Auto refresh: " + current.getLabel());
-        trigger.getElement().setAttribute("title", "Auto refresh");
-
-        final var popover = new Popover();
-        popover.setTarget(trigger);
-        popover.setPosition(PopoverPosition.BOTTOM_END);
-        popover.addThemeVariants(PopoverVariant.NO_PADDING);
-        final var menu = Ui.div("fb-menu fb-sort-menu");
+        final var trigger = Ui.span("fb-toolbar-menu-content", refreshIcon, label);
+        final var menuBar = new MenuBar();
+        final var top = menuBar.addItem(trigger, "Auto refresh");
+        top.addClassName("fb-toolbar-menu");
+        top.getElement().getClassList().set("fb-toolbar-menu--on", current.on());
+        final var subMenu = top.getSubMenu();
         final var heading = Ui.div("fb-menu-heading", Ui.span("", "Auto refresh"));
-        menu.add(heading);
+        subMenu.addComponent(heading);
         for (final var option : AutoRefresh.values()) {
-            final var optionLabel = Ui.span("fb-grow", option == AutoRefresh.OFF ? "Off" : "Every " + option.getLabel());
-            final var item = Ui.button("fb-menu-item", () -> {
-                popover.close();
-                callbacks.onAutoRefresh().accept(option);
-            }, optionLabel);
-            if (option == current) {
-                final var markIcon = new Icon("check");
-                final var mark = Ui.span("fb-menu-item-mark", markIcon);
-                item.add(mark);
-            }
-            menu.add(item);
+            final var optionLabel = option == AutoRefresh.OFF ? "Off" : "Every " + option.getLabel();
+            final var item = subMenu.addItem(optionLabel, e -> callbacks.onAutoRefresh().accept(option));
+            item.setCheckable(true);
+            item.setChecked(option == current);
             if (option == AutoRefresh.OFF) {
-                final var separator = Ui.divider("fb-menu-sep");
-                menu.add(separator);
+                subMenu.addSeparator();
             }
         }
-        popover.add(menu);
-        return Ui.span("fb-sort-wrap", trigger, popover);
+        return menuBar;
     }
 }
