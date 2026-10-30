@@ -186,6 +186,16 @@ public class FolderTreeGrid extends Composite<TreeGrid<List<String>>> {
         }
 
         @Override
+        public List<String> getParent(List<String> path) {
+            return path.isEmpty() ? null : List.copyOf(path.subList(0, path.size() - 1));
+        }
+
+        @Override
+        public int getItemIndex(List<String> path, HierarchicalQuery<List<String>, Void> query) {
+            return children(query.getParent()).indexOf(path);
+        }
+
+        @Override
         public boolean hasChildren(List<String> path) {
             return !isLeaf(path);
         }
