@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 class FileBrowserPropertiesTest {
 
     private static FileBrowserProperties withAdmins(List<String> admins) {
-        return new FileBrowserProperties(null, null, null, null, true, admins, null, null, null, null, null);
+        return new FileBrowserProperties(null, null, null, null, true, admins, null, null, null, null, null, null);
     }
 
     @Test

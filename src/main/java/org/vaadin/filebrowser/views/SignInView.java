@@ -24,7 +24,7 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 
 /** Provider chooser: one "Continue with …" button per configured OIDC provider. */
-@Route("sign-in")
+@Route(value = "sign-in", autoLayout = false)
 @PageTitle("Sign in · FileBrowser")
 @AnonymousAllowed
 public class SignInView extends Div implements BeforeEnterObserver {

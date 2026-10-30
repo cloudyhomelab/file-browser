@@ -1,6 +1,7 @@
 package org.vaadin.filebrowser.service;
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -8,6 +9,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.storage.StorageEntry;
+import org.vaadin.filebrowser.storage.StoragePaths;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -24,6 +26,9 @@ public final class TransferTask implements Serializable {
 
     @Getter
     private final String id;
+    /** When it was queued, so the newest can be shown first. */
+    @Getter
+    private final Instant queuedAt = Instant.now();
     @Getter
     private final Kind kind;
     @Getter
@@ -151,12 +156,15 @@ public final class TransferTask implements Serializable {
         return !sourceRoot.id().equals(destinationRoot.id());
     }
 
-    /** The destination folder's name, or the file system's for its top. */
+    /**
+     * The destination folder's whole path, or the file system's name for its top: a folder's own name can be in
+     * many places.
+     */
     public String destinationName() {
-        return destination.isEmpty() ? destinationRoot.name() : destination.getLast();
+        return destination.isEmpty() ? destinationRoot.name() : StoragePaths.join(destination);
     }
 
-    /** "“Inbox”", or "“Inbox” in “Dev bucket”" on another file system. */
+    /** "“trip/Inbox”", or "“trip/Inbox” in “Dev bucket”" on another file system. */
     public String destinationLabel() {
         final var folder = "“" + destinationName() + "”";
         return betweenFileSystems() && !destination.isEmpty() ? folder + " in “" + destinationRoot.name() + "”" : folder;

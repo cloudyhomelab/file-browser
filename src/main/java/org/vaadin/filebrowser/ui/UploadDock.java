@@ -1,10 +1,13 @@
 package org.vaadin.filebrowser.ui;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.Formats;
+import org.vaadin.filebrowser.service.FolderUpload;
 import org.vaadin.filebrowser.service.TransferTask;
 import org.vaadin.filebrowser.service.UploadTask;
 
@@ -14,7 +17,10 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.function.SerializableRunnable;
 
-/** Bottom-right panel listing uploads and transfers with their progress; dismissing it cancels unfinished ones. */
+/**
+ * Bottom-right panel listing uploads and transfers with their progress; dismissing it cancels unfinished ones. A
+ * folder upload is one row for all its files.
+ */
 public class UploadDock extends Composite<Div> {
 
     private static final int GLYPH_LABEL_CHARS = 3;
@@ -32,43 +38,108 @@ public class UploadDock extends Composite<Div> {
         getContent().setVisible(false);
     }
 
-    public void show(List<UploadTask> uploads, List<TransferTask> transfers) {
+    /** @param uploads single-file uploads, outside any folder upload */
+    public void show(List<UploadTask> uploads, List<FolderUpload> folders, List<TransferTask> transfers) {
         final var div = getContent();
         div.removeAll();
-        div.setVisible(!uploads.isEmpty() || !transfers.isEmpty());
-        if (uploads.isEmpty() && transfers.isEmpty()) {
+        final var empty = uploads.isEmpty() && folders.isEmpty() && transfers.isEmpty();
+        div.setVisible(!empty);
+        if (empty) {
             return;
         }
         div.getElement().getClassList().set("fb-dock--collapsed", collapsed);
-        div.add(head(uploads, transfers));
+        div.add(head(uploads, folders, transfers));
         if (collapsed) {
             return;
         }
+        final var rows = new ArrayList<Map.Entry<Instant, Div>>();
+        folders.forEach(folder -> rows.add(Map.entry(folder.getQueuedAt(), folderRow(folder))));
+        uploads.forEach(upload -> rows.add(Map.entry(upload.getQueuedAt(), uploadRow(upload))));
+        transfers.forEach(transfer -> rows.add(Map.entry(transfer.getQueuedAt(), transferRow(transfer))));
+        // newest first; the sort is stable, so what was queued together keeps its order
+        rows.sort(Map.Entry.<Instant, Div>comparingByKey().reversed());
         final var list = Ui.div("fb-dock-list");
-        uploads.forEach(upload -> list.add(uploadRow(upload)));
-        transfers.forEach(transfer -> list.add(transferRow(transfer)));
+        rows.forEach(row -> list.add(row.getValue()));
         div.add(list);
     }
 
     /** The title, which folds the dock, and the button that cancels everything or dismisses it. */
-    private Div head(List<UploadTask> uploads, List<TransferTask> transfers) {
+    private Div head(List<UploadTask> uploads, List<FolderUpload> folders, List<TransferTask> transfers) {
+        final var outcome = new Outcome(uploads, folders);
         final var activeTransfers = (int) transfers.stream().filter(t -> !t.finished()).count();
-        final var active = (int) uploads.stream().filter(u -> !u.finished()).count() + activeTransfers;
+        final var active = outcome.active + activeTransfers;
         final var caret = new Icon("angle-down");
         caret.addClassName("fb-dock-caret");
-        final var titleLabel = Ui.span("fb-dock-title", title(uploads, transfers));
+        final var titleLabel = Ui.span("fb-dock-title", title(outcome, transfers));
         final var dismiss = Ui.iconButton("cross", active > 0 ? "Cancel all" : "Dismiss", onDismiss);
         final var head = Ui.div("fb-dock-head", titleLabel, caret, dismiss);
         head.addClickListener(e -> {
             collapsed = !collapsed;
-            show(uploads, transfers);
+            show(uploads, folders, transfers);
         });
         return head;
     }
 
-    private Div uploadRow(UploadTask upload) {
-        final var nameText = new Span(upload.getName());
+    /** How many uploads run, are done or failed, counting a folder upload as one. */
+    private static final class Outcome {
+        private final int active;
+        private final int done;
+        private final int failed;
+        private final boolean any;
+
+        Outcome(List<UploadTask> uploads, List<FolderUpload> folders) {
+            active = (int) (uploads.stream().filter(u -> !u.finished()).count()
+                    + folders.stream().filter(f -> !f.finished()).count());
+            done = (int) (uploads.stream().filter(UploadTask::complete).count()
+                    + folders.stream().filter(f -> f.finished() && f.firstError() == null).count());
+            failed = (int) (uploads.stream().filter(u -> u.getState() == UploadTask.State.FAILED).count()
+                    + folders.stream().filter(f -> f.finished() && f.firstError() != null).count());
+            any = !uploads.isEmpty() || !folders.isEmpty();
+        }
+    }
+
+    private Div folderRow(FolderUpload folder) {
+        final var badge = Ui.span("fb-dock-glyph fb-dock-glyph--transfer");
+        final var failed = folder.finished() && folder.firstError() != null;
+        final var badgeIcon = failed ? new Icon("warn") : folder.finished() ? new Icon("check") : new Icon("folder");
+        badge.add(badgeIcon);
+        final var nameText = new Span(folder.getName() + " → " + folder.destinationName());
         final var name = Ui.div("fb-dock-name", nameText);
+        name.getElement().setAttribute("title", nameText.getText());
+        final var body = Ui.div("fb-dock-body", name, folderStatus(folder));
+        final var row = Ui.div("fb-dock-row", badge, body);
+        if (!folder.finished() && folder.getState() == FolderUpload.State.READY) {
+            final var total = folder.getFiles().size();
+            final var counter = Ui.span("fb-mono fb-dock-pct", folder.filesDone() + " of " + total);
+            row.add(counter);
+        }
+        return row;
+    }
+
+    private static Div folderStatus(FolderUpload folder) {
+        if (folder.getState() == FolderUpload.State.PREPARING) {
+            return line("fb-dock-done", "Creating folders…");
+        }
+        if (folder.getState() == FolderUpload.State.FAILED) {
+            return line("fb-dock-failed", folder.getError());
+        }
+        final var total = folder.getFiles().size();
+        if (folder.finished()) {
+            final var failed = folder.filesFailed();
+            if (failed > 0) {
+                return line("fb-dock-failed", failed + " of " + total + " failed · " + folder.firstError());
+            }
+            return line("fb-dock-done", Formats.plural(total, "file") + " · " + Formats.size(folder.size()) + " · Done");
+        }
+        final var fill = Ui.div("fb-dock-fill");
+        fill.getStyle().setWidth(folder.progress() + "%");
+        return Ui.div("fb-dock-bar", fill);
+    }
+
+    private Div uploadRow(UploadTask upload) {
+        final var nameText = new Span(upload.getName() + " → " + upload.destinationName());
+        final var name = Ui.div("fb-dock-name", nameText);
+        name.getElement().setAttribute("title", nameText.getText());
         final var body = Ui.div("fb-dock-body", name, uploadStatus(upload));
         final var row = Ui.div("fb-dock-row", uploadBadge(upload), body);
         if (!upload.finished()) {
@@ -113,14 +184,13 @@ public class UploadDock extends Composite<Div> {
         return Ui.div("fb-dock-bar", fill);
     }
 
-    private static String title(List<UploadTask> uploads, List<TransferTask> transfers) {
-        final var activeUploads = (int) uploads.stream().filter(u -> !u.finished()).count();
+    private static String title(Outcome uploads, List<TransferTask> transfers) {
         final var activeTransfers = (int) transfers.stream().filter(t -> !t.finished()).count();
-        if (activeUploads > 0 || activeTransfers > 0) {
-            return runningTitle(activeUploads, activeTransfers);
+        if (uploads.active > 0 || activeTransfers > 0) {
+            return runningTitle(uploads.active, activeTransfers);
         }
         final var parts = new ArrayList<String>();
-        if (!uploads.isEmpty()) {
+        if (uploads.any) {
             parts.add(uploadsOutcome(uploads));
         }
         if (!transfers.isEmpty()) {
@@ -136,10 +206,8 @@ public class UploadDock extends Composite<Div> {
                 : uploading + ", " + transferring) + "…";
     }
 
-    private static String uploadsOutcome(List<UploadTask> uploads) {
-        final var failed = (int) uploads.stream().filter(u -> u.getState() == UploadTask.State.FAILED).count();
-        final var done = (int) uploads.stream().filter(UploadTask::complete).count();
-        return Formats.plural(done, "upload") + " complete" + (failed > 0 ? ", " + failed + " failed" : "");
+    private static String uploadsOutcome(Outcome uploads) {
+        return Formats.plural(uploads.done, "upload") + " complete" + (uploads.failed > 0 ? ", " + uploads.failed + " failed" : "");
     }
 
     private static String transfersOutcome(List<TransferTask> transfers) {
@@ -176,6 +244,7 @@ public class UploadDock extends Composite<Div> {
                 ? task.destinationName() + " · " + task.getDestinationRoot().name() : task.destinationName();
         final var nameText = new Span(verb + task.label() + " → " + where);
         final var name = Ui.div("fb-dock-name", nameText);
+        name.getElement().setAttribute("title", nameText.getText());
         final var body = Ui.div("fb-dock-body", name);
         switch (task.getState()) {
             case DONE -> body.add(line("fb-dock-done", task.getMessage()));

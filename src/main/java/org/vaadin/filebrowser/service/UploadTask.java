@@ -1,9 +1,11 @@
 package org.vaadin.filebrowser.service;
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.List;
 
 import org.vaadin.filebrowser.data.FsRoot;
+import org.vaadin.filebrowser.storage.StoragePaths;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -16,11 +18,14 @@ import lombok.Setter;
 @Getter
 public final class UploadTask implements Serializable {
 
-    public enum State { QUEUED, RECEIVING, EXTRACTING, DONE, FAILED, CANCELLED }
+    /** {@code PREPARING}: waiting for the folders of its {@link FolderUpload} to be created. */
+    public enum State { PREPARING, QUEUED, RECEIVING, EXTRACTING, DONE, FAILED, CANCELLED }
 
     private static final int PERCENT = 100;
 
     private final String id;
+    /** When it was queued, so the newest can be shown first. */
+    private final Instant queuedAt = Instant.now();
     private final String clientId;
     private final String name;
     private final String type;
@@ -32,19 +37,21 @@ public final class UploadTask implements Serializable {
     private final String url;
     /** How to unpack it once received; null to store it as is. */
     private final UploadQueue.Extraction extraction;
+    /** The {@link FolderUpload} it belongs to; null for a loose file. */
+    private final String folderUploadId;
     /** What came of it, e.g. how many files an extraction wrote; null for a plain upload. */
     @Setter(AccessLevel.PACKAGE)
     private volatile String summary;
     @Getter(AccessLevel.NONE)
     @Setter(AccessLevel.PACKAGE)
     private volatile long received;
-    private volatile State state = State.QUEUED;
+    private volatile State state;
     private volatile String error;
     @Getter(AccessLevel.NONE)
     private boolean announced;
 
     UploadTask(String id, String clientId, String name, String type, long size, FsRoot root, List<String> folder,
-               boolean replace, String url, UploadQueue.Extraction extraction) {
+               boolean replace, String url, UploadQueue.Extraction extraction, String folderUploadId) {
         this.id = id;
         this.clientId = clientId;
         this.name = name;
@@ -55,6 +62,28 @@ public final class UploadTask implements Serializable {
         this.replace = replace;
         this.url = url;
         this.extraction = extraction;
+        this.folderUploadId = folderUploadId;
+        this.state = folderUploadId == null ? State.QUEUED : State.PREPARING;
+    }
+
+    /** "trip/empty · Dev bucket", or "Dev bucket" at the top of the file system. */
+    public String destinationName() {
+        return placeName(root, folder);
+    }
+
+    /** "“trip/empty” in “Dev bucket”", or "“Dev bucket”" at the top of the file system. */
+    public String destinationLabel() {
+        return placeLabel(root, folder);
+    }
+
+    // the whole path: a folder's own name can be in many places, and each one is somewhere else
+    static String placeName(FsRoot root, List<String> folder) {
+        return folder.isEmpty() ? root.name() : StoragePaths.join(folder) + " · " + root.name();
+    }
+
+    static String placeLabel(FsRoot root, List<String> folder) {
+        final var top = "“" + root.name() + "”";
+        return folder.isEmpty() ? top : "“" + StoragePaths.join(folder) + "” in " + top;
     }
 
     /** For display: null when unknown (a link that didn't say). */
@@ -91,6 +120,11 @@ public final class UploadTask implements Serializable {
 
     public boolean complete() {
         return state == State.DONE;
+    }
+
+    /** Bytes received so far; all of them once done. */
+    public long receivedBytes() {
+        return state == State.DONE ? Math.max(size, received) : received;
     }
 
     public int progress() {

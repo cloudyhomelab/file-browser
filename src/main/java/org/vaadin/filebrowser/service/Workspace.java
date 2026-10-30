@@ -558,6 +558,17 @@ public class Workspace implements Serializable {
         return tasks;
     }
 
+    /**
+     * Queues a folder upload under its planned name; its folders are created on a thread of their own, since on
+     * remote storage each one costs a round trip. Its files are sent once {@link UploadQueue#takeReady} returns them.
+     */
+    public FolderUpload uploadFolder(FsRoot root, List<String> destination, UploadQueue.PlannedFolder folder) {
+        final var now = writableRoot(root);
+        final var upload = uploads.enqueueFolder(now, destination, folder);
+        Thread.ofVirtual().name("folder-upload-" + upload.getId()).start(() -> uploads.prepare(upload));
+        return upload;
+    }
+
     /** The name and size a web link offers, read on the server with the same checks as the download. */
     public LinkFetcher.LinkInfo inspectLink(FsRoot root, String url) {
         final var now = current(root);

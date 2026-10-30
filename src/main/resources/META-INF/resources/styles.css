@@ -893,9 +893,12 @@ vaadin-text-field.fb-search [slot="prefix"] { color: var(--fb-fg-secondary); }
 .fb-bulkbar-clear { width: 30px; height: 30px; border-radius: 999px; border: none; cursor: pointer; background: transparent; color: rgba(255, 255, 255, 0.7); display: inline-flex; align-items: center; justify-content: center; padding: 0; }
 .fb-bulkbar-clear:hover { background: rgba(255, 255, 255, 0.12); }
 
-/* upload dock */
+/* the layout around every view; it adds nothing to their layout */
+.fb-app { display: contents; }
+
+/* upload dock, shown on every view */
 .fb-dock {
-  position: absolute; right: 20px; bottom: calc(var(--fb-footer-height) + 20px); z-index: 45; width: 320px; background: var(--fb-white);
+  position: fixed; right: 20px; bottom: calc(var(--fb-footer-height) + 20px); z-index: 45; width: 320px; background: var(--fb-white);
   border-radius: var(--fb-radius-l); border: 1px solid var(--fb-border); box-shadow: var(--fb-shadow-overlay); overflow: hidden;
   animation: fbPopUp var(--fb-normal) var(--fb-ease);
 }
