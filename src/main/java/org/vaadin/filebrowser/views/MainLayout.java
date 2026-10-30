@@ -165,8 +165,10 @@ public class MainLayout extends Div implements RouterLayout {
 
     private static void announce(UploadTask upload) {
         switch (upload.getState()) {
-            case DONE -> Notices.seen(upload.getSummary() != null ? "“" + upload.getName() + "”: " + upload.getSummary()
-                    : (upload.isReplace() ? "Replaced “" : "Uploaded “") + upload.getName() + "”", "check");
+            case DONE -> Notices.seen(upload.getSummary() != null
+                    ? "“" + upload.getName() + "” in " + upload.destinationLabel() + ": " + upload.getSummary()
+                    : upload.isReplace() ? "Replaced “" + upload.getName() + "” in " + upload.destinationLabel()
+                    : "Uploaded “" + upload.getName() + "” to " + upload.destinationLabel(), "check");
             case FAILED -> Notices.seen(upload.getError(), "warn");
             default -> { }
         }

@@ -97,8 +97,9 @@ public class UploadDock extends Composite<Div> {
         final var failed = folder.finished() && folder.firstError() != null;
         final var badgeIcon = failed ? new Icon("warn") : folder.finished() ? new Icon("check") : new Icon("folder");
         badge.add(badgeIcon);
-        final var nameText = new Span(folder.getName());
+        final var nameText = new Span(folder.getName() + " → " + folder.destinationName());
         final var name = Ui.div("fb-dock-name", nameText);
+        name.getElement().setAttribute("title", nameText.getText());
         final var body = Ui.div("fb-dock-body", name, folderStatus(folder));
         final var row = Ui.div("fb-dock-row", badge, body);
         if (!folder.finished() && folder.getState() == FolderUpload.State.READY) {
@@ -130,8 +131,9 @@ public class UploadDock extends Composite<Div> {
     }
 
     private Div uploadRow(UploadTask upload) {
-        final var nameText = new Span(upload.getName());
+        final var nameText = new Span(upload.getName() + " → " + upload.destinationName());
         final var name = Ui.div("fb-dock-name", nameText);
+        name.getElement().setAttribute("title", nameText.getText());
         final var body = Ui.div("fb-dock-body", name, uploadStatus(upload));
         final var row = Ui.div("fb-dock-row", uploadBadge(upload), body);
         if (!upload.finished()) {

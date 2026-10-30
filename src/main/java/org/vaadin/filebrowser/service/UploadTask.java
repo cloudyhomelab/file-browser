@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.List;
 
 import org.vaadin.filebrowser.data.FsRoot;
+import org.vaadin.filebrowser.storage.StoragePaths;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -60,6 +61,26 @@ public final class UploadTask implements Serializable {
         this.extraction = extraction;
         this.folderUploadId = folderUploadId;
         this.state = folderUploadId == null ? State.QUEUED : State.PREPARING;
+    }
+
+    /** "trip/empty · Dev bucket", or "Dev bucket" at the top of the file system. */
+    public String destinationName() {
+        return placeName(root, folder);
+    }
+
+    /** "“trip/empty” in “Dev bucket”", or "“Dev bucket”" at the top of the file system. */
+    public String destinationLabel() {
+        return placeLabel(root, folder);
+    }
+
+    // the whole path: a folder's own name can be in many places, and each one is somewhere else
+    static String placeName(FsRoot root, List<String> folder) {
+        return folder.isEmpty() ? root.name() : StoragePaths.join(folder) + " · " + root.name();
+    }
+
+    static String placeLabel(FsRoot root, List<String> folder) {
+        final var top = "“" + root.name() + "”";
+        return folder.isEmpty() ? top : "“" + StoragePaths.join(folder) + "” in " + top;
     }
 
     /** For display: null when unknown (a link that didn't say). */

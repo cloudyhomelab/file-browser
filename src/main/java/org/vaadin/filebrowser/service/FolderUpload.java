@@ -105,6 +105,11 @@ public final class FolderUpload implements Serializable {
                 .orElse(null);
     }
 
+    /** "trip/empty · Dev bucket", or "Dev bucket" at the top of the file system. */
+    public String destinationName() {
+        return UploadTask.placeName(root, destination);
+    }
+
     /** What came of it once finished, for the user. */
     public String outcome() {
         if (state == State.FAILED) {
@@ -112,8 +117,9 @@ public final class FolderUpload implements Serializable {
         }
         final var count = Formats.plural(files.size(), "file");
         final var failed = filesFailed();
-        return failed == 0 ? "Uploaded “" + name + "” (" + count + ")"
-                : "“" + name + "”: " + failed + " of " + count + " failed";
+        final var where = UploadTask.placeLabel(root, destination);
+        return failed == 0 ? "Uploaded “" + name + "” (" + count + ") to " + where
+                : "“" + name + "” in " + where + ": " + failed + " of " + count + " failed";
     }
 
     public int progress() {

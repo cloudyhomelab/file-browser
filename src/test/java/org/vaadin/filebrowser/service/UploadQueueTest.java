@@ -192,6 +192,7 @@ class UploadQueueTest {
         assertThat(queue.takeFinished()).isEmpty();
         assertThat(queue.takeFinishedFolders()).containsExactly(upload);
         assertThat(upload.progress()).isEqualTo(100);
+        assertThat(upload.outcome()).isEqualTo("Uploaded “photos” (2 files) to “Test”");
         assertThat(queue.active()).isFalse();
     }
 
@@ -233,6 +234,17 @@ class UploadQueueTest {
         assertThat(task.getState()).isEqualTo(UploadTask.State.FAILED);
         assertThat(task.getError()).contains("couldn't be sent");
         assertThat(queue.waitingForBrowser()).containsExactlyElementsOf(upload.getFiles());
+    }
+
+    @Test
+    void destinationsNameTheWholePath() {
+        final var file = new IncomingFile("f1", "a.txt", "text", 1);
+        final var nested = queue.enqueue(root, List.of("trip", "empty"), List.of(new UploadQueue.Planned(file, "a.txt", false)))
+                .getFirst();
+        final var top = plan("b.txt", 1, false);
+        assertThat(nested.destinationName()).isEqualTo("trip/empty · Test");
+        assertThat(nested.destinationLabel()).isEqualTo("“trip/empty” in “Test”");
+        assertThat(top.destinationName()).isEqualTo("Test");
     }
 
     private static byte[] zipOf(Map<String, String> entries) throws IOException {
