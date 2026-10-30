@@ -163,7 +163,9 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             queue.receive(taskId, event.getInputStream(), maxBytes);
         };
         main.setUploadHandler(uploadHandler);
-        main.setOnUploadLost(this::uploadLost);
+        main.setOnUploadLost(queue::lost);
+        main.setOnUploadFailed(queue::notSent);
+        main.setWaiting(queue::waitingForBrowser);
         final var uploadIcon = new Icon("upload");
         final var dropIcon = Ui.span("fb-drop-overlay-icon", uploadIcon);
         final var dropTitle = Ui.span("fb-drop-overlay-title", "Drop files or folders to upload");
@@ -1078,13 +1080,6 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         }
         updatePollInterval();
         refresh();
-    }
-
-    private void uploadLost(String taskId) {
-        workspace.getUploads().all().stream()
-                .filter(t -> t.getId().equals(taskId))
-                .findFirst()
-                .ifPresent(workspace.getUploads()::lost);
     }
 
     @Override

@@ -14,6 +14,7 @@ import com.vaadin.flow.component.ClientCallable;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.function.SerializableConsumer;
+import com.vaadin.flow.function.SerializableSupplier;
 import com.vaadin.flow.server.streams.UploadHandler;
 
 import lombok.Setter;
@@ -34,7 +35,7 @@ public class FileDropArea extends Div {
 
     // file contents stay in the browser (window.__fbFiles) until uploaded, so any drop area on the page can send them
     private static final String INSTALL_SCRIPT = """
-            const el = this, pickOnClick = $0, maxEntries = $1;
+            const el = this, pickOnClick = $0, maxEntries = $1, sends = $2;
             const store = window.__fbFiles || (window.__fbFiles = new Map());
             let depth = 0;
             const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
@@ -128,37 +129,55 @@ public class FileDropArea extends Div {
               });
               input.click();
             };
-            el.__fbXhrs = {};
-            // one lane per file system, each sending no more files at a time than its limit
-            el.__fbLanes = {};
+            // the queue lives on the page, not on this element: a view opened later takes over sending, so
+            // leaving the folder view and coming back loses nothing. Each job knows its file system's limit.
+            const up = window.__fbUploads || (window.__fbUploads = { lanes: {}, running: {}, known: new Set(), area: null });
+            const area = () => up.area && up.area.isConnected ? up.area : null;
             const pump = lane => {
-              while (lane.active < lane.limit && lane.waiting.length) {
+              while (area() && lane.active < lane.limit && lane.waiting.length) {
                 const job = lane.waiting.shift();
                 const file = store.get(job.clientId);
-                if (!file) { el.$server.uploadLost(job.taskId); continue; }
-                const base = el.getAttribute('fb-upload-url');
+                if (!file) { area().$server.uploadLost(job.taskId); continue; }
+                const base = area().getAttribute('fb-upload-url');
                 const xhr = new XMLHttpRequest();
-                el.__fbXhrs[job.taskId] = xhr;
+                up.running[job.taskId] = { xhr, job };
                 lane.active++;
                 xhr.open('POST', base + (base.includes('?') ? '&' : '?') + 'task=' + encodeURIComponent(job.taskId));
                 xhr.setRequestHeader('Content-Type', 'application/octet-stream');
                 xhr.setRequestHeader('X-Filename', encodeURIComponent(file.name));
-                xhr.onloadend = () => { delete el.__fbXhrs[job.taskId]; store.delete(job.clientId); lane.active--; pump(lane); };
+                xhr.onloadend = () => {
+                  delete up.running[job.taskId];
+                  lane.active--;
+                  const sent = xhr.status >= 200 && xhr.status < 300;
+                  // a request to a view that has gone (its upload URL with it) is sent again once, to the current one
+                  if (!sent && !job.cancelled && !job.retried) {
+                    job.retried = true;
+                    lane.waiting.unshift(job);
+                  } else {
+                    store.delete(job.clientId);
+                    if (!sent && !job.cancelled && area()) area().$server.uploadFailed(job.taskId);
+                  }
+                  pump(lane);
+                };
                 xhr.send(file);
               }
             };
+            const pumpAll = () => Object.values(up.lanes).forEach(pump);
+            if (sends) { up.area = el; pumpAll(); }
+            // jobs the page already has are skipped: the server offers its waiting uploads again to each new view
             el.__fbUpload = jobs => {
               for (const job of jobs) {
-                const lane = el.__fbLanes[job.lane] || (el.__fbLanes[job.lane] = { active: 0, waiting: [] });
+                if (up.known.has(job.taskId)) continue;
+                up.known.add(job.taskId);
+                const lane = up.lanes[job.lane] || (up.lanes[job.lane] = { active: 0, waiting: [] });
                 lane.limit = job.limit;
                 lane.waiting.push(job);
               }
-              Object.values(el.__fbLanes).forEach(pump);
+              pumpAll();
             };
             el.__fbCancelUploads = () => {
-              Object.values(el.__fbLanes).forEach(lane => { lane.waiting.forEach(job => store.delete(job.clientId)); lane.waiting = []; });
-              Object.values(el.__fbXhrs).forEach(x => x.abort());
-              el.__fbXhrs = {};
+              Object.values(up.lanes).forEach(lane => { lane.waiting.forEach(job => store.delete(job.clientId)); lane.waiting = []; });
+              Object.values(up.running).forEach(r => { r.job.cancelled = true; r.xhr.abort(); });
             };
             """;
 
@@ -171,6 +190,13 @@ public class FileDropArea extends Div {
     /** Called with a task id whose file is no longer in the browser (e.g. after a reload). */
     @Setter
     private SerializableConsumer<String> onUploadLost = taskId -> { };
+    /** Called with a task id whose file the browser couldn't send, even when it tried again. */
+    @Setter
+    private SerializableConsumer<String> onUploadFailed = taskId -> { };
+    /** The uploads the server still waits for, offered again on attach in case this is a new view in the same page. */
+    @Setter
+    private SerializableSupplier<List<UploadTask>> waiting = List::of;
+    private boolean sends;
 
     private record DroppedFile(String id, String name, long size, List<String> path) {
     }
@@ -194,6 +220,7 @@ public class FileDropArea extends Div {
     /** Where {@link #upload} sends file contents; the handler reads the task id from the {@code task} parameter. */
     public void setUploadHandler(UploadHandler handler) {
         getElement().setAttribute("fb-upload-url", handler);
+        sends = true;
     }
 
     /**
@@ -226,10 +253,14 @@ public class FileDropArea extends Div {
     @Override
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
-        getElement().executeJs(INSTALL_SCRIPT, pickOnClick, maxEntries);
+        getElement().executeJs(INSTALL_SCRIPT, pickOnClick, maxEntries, sends);
         // stopPropagation: a trigger inside a click-to-browse area would open the file picker too
         folderPickers.forEach(trigger -> getElement().executeJs(
                 "$0.addEventListener('click', e => { e.stopPropagation(); this.__fbPickFolder(); })", trigger));
+        if (sends) {
+            final var stillWaiting = waiting.get();
+            upload(stillWaiting);
+        }
     }
 
     // called from the browser
@@ -280,5 +311,12 @@ public class FileDropArea extends Div {
     @ClientCallable
     private void uploadLost(String taskId) {
         onUploadLost.accept(taskId);
+    }
+
+    // called from the browser
+    @SuppressWarnings("PMD.UnusedPrivateMethod")
+    @ClientCallable
+    private void uploadFailed(String taskId) {
+        onUploadFailed.accept(taskId);
     }
 }

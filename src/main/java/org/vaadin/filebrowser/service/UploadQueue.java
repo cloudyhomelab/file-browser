@@ -188,9 +188,22 @@ public class UploadQueue implements Serializable {
     }
 
     /** The browser no longer has the file (e.g. the page was reloaded before the upload started). */
-    public void lost(UploadTask task) {
-        task.transition(UploadTask.State.QUEUED, UploadTask.State.FAILED,
-                "“" + task.getName() + "” is no longer available to upload.");
+    public void lost(String taskId) {
+        find(taskId).ifPresent(task -> task.transition(UploadTask.State.QUEUED, UploadTask.State.FAILED,
+                "“" + task.getName() + "” is no longer available to upload."));
+    }
+
+    /** The browser tried but couldn't send the file, e.g. because the server kept refusing the request. */
+    public void notSent(String taskId) {
+        find(taskId).ifPresent(task -> task.transition(UploadTask.State.QUEUED, UploadTask.State.FAILED,
+                "“" + task.getName() + "” couldn't be sent to the server."));
+    }
+
+    /** Uploads whose file the browser still has to send; the browser skips the ones it already queued. */
+    public List<UploadTask> waitingForBrowser() {
+        return tasks.stream()
+                .filter(t -> t.getClientId() != null && t.getState() == UploadTask.State.QUEUED)
+                .toList();
     }
 
     /** Finished single-file uploads not yet reported to the user; each is returned once. UI thread only. */

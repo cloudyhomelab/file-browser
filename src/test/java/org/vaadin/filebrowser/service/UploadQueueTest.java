@@ -221,6 +221,20 @@ class UploadQueueTest {
         assertThat(upload.getFiles()).allMatch(t -> t.getState() == UploadTask.State.CANCELLED);
     }
 
+    @Test
+    void uploadsTheBrowserCouldNotSendFailAndAreNoLongerOffered() {
+        final var task = plan("away.txt", 3, false);
+        final var upload = queue.enqueueFolder(root, List.of(), new UploadQueue.PlannedFolder("photos", photos()));
+        assertThat(queue.waitingForBrowser()).containsExactly(task);
+
+        queue.notSent(task.getId());
+        queue.prepare(upload);
+
+        assertThat(task.getState()).isEqualTo(UploadTask.State.FAILED);
+        assertThat(task.getError()).contains("couldn't be sent");
+        assertThat(queue.waitingForBrowser()).containsExactlyElementsOf(upload.getFiles());
+    }
+
     private static byte[] zipOf(Map<String, String> entries) throws IOException {
         final var bytes = new ByteArrayOutputStream();
         try (final var zip = new ZipArchiveOutputStream(bytes)) {
