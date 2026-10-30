@@ -762,6 +762,7 @@ vaadin-grid.fb-file-grid--comfortable::part(body-cell) { min-height: var(--fb-ro
 vaadin-grid.fb-file-grid::part(fb-focused) { background: var(--fb-bg-subtle); }
 vaadin-grid.fb-file-grid::part(selected-row-cell) { background: var(--fb-accent-bg-subtle); }
 vaadin-grid.fb-file-grid::part(fb-size) { font-family: var(--fb-font-mono); }
+vaadin-grid.fb-file-grid::part(dragover-on-top-row-cell), vaadin-grid.fb-folder-tree::part(dragover-on-top-row-cell) { background: var(--fb-accent-bg-subtle); }
 .fb-context-item { display: inline-flex; align-items: center; gap: 10px; --icon-size: 16px; }
 .fb-context-item > .fb-icon { color: var(--fb-fg-secondary); }
 vaadin-context-menu-item.fb-context-item--danger, .fb-context-item--danger .fb-context-item > .fb-icon { color: var(--fb-red); }
