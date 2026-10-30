@@ -36,7 +36,7 @@ public class FileGridView extends Composite<Div> {
         card.setSelected(selected);
 
         if (handler.selectable()) {
-            final var check = new CheckMark(selected, false, () -> handler.toggleSelected(located));
+            final var check = Ui.checkbox(selected, "Select " + entry.name(), () -> handler.toggleSelected(located));
             card.setStartControl(check);
         }
         if (starred) {

@@ -36,7 +36,8 @@ public class FileListView extends Composite<Div> {
         if (handler.selectable()) {
             final var all = !entries.isEmpty() && entries.stream().allMatch(handler::selected);
             final var some = entries.stream().anyMatch(handler::selected);
-            final var allCheck = new CheckMark(all, !all && some, () -> handler.toggleAll(!all));
+            final var allCheck = Ui.checkbox(all, "Select all", () -> handler.toggleAll(!all));
+            allCheck.setIndeterminate(!all && some);
             header.add(allCheck);
         }
         final var nameHead = colHead("Name", SortKey.NAME, handler);
@@ -87,7 +88,7 @@ public class FileListView extends Composite<Div> {
         row.getElement().getClassList().set("fb-row--focused", handler.focused(located));
 
         if (handler.selectable()) {
-            final var check = new CheckMark(selected, false, () -> handler.toggleSelected(located));
+            final var check = Ui.checkbox(selected, "Select " + entry.name(), () -> handler.toggleSelected(located));
             final var checkCell = Ui.span("fb-row-check", check);
             row.add(checkCell);
         }

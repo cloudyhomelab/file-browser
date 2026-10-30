@@ -365,19 +365,6 @@ vaadin-text-field.fb-field--mono { --vaadin-input-field-value-font-family: var(-
 .fb-star:hover { background: var(--fb-bg-subtle); }
 .fb-star--on { color: var(--fb-accent); }
 
-/* ---- checkbox ---- */
-.fb-check {
-  width: 18px; height: 18px; border-radius: var(--fb-radius-s); flex-shrink: 0;
-  border: 1.5px solid rgba(11, 11, 11, 0.35); background: var(--fb-white);
-  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
-  color: #fff; --icon-size: 13px; transition: all var(--fb-fast) var(--fb-ease);
-}
-.fb-check:focus-visible { outline: none; box-shadow: var(--fb-shadow-focus); }
-.fb-check--on { border-color: var(--fb-accent); background: var(--fb-accent); }
-.fb-check--l { width: 20px; height: 20px; border-color: rgba(11, 11, 11, 0.3); background: transparent; }
-.fb-check--l.fb-check--on { border-color: var(--fb-accent); background: var(--fb-accent); }
-.fb-check-dash { width: 9px; height: 2px; background: #fff; border-radius: 1px; }
-
 /* ---- segmented ---- */
 .fb-seg { display: inline-flex; background: var(--fb-bg-subtle); border-radius: var(--fb-radius-m); padding: 2px; gap: 2px; flex-shrink: 0; }
 .fb-seg-btn {

@@ -28,11 +28,11 @@ import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.checkbox.Switch;
 import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.function.SerializableFunction;
+import com.vaadin.flow.function.SerializableRunnable;
 
 /**
  * Pick files and folders to upload by dropping them, browsing, or giving web links the server downloads;
@@ -179,32 +179,27 @@ public class UploadDialog extends FbDialog {
         final var name = Ui.span("fb-upload-item-name", folder.name());
         final var sizeText = Formats.plural(folder.files().size(), "file") + " · " + Formats.size(folder.size());
         final var size = Ui.span("fb-mono fb-muted", sizeText);
-        final var row = Ui.div("fb-upload-item" + (selected ? " fb-upload-item--on" : ""), glyph, name, size,
-                checkBox(selected));
-        row.getElement().setAttribute("role", "checkbox");
-        final var ariaChecked = String.valueOf(selected);
-        row.getElement().setAttribute("aria-checked", ariaChecked);
-        row.addClickListener(e -> {
+        final SerializableRunnable toggle = () -> {
             if (pickedFolders.remove(folder.name()) == null) {
                 pickedFolders.put(folder.name(), folder);
             }
             render();
-        });
+        };
+        final var box = Ui.checkbox(selected, "Upload " + folder.name(), toggle);
+        final var row = Ui.div("fb-upload-item" + (selected ? " fb-upload-item--on" : ""), glyph, name, size, box);
+        row.addClickListener(e -> toggle.run());
         return row;
-    }
-
-    private static Span checkBox(boolean selected) {
-        final var box = Ui.span("fb-check fb-check--l" + (selected ? " fb-check--on" : ""));
-        if (selected) {
-            final var checkIcon = new Icon("check");
-            box.add(checkIcon);
-        }
-        return box;
     }
 
     /** One offered file; clicking it picks or unpicks it. */
     private Div row(IncomingFile file, boolean selected, boolean attached) {
-        final var box = checkBox(selected);
+        final SerializableRunnable toggle = () -> {
+            if (picked.remove(file.name()) == null) {
+                picked.put(file.name(), file);
+            }
+            render();
+        };
+        final var box = Ui.checkbox(selected, "Upload " + file.name(), toggle);
         final var glyph = new FileGlyph(file.type(), catalog);
         final var name = Ui.span("fb-upload-item-name", file.name());
         if (file.fromLink()) {
@@ -217,15 +212,7 @@ public class UploadDialog extends FbDialog {
         final var size = Ui.span("fb-mono fb-muted", sizeText);
         final var row = Ui.div("fb-upload-item" + (selected ? " fb-upload-item--on" : "")
                 + (attached ? " fb-upload-item--attached" : ""), glyph, name, size, box);
-        row.getElement().setAttribute("role", "checkbox");
-        final var ariaChecked = String.valueOf(selected);
-        row.getElement().setAttribute("aria-checked", ariaChecked);
-        row.addClickListener(e -> {
-            if (picked.remove(file.name()) == null) {
-                picked.put(file.name(), file);
-            }
-            render();
-        });
+        row.addClickListener(e -> toggle.run());
         return row;
     }
 

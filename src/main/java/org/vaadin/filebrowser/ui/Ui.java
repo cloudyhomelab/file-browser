@@ -1,6 +1,7 @@
 package org.vaadin.filebrowser.ui;
 
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.NativeButton;
 import com.vaadin.flow.component.html.Span;
@@ -45,6 +46,15 @@ public final class Ui {
         button.add(content);
         button.getElement().addEventListener("click", e -> onClick.run()).stopPropagation();
         return button;
+    }
+
+    /** A checkbox inside a clickable row or tile, which must not also get the click. */
+    public static Checkbox checkbox(boolean checked, String ariaLabel, SerializableRunnable onToggle) {
+        final var checkbox = new Checkbox(checked);
+        checkbox.setAriaLabel(ariaLabel);
+        checkbox.addValueChangeListener(e -> onToggle.run());
+        checkbox.getElement().addEventListener("click", e -> { }).stopPropagation();
+        return checkbox;
     }
 
     public static NativeButton iconButton(String icon, String title, SerializableRunnable onClick) {
