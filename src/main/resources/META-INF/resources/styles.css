@@ -293,25 +293,17 @@ vaadin-badge[theme~="error"] { --vaadin-badge-text-color: var(--fb-red); --vaadi
 .fb-badge-dot { display: block; width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
 
 /* ---- avatar ---- */
-.fb-avatar {
-  --s: 26px; width: var(--s); height: var(--s); border-radius: 999px; flex-shrink: 0;
-  display: inline-flex; align-items: center; justify-content: center; color: #fff;
-  font: var(--fb-weight-semibold) calc(var(--s) * 0.40)/1 var(--fb-font-sans);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); background: var(--a-color);
+vaadin-avatar {
+  --vaadin-avatar-size: 26px; flex-shrink: 0;
+  --vaadin-user-color-0: var(--fb-user-0); --vaadin-user-color-1: var(--fb-user-1); --vaadin-user-color-2: var(--fb-user-2);
+  --vaadin-user-color-3: var(--fb-user-4); --vaadin-user-color-4: var(--fb-user-6); --vaadin-user-color-5: var(--fb-user-7);
+  --vaadin-user-color-6: var(--fb-purple); --vaadin-user-color-7: var(--fb-user-9);
 }
-.fb-avatar--xs { --s: 20px; }
-.fb-row-owner .fb-avatar--xs { --s: 22px; }
-.fb-avatar--s { --s: 26px; }
-.fb-avatar--m { --s: 28px; }
-.fb-avatar--l { --s: 34px; }
-.fb-avatar-c0 { --a-color: var(--fb-user-0); }
-.fb-avatar-c1 { --a-color: var(--fb-user-1); }
-.fb-avatar-c2 { --a-color: var(--fb-user-2); }
-.fb-avatar-c3 { --a-color: var(--fb-user-4); }
-.fb-avatar-c4 { --a-color: var(--fb-user-6); }
-.fb-avatar-c5 { --a-color: var(--fb-user-7); }
-.fb-avatar-c6 { --a-color: var(--fb-purple); }
-.fb-avatar-c7 { --a-color: var(--fb-user-9); }
+vaadin-avatar.fb-avatar--xs { --vaadin-avatar-size: 20px; }
+.fb-row-owner vaadin-avatar.fb-avatar--xs { --vaadin-avatar-size: 22px; }
+vaadin-avatar.fb-avatar--s { --vaadin-avatar-size: 26px; }
+vaadin-avatar.fb-avatar--m { --vaadin-avatar-size: 28px; }
+vaadin-avatar.fb-avatar--l { --vaadin-avatar-size: 34px; }
 
 /* ---- brand ---- */
 .fb-brand { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--fb-ink-900); color: #fff; }
