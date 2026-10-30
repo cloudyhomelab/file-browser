@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import com.vaadin.flow.component.Composite;
+import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.dnd.GridDropMode;
 import com.vaadin.flow.component.treegrid.TreeGrid;
 import com.vaadin.flow.data.provider.hierarchy.AbstractHierarchicalDataProvider;
@@ -47,6 +48,8 @@ public class FolderTreeGrid extends Composite<TreeGrid<List<String>>> {
         final var grid = getContent();
         grid.addClassName("fb-folder-tree");
         grid.setAriaLabel("Folders");
+        // the active folder is the app's own state, shown with a part name; Grid selection would mark a second row
+        grid.setSelectionMode(Grid.SelectionMode.NONE);
         grid.setDataProvider(folders);
         final var renderer = LitRenderer.<List<String>>of(TEMPLATE)
                 .withProperty("children", p -> !isLeaf(p))
@@ -56,10 +59,14 @@ public class FolderTreeGrid extends Composite<TreeGrid<List<String>>> {
                 .withFunction("toggle", this::toggle);
         grid.addColumn(renderer);
         grid.setPartNameGenerator(p -> {
+            final var parts = new ArrayList<String>(2);
             if (p.equals(active)) {
-                return "fb-tree-active";
+                parts.add("fb-tree-active");
             }
-            return disabled.test(p) ? "fb-tree-disabled" : null;
+            if (disabled.test(p)) {
+                parts.add("fb-tree-disabled");
+            }
+            return parts.isEmpty() ? null : String.join(" ", parts);
         });
         grid.expand(List.of(List.<String>of()));
     }

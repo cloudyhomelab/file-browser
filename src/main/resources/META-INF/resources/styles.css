@@ -909,6 +909,7 @@ vaadin-dialog.fb-dialog--wide::part(overlay) { width: 560px; }
 
 /* move */
 .fb-move-tree { border: 1px solid var(--fb-border); border-radius: var(--fb-radius-m); padding: 6px; max-height: 280px; overflow: auto; }
+vaadin-grid.fb-folder-tree.fb-move-tree { height: 280px; border: 1px solid var(--fb-border); padding: 6px; }
 .fb-move-row {
   display: flex; align-items: center; gap: 6px; height: 32px; padding-right: 8px;
   padding-left: calc(6px + var(--depth, 0) * var(--fb-move-indent));
