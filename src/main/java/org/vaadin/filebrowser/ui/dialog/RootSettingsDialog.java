@@ -10,6 +10,8 @@ import org.vaadin.filebrowser.ui.Switch;
 import org.vaadin.filebrowser.ui.Ui;
 
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.tabs.TabSheet;
+import com.vaadin.flow.component.tabs.TabSheetVariant;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.function.SerializableConsumer;
 
@@ -17,6 +19,7 @@ import com.vaadin.flow.function.SerializableConsumer;
 public class RootSettingsDialog extends FbDialog {
 
     private final RootOptionLimits limits;
+    private final TabSheet tabs = new TabSheet();
     private final IntegerField maxConnections;
     private final IntegerField browsingReserve;
     private final IntegerField idleStream;
@@ -42,27 +45,28 @@ public class RootSettingsDialog extends FbDialog {
         idleStream = number("Idle timeout", options.idleStreamSeconds(), "s");
         idleStream.setMin(limits.idleStreamSeconds().min());
         idleStream.setMax(limits.idleStreamSeconds().max());
-        final var connectionsText = Ui.span("", "Connections");
-        final var connectionsLabel = Ui.div("fb-form-label", connectionsText);
         final var connectionFields = Ui.div("fb-settings-numbers", maxConnections, browsingReserve, idleStream);
         final var connectionsHint = note("Sessions, HTTP connections or open files used at once. Viewing, "
                 + "downloading, uploading and copying never take the ones kept for browsing. A file viewed in the page "
                 + "that the browser stops reading is closed after the idle timeout.");
-        final var connections = Ui.div("fb-form-section fb-settings-connections", connectionsLabel, connectionFields,
-                connectionsHint);
+        final var connections = Ui.div("fb-settings-panel", connectionFields, connectionsHint);
 
         linkUploads = new Switch("Allow uploads from web links", options.linkUploads(), on -> { });
         extraction = new Switch("Allow archive extraction", options.extraction(), on -> { });
         opening = new Switch("Allow opening files", options.opening(), on -> { });
-        final var label = Ui.div("fb-form-label", Ui.span("", "Features"));
-        final var features = Ui.div("fb-form-section fb-settings-features", label,
+        final var features = Ui.div("fb-settings-panel",
                 option(linkUploads, "The server downloads files from links people paste into the upload dialog."),
                 option(extraction, "Archives can be extracted, and compressed files decompressed, as they are "
                         + "uploaded."),
                 option(opening, "Files can be viewed in the page. Downloading is always allowed."));
-        add(connections, features);
+        tabs.addClassName("fb-settings-tabs");
+        tabs.addThemeVariants(TabSheetVariant.NO_PADDING);
+        tabs.add("Features", features);
+        final var connectionsTab = tabs.add("Connections", connections);
+        add(tabs);
         final var save = Buttons.create(Buttons.Kind.PRIMARY, "Save", null, () -> {
             if (!valid()) {
+                tabs.setSelectedTab(connectionsTab);
                 return;
             }
             close();
