@@ -356,23 +356,28 @@ vaadin-avatar.fb-avatar--l { --vaadin-avatar-size: 34px; }
 .fb-star--on { color: var(--fb-accent); }
 
 /* ---- segmented ---- */
-.fb-seg { display: inline-flex; background: var(--fb-bg-subtle); border-radius: var(--fb-radius-m); padding: 2px; gap: 2px; flex-shrink: 0; }
-.fb-seg-btn {
-  height: 28px; padding: 0 10px; border: none; cursor: pointer; border-radius: 6px; white-space: nowrap;
+vaadin-radio-group.fb-seg { flex-shrink: 0; padding: 0; }
+vaadin-radio-group.fb-seg::part(group-field) { display: inline-flex; flex-wrap: nowrap; background: var(--fb-bg-subtle); border-radius: var(--fb-radius-m); padding: 2px; gap: 2px; }
+vaadin-radio-group.fb-seg > vaadin-radio-button {
+  height: 28px; margin: 0; padding: 0 10px; cursor: pointer; border-radius: 6px; white-space: nowrap;
   display: inline-flex; align-items: center; justify-content: center;
-  font: var(--fb-weight-medium) 12.5px/1 var(--fb-font-sans); background: transparent; color: var(--fb-fg-secondary);
+  font: var(--fb-weight-medium) 12.5px/1 var(--fb-font-sans); color: var(--fb-fg-secondary);
   transition: background var(--fb-fast) var(--fb-ease), color var(--fb-fast) var(--fb-ease);
 }
-.fb-seg-btn--on { background: var(--fb-white); color: var(--fb-accent-text); box-shadow: var(--fb-shadow-xs); font-weight: var(--fb-weight-semibold); }
-.fb-seg--danger-first .fb-seg-btn--on[data-value="REPLACE"] { color: var(--fb-red); }
-.fb-seg--view { padding: 3px; }
-.fb-seg--view .fb-seg-btn { width: 30px; height: 28px; padding: 0; border-radius: 7px; }
-.fb-seg--view .fb-seg-btn--on { font-weight: var(--fb-weight-medium); }
-.fb-seg--s { border-radius: var(--fb-radius-s); }
-.fb-seg--s .fb-seg-btn { height: 24px; padding: 0 9px; border-radius: 5px; font-size: 12px; }
-.fb-seg--s .fb-seg-btn--on { font-weight: var(--fb-weight-medium); }
-.fb-seg--l { padding: 3px; }
-.fb-seg--l .fb-seg-btn { height: 30px; padding: 0 14px; border-radius: 7px; font-size: 13px; }
+vaadin-radio-group.fb-seg > vaadin-radio-button::part(radio) { display: none; }
+vaadin-radio-group.fb-seg > vaadin-radio-button > label { padding: 0; cursor: inherit; color: inherit; font: inherit; }
+vaadin-radio-group.fb-seg > vaadin-radio-button[checked] { background: var(--fb-white); color: var(--fb-accent-text); box-shadow: var(--fb-shadow-xs); font-weight: var(--fb-weight-semibold); }
+vaadin-radio-group.fb-seg > vaadin-radio-button[focus-ring] { box-shadow: var(--fb-shadow-focus); }
+.fb-seg-label { display: inline-flex; align-items: center; }
+vaadin-radio-group.fb-seg--danger-first > vaadin-radio-button[checked]:has([data-value="REPLACE"]) { color: var(--fb-red); }
+vaadin-radio-group.fb-seg--view::part(group-field) { padding: 3px; }
+vaadin-radio-group.fb-seg--view > vaadin-radio-button { width: 30px; padding: 0; border-radius: 7px; }
+vaadin-radio-group.fb-seg--view > vaadin-radio-button[checked] { font-weight: var(--fb-weight-medium); }
+vaadin-radio-group.fb-seg--l::part(group-field) { padding: 3px; }
+vaadin-radio-group.fb-seg--l > vaadin-radio-button { height: 30px; padding: 0 14px; border-radius: 7px; font-size: 13px; }
+vaadin-radio-group.fb-seg[readonly] { opacity: 0.6; }
+vaadin-radio-group.fb-seg[readonly] > vaadin-radio-button { cursor: default; }
+.fb-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 
 /* ---- menus (popover / context) ---- */
 vaadin-popover::part(overlay) { border-radius: var(--fb-radius-l); box-shadow: var(--fb-shadow-overlay); border: 1px solid var(--fb-border); background: var(--fb-white); }
@@ -1001,8 +1006,6 @@ vaadin-button.fb-btn.fb-field-browse {
 .fb-addroot-trust { border-color: var(--fb-orange); }
 .fb-addroot-trust--pinned { border-color: var(--fb-border); }
 .fb-addroot-trust.fb-addroot-trust--pinned .fb-addroot-creds-title > .fb-icon { color: var(--fb-fg-secondary); }
-.fb-seg--locked { opacity: 0.6; }
-.fb-seg--locked .fb-seg-btn { cursor: default; }
 vaadin-tabsheet.fb-settings-tabs { border: none; border-radius: 0; }
 vaadin-tabsheet.fb-settings-tabs::part(tabs-container) { padding: 0; }
 .fb-settings-panel { display: flex; flex-direction: column; padding-top: 18px; }
