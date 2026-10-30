@@ -19,7 +19,6 @@ import org.vaadin.filebrowser.ui.EntryMenu;
 import org.vaadin.filebrowser.ui.FileGridView;
 import org.vaadin.filebrowser.ui.FileListView;
 import org.vaadin.filebrowser.ui.Icon;
-import org.vaadin.filebrowser.ui.MenuPosition;
 import org.vaadin.filebrowser.ui.RootChip;
 import org.vaadin.filebrowser.ui.Segmented;
 import org.vaadin.filebrowser.ui.Notices;
@@ -27,6 +26,7 @@ import org.vaadin.filebrowser.ui.Ui;
 
 import jakarta.annotation.security.PermitAll;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
@@ -173,8 +173,8 @@ public class StarredView extends Div implements EntryHandler {
     }
 
     @Override
-    public void contextMenu(Located entry, MenuPosition position) {
-        entryMenu.open(entry, position, true, starred(entry), false, true, (action, located) -> {
+    public void contextMenu(Located entry, Component anchor) {
+        entryMenu.open(entry, anchor, true, starred(entry), false, true, (action, located) -> {
             if (action == EntryAction.OPEN) {
                 open(located);
             } else if (action == EntryAction.DOWNLOAD) {

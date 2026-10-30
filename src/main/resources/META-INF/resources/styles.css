@@ -387,16 +387,8 @@ vaadin-popover::part(content) { padding: 0; }
 .fb-menu-item--muted { color: var(--fb-fg-secondary); font-size: 13px; gap: 8px; }
 .fb-menu-item-mark { color: var(--fb-accent); --icon-size: 14px; display: inline-flex; }
 
-.fb-entry-menu-layer[hidden] { display: none; }
-.fb-entry-menu-backdrop { position: fixed; inset: 0; z-index: 60; }
-.fb-entry-menu {
-  position: fixed; z-index: 61; min-width: 200px; padding: 5px; gap: 0;
-  border: 1px solid var(--fb-border); border-radius: var(--fb-radius-m); box-shadow: var(--fb-shadow-overlay);
-  animation: fbFade var(--fb-fast) var(--fb-ease);
-}
-.fb-entry-menu .fb-menu-sep { margin: 5px 6px; }
-.fb-root-menu { min-width: 200px; padding: 5px; gap: 0; }
-.fb-root-menu .fb-menu-sep { margin: 5px 6px; }
+.fb-entry-menu, .fb-root-menu { min-width: 200px; padding: 5px; gap: 0; }
+.fb-entry-menu .fb-menu-sep, .fb-root-menu .fb-menu-sep { margin: 5px 6px; }
 
 .fb-sort-wrap { display: inline-flex; }
 .fb-sort-menu { min-width: 180px; padding: 5px; gap: 0; }

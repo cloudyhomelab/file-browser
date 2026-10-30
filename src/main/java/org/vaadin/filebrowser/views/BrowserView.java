@@ -48,7 +48,6 @@ import org.vaadin.filebrowser.ui.FileListView;
 import org.vaadin.filebrowser.ui.HeaderBulkActions;
 import org.vaadin.filebrowser.ui.Icon;
 import org.vaadin.filebrowser.ui.Lightbox;
-import org.vaadin.filebrowser.ui.MenuPosition;
 import org.vaadin.filebrowser.ui.RootChip;
 import org.vaadin.filebrowser.ui.Segmented;
 import org.vaadin.filebrowser.ui.Sidebar;
@@ -67,6 +66,7 @@ import org.vaadin.filebrowser.ui.dialog.UploadDialog;
 import jakarta.annotation.security.PermitAll;
 
 import com.vaadin.flow.component.AttachEvent;
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.badge.BadgeVariant;
@@ -602,8 +602,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     @Override
-    public void contextMenu(Located entry, MenuPosition position) {
-        entryMenu.open(entry, position, starredView, starred(entry), readOnly(), root.options().opening(),
+    public void contextMenu(Located entry, Component anchor) {
+        entryMenu.open(entry, anchor, starredView, starred(entry), readOnly(), root.options().opening(),
                 this::handleAction);
     }
 

@@ -114,11 +114,11 @@ public class FileListView extends Composite<Div> {
         final var dotsIcon = new Icon("dots");
         final var dots = Ui.button("fb-icon-btn fb-icon-btn--s fb-reveal", () -> { }, dotsIcon);
         dots.getElement().setAttribute("aria-label", "More actions");
-        MenuPosition.onClick(dots, pos -> handler.contextMenu(located, pos));
+        dots.getElement().addEventListener("click", e -> handler.contextMenu(located, dots));
         final var actions = Ui.span("fb-row-actions", star, dots);
         row.add(actions);
 
-        EntryListeners.listen(row, located, handler, dropTargets);
+        EntryListeners.listen(row, dots, located, handler, dropTargets);
         return row;
     }
 

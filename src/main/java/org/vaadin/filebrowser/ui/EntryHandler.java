@@ -6,6 +6,8 @@ import org.vaadin.filebrowser.data.Located;
 import org.vaadin.filebrowser.data.Sort;
 import org.vaadin.filebrowser.data.SortKey;
 
+import com.vaadin.flow.component.Component;
+
 /** What the list and grid views ask of the page that hosts them. */
 public interface EntryHandler extends Serializable {
 
@@ -27,7 +29,8 @@ public interface EntryHandler extends Serializable {
     /** File single click. */
     void selectRow(Located entry);
 
-    void contextMenu(Located entry, MenuPosition position);
+    /** @param anchor the entry's "⋯" button, which the menu opens at */
+    void contextMenu(Located entry, Component anchor);
 
     void toggleStar(Located entry);
 

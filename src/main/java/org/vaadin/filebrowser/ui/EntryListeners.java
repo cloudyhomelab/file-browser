@@ -11,7 +11,8 @@ final class EntryListeners {
     private EntryListeners() {
     }
 
-    static <C extends Component & ClickNotifier<C>> void listen(C component, Located located, EntryHandler handler, DragMove.Targets dropTargets) {
+    static <C extends Component & ClickNotifier<C>> void listen(C component, Component menuAnchor, Located located,
+                                                                         EntryHandler handler, DragMove.Targets dropTargets) {
         final var entry = located.entry();
         component.addClickListener(e -> {
             if (entry.folder()) {
@@ -25,7 +26,8 @@ final class EntryListeners {
                 handler.open(located);
             }
         });
-        MenuPosition.onContextMenu(component, pos -> handler.contextMenu(located, pos));
+        component.getElement().addEventListener("contextmenu", e -> handler.contextMenu(located, menuAnchor))
+                .preventDefault();
         if (handler.draggable()) {
             DragMove.source(component, located, handler);
             if (entry.folder()) {
