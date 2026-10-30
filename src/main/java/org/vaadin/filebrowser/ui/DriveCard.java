@@ -6,45 +6,52 @@ import org.vaadin.filebrowser.data.KindInfo;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Composite;
-import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.card.Card;
 import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.function.SerializableRunnable;
 
-public class DriveCard extends Composite<Div> {
+public class DriveCard extends Composite<Card> {
 
     /** {@code onMenu} opens the admin menu from the card's "⋯" button; null hides the button. */
     public DriveCard(FsRoot root, KindInfo kind, SerializableRunnable onOpen, SerializableRunnable onRequestAccess,
-                     SerializableConsumer<MenuPosition> onMenu) {
+                     SerializableConsumer<Component> onMenu) {
         final var card = getContent();
         card.addClassNames("fb-drive", kind.tintClass());
         final var disabled = !root.browsable();
         if (disabled) {
             card.addClassName("fb-drive--disabled");
         } else {
-            card.getElement().setAttribute("role", "button");
+            card.setAriaRole("button");
             card.getElement().setAttribute("tabindex", "0");
-            card.addClickListener(e -> onOpen.run());
+            card.getElement().addEventListener("click", e -> onOpen.run());
             // only the card itself: Enter on the "⋯" button must not open it too
             card.getElement().addEventListener("keydown", e -> onOpen.run())
                     .setFilter("event.key === 'Enter' && event.target === element");
         }
 
-        final var status = Ui.span("fb-drive-status" + (root.online() ? "" : " fb-drive-status--off"), "");
-        status.getElement().setAttribute("title", root.online() ? "Online" : "Offline");
         final var chip = new RootChip(kind, RootChip.Size.L);
-        final var title = new H3(root.name());
+        card.setHeaderPrefix(chip);
+        card.setTitle(root.name());
+        card.setTitleHeadingLevel(3);
         final var endpointText = Ui.span("", root.endpoint());
         final var endpoint = Ui.div("fb-drive-endpoint", endpointText);
-        final var titles = Ui.div("fb-drive-titles", title, endpoint);
-        final var head = Ui.div("fb-drive-head", chip, titles, status);
+        card.setSubtitle(endpoint);
+
+        final var status = Ui.span("fb-drive-status" + (root.online() ? "" : " fb-drive-status--off"), "");
+        status.getElement().setAttribute("title", root.online() ? "Online" : "Offline");
+        final var suffix = Ui.div("fb-drive-suffix", status);
         if (onMenu != null) {
             final var dotsIcon = new Icon("dots");
             final var dots = Ui.button("fb-icon-btn fb-icon-btn--s fb-drive-more", () -> { }, dotsIcon);
             dots.getElement().setAttribute("aria-label", "File system actions");
-            MenuPosition.onClick(dots, onMenu);
-            head.add(dots);
+            dots.getElement().addEventListener("click", e -> onMenu.accept(dots)).stopPropagation();
+            suffix.add(dots);
         }
+        card.setHeaderSuffix(suffix);
+
+        final var rule = Ui.span("fb-drive-rule", "");
+        final var capacity = new CapacityMeter(root, kind, CapacityMeter.Style.CARD);
+        card.add(rule, capacity);
 
         final var typeBadge = new Badge(Badge.Tone.NEUTRAL, kind.label());
         final var detail = root.status().detail();
@@ -57,11 +64,7 @@ public class DriveCard extends Composite<Div> {
         final var spacer = Ui.spacer();
         final var access = accessBadge(root);
         foot.add(spacer, access);
-
-        final var rule = Ui.span("fb-drive-rule", "");
-        final var capacity = new CapacityMeter(root, kind, CapacityMeter.Style.CARD);
-        final var separator = Ui.divider("fb-drive-sep");
-        card.add(rule, head, capacity, separator, foot);
+        card.addToFooter(foot);
 
         if (root.locked()) {
             final var lockIcon = new Icon("lock");

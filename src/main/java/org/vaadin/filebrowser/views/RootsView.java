@@ -14,7 +14,6 @@ import org.vaadin.filebrowser.ui.AppHeader;
 import org.vaadin.filebrowser.ui.Buttons;
 import org.vaadin.filebrowser.ui.DriveCard;
 import org.vaadin.filebrowser.ui.Icon;
-import org.vaadin.filebrowser.ui.MenuPosition;
 import org.vaadin.filebrowser.ui.RootMenu;
 import org.vaadin.filebrowser.ui.StarredBanner;
 import org.vaadin.filebrowser.ui.Switch;
@@ -26,6 +25,7 @@ import org.vaadin.filebrowser.ui.dialog.RootSettingsDialog;
 
 import jakarta.annotation.security.PermitAll;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
@@ -162,8 +162,8 @@ public class RootsView extends Div {
         // a file system of a type the app no longer has a form for can only be removed
         final SerializableConsumer<FsRoot> onEdit = AddRootDialog.canEdit(workspace, root.type())
                 ? this::openEditDialog : null;
-        final SerializableConsumer<MenuPosition> onMenu = currentUser.isAdmin()
-                ? pos -> rootMenu.open(root, pos, onEdit, this::openSettingsDialog, this::openRemoveDialog)
+        final SerializableConsumer<Component> onMenu = currentUser.isAdmin()
+                ? anchor -> rootMenu.open(root, anchor, onEdit, this::openSettingsDialog, this::openRemoveDialog)
                 : null;
         return new DriveCard(root, kind,
                 () -> UI.getCurrent().navigate(BrowserView.class, rootParams),

@@ -2,28 +2,30 @@ package org.vaadin.filebrowser.ui;
 
 import org.vaadin.filebrowser.data.FsRoot;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.popover.Popover;
+import com.vaadin.flow.component.popover.PopoverPosition;
+import com.vaadin.flow.component.popover.PopoverVariant;
 import com.vaadin.flow.function.SerializableConsumer;
 
-/** The admin "⋯" menu of a drive card: edit, settings and remove. Looks like {@link EntryMenu}. */
-public class RootMenu extends Div {
+/** The admin "⋯" menu of a drive card: edit, settings and remove. One instance serves every card on the page. */
+public class RootMenu extends Popover {
 
-    private static final int ASSUMED_MENU_HEIGHT = 140;
-    private static final int ASSUMED_MENU_WIDTH = 220;
-
-    private final Div menu = Ui.div("fb-menu fb-entry-menu");
+    private final Div menu = Ui.div("fb-menu fb-root-menu");
 
     public RootMenu() {
-        setClassName("fb-entry-menu-layer");
-        setVisible(false);
-        final var backdrop = Ui.div("fb-entry-menu-backdrop");
-        backdrop.addClickListener(e -> close());
-        backdrop.getElement().addEventListener("contextmenu", e -> close()).preventDefault();
-        add(backdrop, menu);
+        setPosition(PopoverPosition.BOTTOM_END);
+        addThemeVariants(PopoverVariant.NO_PADDING);
+        setAriaRole("menu");
+        setAriaLabel("File system actions");
+        // opened from the card's button, which also has to stop the click from opening the card
+        setOpenOnClick(false);
+        add(menu);
     }
 
     /** @param onEdit null leaves out "Edit…", e.g. for a type the app can no longer edit */
-    public void open(FsRoot root, MenuPosition pos, SerializableConsumer<FsRoot> onEdit,
+    public void open(FsRoot root, Component anchor, SerializableConsumer<FsRoot> onEdit,
                      SerializableConsumer<FsRoot> onSettings, SerializableConsumer<FsRoot> onRemove) {
         menu.removeAll();
         if (onEdit != null) {
@@ -51,13 +53,7 @@ public class RootMenu extends Div {
         }, removeIcon, removeLabel);
         menu.add(remove);
 
-        final var top = Math.max(0, Math.min(pos.clientY(), pos.viewportHeight() - ASSUMED_MENU_HEIGHT));
-        final var left = Math.max(0, Math.min(pos.clientX(), pos.viewportWidth() - ASSUMED_MENU_WIDTH));
-        menu.getStyle().setTop(top + "px").setLeft(left + "px");
-        setVisible(true);
-    }
-
-    public void close() {
-        setVisible(false);
+        setTarget(anchor);
+        open();
     }
 }
