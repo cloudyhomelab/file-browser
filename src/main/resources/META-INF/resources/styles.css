@@ -668,7 +668,6 @@ vaadin-progress-bar.fb-capacity-bar--striped { --vaadin-progress-bar-background:
 .fb-move-roots-menu { width: var(--fb-move-roots-width); }
 
 /* folder tree + starred nav */
-.fb-tree { display: flex; flex-direction: column; gap: 1px; }
 .fb-tree-row {
   display: flex; align-items: center; gap: 6px; height: 30px; padding-right: 8px;
   padding-left: calc(6px + var(--depth, 0) * var(--fb-tree-indent));
@@ -679,8 +678,17 @@ vaadin-progress-bar.fb-capacity-bar--striped { --vaadin-progress-bar-background:
 .fb-tree-row:hover { background: var(--fb-bg-subtle); }
 .fb-tree-row--active, .fb-tree-row--active:hover { background: var(--fb-accent-bg-subtle); color: var(--fb-accent-text); font-weight: var(--fb-weight-semibold); }
 .fb-tree-row--active > .fb-icon { color: var(--fb-accent); }
-.fb-tree-row--all { padding: 0 8px; --icon-size: 15px; }
-.fb-tree-row.v-drag-over-target { background: var(--fb-accent-bg-subtle); box-shadow: var(--fb-shadow-drop); }
+vaadin-grid.fb-folder-tree { border: 0; background: transparent; --vaadin-grid-tree-toggle-level-offset: var(--fb-tree-indent); }
+vaadin-grid.fb-folder-tree::part(cell) { border: 0; background: transparent; min-height: 30px; padding: 0; }
+vaadin-grid.fb-folder-tree::part(body-cell) { border-radius: var(--fb-radius-m); cursor: pointer; }
+vaadin-grid.fb-folder-tree::part(body-cell):hover { background: var(--fb-bg-subtle); }
+vaadin-grid.fb-folder-tree::part(fb-tree-active) { background: var(--fb-accent-bg-subtle); color: var(--fb-accent-text); font-weight: var(--fb-weight-semibold); }
+vaadin-grid.fb-folder-tree::part(fb-tree-disabled) { opacity: 0.4; cursor: not-allowed; }
+vaadin-grid.fb-folder-tree::part(fb-tree-disabled):hover { background: transparent; }
+.fb-folder-tree-row { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; height: 30px; padding: 0 8px 0 4px; font: var(--fb-weight-medium) 13.5px/1 var(--fb-font-sans); color: inherit; --icon-size: 15px; }
+.fb-folder-tree-row > .fb-icon { color: var(--fb-fg-tertiary); flex-shrink: 0; }
+.fb-folder-tree-row > vaadin-badge { margin-left: auto; }
+.fb-folder-tree-row > vaadin-grid-tree-toggle { flex-shrink: 0; color: var(--fb-fg-tertiary); font-size: 11px; }
 .fb-caret {
   width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
   border: none; background: transparent; padding: 0; cursor: pointer; color: var(--fb-fg-tertiary); --icon-size: 13px;
