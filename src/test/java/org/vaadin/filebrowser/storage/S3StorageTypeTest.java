@@ -7,11 +7,12 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.vaadin.filebrowser.data.Catalog;
+import org.vaadin.filebrowser.data.TestRoots;
 
 class S3StorageTypeTest {
 
     private static StorageConfig config(Map<String, String> settings, Map<String, String> secrets) {
-        return new StorageConfig("s3://assets/team", settings, secrets);
+        return new StorageConfig("s3://assets/team", settings, secrets, TestRoots.MAX_CONNECTIONS);
     }
 
     @Test

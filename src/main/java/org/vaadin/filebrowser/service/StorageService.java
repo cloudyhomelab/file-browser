@@ -24,8 +24,10 @@ import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.vaadin.filebrowser.data.FsRoot;
+import org.vaadin.filebrowser.data.RootOptions;
 import org.vaadin.filebrowser.data.RootStatus;
 import org.vaadin.filebrowser.data.RootTypeInfo;
+import org.vaadin.filebrowser.storage.LimitedProvider;
 import org.vaadin.filebrowser.storage.MountInfo;
 import org.vaadin.filebrowser.storage.StorageConfig;
 import org.vaadin.filebrowser.storage.StorageException;
@@ -52,7 +54,9 @@ public class StorageService {
     private final StorageTypes types;
     private final Function<String, Map<String, String>> secrets;
     private final Clock clock = Clock.systemUTC();
-    private final Map<String, StorageProvider> providers = new ConcurrentHashMap<>();
+    private final Map<String, LimitedProvider> providers = new ConcurrentHashMap<>();
+    /** Options saved since the file systems were read; a caller may still hold one with the old options. */
+    private final Map<String, RootOptions> savedOptions = new ConcurrentHashMap<>();
     private final Map<String, CachedStatus> statuses = new ConcurrentHashMap<>();
     private final ExecutorService probes = Executors.newVirtualThreadPerTaskExecutor();
 
@@ -102,27 +106,42 @@ public class StorageService {
     }
 
     /** Drops the cached provider and status of a file system that was removed. */
-    // closed explicitly: only some providers are closeable
+    // closed explicitly: the provider may hold sessions
     @SuppressWarnings("PMD.CloseResource")
     public void forget(FsRoot root) {
         final var key = cacheKey(root);
-        if (providers.remove(key) instanceof AutoCloseable closeable) {
-            try {
-                closeable.close();
-            } catch (Exception ignored) {
-                // the file system is gone either way
-            }
+        final var provider = providers.remove(key);
+        if (provider != null) {
+            provider.close();
         }
         statuses.remove(key);
+        savedOptions.remove(root.id());
+    }
+
+    /**
+     * New requests get a provider with the new options at once. The old one is retired: what runs on it finishes,
+     * and it closes after.
+     */
+    // retired, not closed: it closes itself once its last stream ends
+    @SuppressWarnings("PMD.CloseResource")
+    public void optionsChanged(FsRoot root, RootOptions options) {
+        savedOptions.put(root.id(), options);
+        final var old = providers.remove(cacheKey(root));
+        if (old != null) {
+            old.retire();
+        }
     }
 
     private static String cacheKey(FsRoot root) {
         return root.id() + "|" + root.endpoint();
     }
 
-    private StorageProvider create(FsRoot root) {
-        final var config = new StorageConfig(root.endpoint(), root.settings(), secrets.apply(root.id()));
-        return types.get(root.type()).open(config);
+    private LimitedProvider create(FsRoot root) {
+        final var options = savedOptions.getOrDefault(root.id(), root.options());
+        final var config = new StorageConfig(root.endpoint(), root.settings(), secrets.apply(root.id()),
+                options.maxConnections());
+        final var provider = types.get(root.type()).open(config);
+        return new LimitedProvider(provider, options.maxConnections(), options.streamConnections());
     }
 
     public RootStatus status(FsRoot root) {

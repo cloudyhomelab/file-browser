@@ -41,7 +41,7 @@ public class FtpStorageType implements StorageType {
 
     @Override
     public StorageProvider open(StorageConfig config) {
-        return new FtpProvider(connection(config), catalog::typeForFileName);
+        return new FtpProvider(connection(config), config.connections(), catalog::typeForFileName);
     }
 
     static FtpProvider.Connection connection(StorageConfig config) {

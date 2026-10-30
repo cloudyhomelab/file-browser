@@ -1,5 +1,15 @@
 {
-  "link_uploads": true,
-  "extraction": true,
-  "opening": true
+  "defaults": {
+    "link_uploads": true,
+    "extraction": true,
+    "opening": true,
+    "max_connections": 4,
+    "browsing_reserve": 1,
+    "idle_stream_seconds": 30
+  },
+  "limits": {
+    "max_connections": { "min": 3, "max": 256 },
+    "min_browsing_reserve": 1,
+    "idle_stream_seconds": { "min": 10, "max": 3600 }
+  }
 }

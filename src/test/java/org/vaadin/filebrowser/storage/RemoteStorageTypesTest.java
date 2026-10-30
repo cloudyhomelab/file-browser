@@ -6,11 +6,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.vaadin.filebrowser.data.TestRoots;
 
 class RemoteStorageTypesTest {
 
     private static StorageConfig config(String endpoint, Map<String, String> settings, Map<String, String> secrets) {
-        return new StorageConfig(endpoint, settings, secrets);
+        return new StorageConfig(endpoint, settings, secrets, TestRoots.MAX_CONNECTIONS);
     }
 
     @Test

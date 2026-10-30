@@ -88,8 +88,8 @@ public class FtpProvider extends RemoteProvider<FtpProvider.Session> {
     public record Session(FTPClient ftp, boolean machineListing) {
     }
 
-    public FtpProvider(Connection connection, Function<String, String> typeForName) {
-        super(connection.location(), typeForName);
+    public FtpProvider(Connection connection, int sessions, Function<String, String> typeForName) {
+        super(connection.location(), sessions, typeForName);
         this.connection = connection;
     }
 

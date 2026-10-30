@@ -82,7 +82,7 @@ class RootSecretsTest {
         final var secrets = new RootSecrets(jdbc, new SecretBox((String) null));
         assertThat(secrets.canStore()).isFalse();
         assertThatThrownBy(() -> secrets.seal(bucket.id(), KEYS)).isInstanceOf(StorageException.class);
-        final var config = new StorageConfig("s3://assets", Map.of(), KEYS);
+        final var config = new StorageConfig("s3://assets", Map.of(), KEYS, TestRoots.MAX_CONNECTIONS);
         assertThat(config.toString()).doesNotContain("wJalrXUtnFEMI").doesNotContain("AKIDEXAMPLE");
     }
 

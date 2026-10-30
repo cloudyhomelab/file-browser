@@ -69,8 +69,8 @@ public class SmbProvider extends RemoteProvider<SmbProvider.Session> {
     }
 
     /** @param config speaks only SMB 3, with signing required */
-    public SmbProvider(SmbConfig config, Connection connection, Function<String, String> typeForName) {
-        super(connection.location(), typeForName);
+    public SmbProvider(SmbConfig config, Connection connection, int sessions, Function<String, String> typeForName) {
+        super(connection.location(), sessions, typeForName);
         this.config = config;
         this.connection = connection;
     }

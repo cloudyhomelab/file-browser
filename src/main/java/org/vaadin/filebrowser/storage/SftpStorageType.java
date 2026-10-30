@@ -39,7 +39,7 @@ public class SftpStorageType implements StorageType {
 
     @Override
     public StorageProvider open(StorageConfig config) {
-        return new SftpProvider(sshClient(), connection(config), catalog::typeForFileName);
+        return new SftpProvider(sshClient(), connection(config), config.connections(), catalog::typeForFileName);
     }
 
     static SftpProvider.Connection connection(StorageConfig config) {

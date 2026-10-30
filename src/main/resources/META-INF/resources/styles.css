@@ -222,7 +222,7 @@ vaadin-button.fb-btn[disabled]::part(label) { color: inherit; }
 vaadin-button.fb-btn--block { width: 100%; height: 44px; --vaadin-button-height: 44px; font-size: 14.5px; }
 
 /* ---- Vaadin text fields ---- */
-vaadin-text-field.fb-field, vaadin-password-field.fb-field {
+vaadin-text-field.fb-field, vaadin-password-field.fb-field, vaadin-integer-field.fb-field {
   --vaadin-input-field-height: 38px;
   --vaadin-input-field-border-radius: var(--fb-radius-m);
   --vaadin-input-field-border-color: var(--fb-border-strong);
@@ -235,16 +235,19 @@ vaadin-text-field.fb-field, vaadin-password-field.fb-field {
   --icon-size: 18px;
   padding: 0;
 }
-vaadin-text-field.fb-field::part(input-field), vaadin-password-field.fb-field::part(input-field) {
+vaadin-text-field.fb-field::part(input-field), vaadin-password-field.fb-field::part(input-field),
+vaadin-integer-field.fb-field::part(input-field) {
   min-height: var(--vaadin-input-field-height); border-radius: var(--fb-radius-m);
   border: 1px solid var(--fb-border-strong); background: var(--fb-white); box-shadow: none;
   padding-inline: 11px; gap: 8px;
   transition: box-shadow var(--fb-fast) var(--fb-ease), border-color var(--fb-fast) var(--fb-ease);
 }
-vaadin-text-field.fb-field[focused]::part(input-field), vaadin-password-field.fb-field[focused]::part(input-field) {
+vaadin-text-field.fb-field[focused]::part(input-field), vaadin-password-field.fb-field[focused]::part(input-field),
+vaadin-integer-field.fb-field[focused]::part(input-field) {
   border-color: var(--fb-accent); box-shadow: var(--fb-shadow-focus); outline: none;
 }
 vaadin-text-field.fb-field[invalid]::part(input-field), vaadin-password-field.fb-field[invalid]::part(input-field),
+vaadin-integer-field.fb-field[invalid]::part(input-field),
 vaadin-text-field.fb-field--invalid::part(input-field) {
   border-color: var(--fb-red); box-shadow: 0 0 0 3px rgba(219, 55, 58, 0.18);
 }
@@ -261,10 +264,12 @@ vaadin-text-area.fb-field:is([readonly], [disabled]) {
 }
 vaadin-text-field.fb-field:is([readonly], [disabled]) > input,
 vaadin-password-field.fb-field:is([readonly], [disabled]) > input { color: var(--fb-fg-secondary); cursor: default; }
-vaadin-text-field.fb-field::part(label), vaadin-password-field.fb-field::part(label) {
+vaadin-text-field.fb-field::part(label), vaadin-password-field.fb-field::part(label),
+vaadin-integer-field.fb-field::part(label) {
   font: var(--fb-weight-semibold) 13px/1.2 var(--fb-font-sans); color: var(--fb-fg); padding-bottom: 6px;
 }
-vaadin-text-field.fb-field::part(error-message), vaadin-password-field.fb-field::part(error-message) {
+vaadin-text-field.fb-field::part(error-message), vaadin-password-field.fb-field::part(error-message),
+vaadin-integer-field.fb-field::part(error-message) {
   font: 400 12px/1.3 var(--fb-font-sans); color: var(--fb-red);
 }
 vaadin-text-field.fb-field--l, vaadin-password-field.fb-field--l { --vaadin-input-field-height: 42px; --vaadin-input-field-value-font-size: 15px; }
@@ -1033,6 +1038,10 @@ vaadin-button.fb-btn.fb-field-browse {
 .fb-seg--locked .fb-seg-btn { cursor: default; }
 .fb-switch[disabled] { cursor: default; opacity: 0.6; }
 .fb-settings-features > .fb-form-label { margin-bottom: 14px; }
+.fb-settings-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.fb-settings-numbers > vaadin-integer-field { width: 100%; }
+.fb-settings-note { margin-top: 8px; margin-bottom: 22px; font: 400 12px/1.4 var(--fb-font-sans); color: var(--fb-fg-secondary); }
+.fb-field-unit { font: 400 13px/1 var(--fb-font-sans); color: var(--fb-fg-tertiary); }
 .fb-settings-option { display: flex; flex-direction: column; align-items: flex-start; }
 .fb-settings-option + .fb-settings-option { margin-top: 16px; }
 .fb-settings-hint { margin-top: 2px; padding-left: 42px; font: 400 12px/1.4 var(--fb-font-sans); color: var(--fb-fg-secondary); }

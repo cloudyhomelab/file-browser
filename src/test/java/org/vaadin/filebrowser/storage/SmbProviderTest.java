@@ -14,6 +14,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.vaadin.filebrowser.data.Catalog;
+import org.vaadin.filebrowser.data.TestRoots;
 
 /** Runs against Samba; skipped where Docker isn't available (e.g. the image build). */
 @Testcontainers(disabledWithoutDocker = true)
@@ -61,7 +62,7 @@ class SmbProviderTest extends RemoteProviderContract {
         final Map<String, String> settings = requireEncryption
                 ? Map.of(SmbStorageType.REQUIRE_ENCRYPTION, "true") : Map.of();
         final var secrets = Map.of(SmbStorageType.USER, USER, SmbStorageType.PASSWORD, password);
-        return TYPE.open(new StorageConfig(endpoint(server, folder), settings, secrets));
+        return TYPE.open(new StorageConfig(endpoint(server, folder), settings, secrets, TestRoots.MAX_CONNECTIONS));
     }
 
     @Override
@@ -86,7 +87,8 @@ class SmbProviderTest extends RemoteProviderContract {
         assertThatThrownBy(() -> wrong.list("")).hasMessageContaining("refused the user name or password");
         assertThat(wrong.health().reason()).contains("refused");
         final var secrets = Map.of(SmbStorageType.USER, USER, SmbStorageType.PASSWORD, PASSWORD);
-        final var config = new StorageConfig(endpoint(SERVER, "").replace("/share", "/missing"), Map.of(), secrets);
+        final var endpoint = endpoint(SERVER, "").replace("/share", "/missing");
+        final var config = new StorageConfig(endpoint, Map.of(), secrets, TestRoots.MAX_CONNECTIONS);
         final var missing = TYPE.open(config);
         assertThatThrownBy(() -> missing.list("")).hasMessageContaining("no share named “missing”");
     }

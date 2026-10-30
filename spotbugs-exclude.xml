@@ -22,6 +22,13 @@
         <Bug pattern="HES_EXECUTOR_NEVER_SHUTDOWN"/>
     </Match>
 
+    <!--one daemon thread for every file shown in the page; daemon threads never keep the JVM running-->
+    <Match>
+        <Class name="org.vaadin.filebrowser.web.IdleTransfer"/>
+        <Field name="WATCHER"/>
+        <Bug pattern="HES_EXECUTOR_NEVER_SHUTDOWN"/>
+    </Match>
+
     <!--session objects that hold app-wide services; sessions are never serialized. Remove with #76-->
     <Match>
         <Or>

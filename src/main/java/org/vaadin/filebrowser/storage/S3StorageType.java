@@ -31,7 +31,7 @@ public class S3StorageType implements StorageType {
 
     @Override
     public StorageProvider open(StorageConfig config) {
-        return new S3Provider(connection(config), catalog::typeForFileName);
+        return new S3Provider(connection(config), config.connections(), catalog::typeForFileName);
     }
 
     // no endpoint URL means AWS itself

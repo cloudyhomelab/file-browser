@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
+import org.vaadin.filebrowser.data.RootOptions;
 import org.vaadin.filebrowser.data.RootStatus;
 import org.vaadin.filebrowser.data.TestRoots;
 import org.vaadin.filebrowser.storage.DiskStorageType;
@@ -24,6 +26,8 @@ import org.vaadin.filebrowser.storage.StorageProvider;
 import org.vaadin.filebrowser.storage.UntrustedServerException;
 
 class StorageServiceTest {
+
+    private static final int WIDER_CONNECTIONS = 8;
 
     @TempDir
     Path dir;
@@ -90,9 +94,10 @@ class StorageServiceTest {
 
     @Test
     void checksANewFileSystemBeforeItIsAdded() {
-        final var config = new StorageConfig(dir.toString(), Map.of(), Map.of());
+        final var config = new StorageConfig(dir.toString(), Map.of(), Map.of(), TestRoots.MAX_CONNECTIONS);
         assertThat(storage.check(DiskStorageType.KEY, config)).isEqualTo(StorageService.Check.OK);
-        final var missing = new StorageConfig(dir.resolve("missing").toString(), Map.of(), Map.of());
+        final var missing = new StorageConfig(dir.resolve("missing").toString(), Map.of(), Map.of(),
+                TestRoots.MAX_CONNECTIONS);
         assertThat(storage.check(DiskStorageType.KEY, missing).problem()).isNotNull();
         assertThat(storage.check("tape", config).problem()).isNotNull();
     }
@@ -114,7 +119,8 @@ class StorageServiceTest {
             }
         };
         final var withFtp = new StorageService(new StorageTypes(List.of(ftp), catalog));
-        final var check = withFtp.check(FtpStorageType.KEY, new StorageConfig("ftp://example.com", Map.of(), Map.of()));
+        final var config = new StorageConfig("ftp://example.com", Map.of(), Map.of(), TestRoots.MAX_CONNECTIONS);
+        final var check = withFtp.check(FtpStorageType.KEY, config);
         assertThat(check.fingerprint()).isEqualTo("SHA256:abc");
         assertThat(check.problem()).isNotNull();
     }
@@ -149,5 +155,27 @@ class StorageServiceTest {
                 Access.READ_ONLY, TestRoots.ALL_ALLOWED, RootStatus.UNKNOWN);
         assertThat(withDown.status(root)).extracting(RootStatus::online, RootStatus::reason)
                 .containsExactly(false, "The server's host key changed.");
+    }
+
+    @Test
+    void savedOptionsApplyToTheNextUseEvenThroughAnOldRoot() {
+        final var configs = new ArrayList<StorageConfig>();
+        final var disk = new DiskStorageType(catalog) {
+            @Override
+            public StorageProvider open(StorageConfig config) {
+                configs.add(config);
+                return super.open(config);
+            }
+        };
+        final var service = new StorageService(new StorageTypes(List.of(disk), catalog));
+        final var old = root(dir);
+        final var first = service.provider(old);
+        assertThat(service.provider(old)).isSameAs(first);
+        final var wider = new RootOptions(true, true, true, WIDER_CONNECTIONS, TestRoots.BROWSING_RESERVE,
+                TestRoots.IDLE_STREAM_SECONDS);
+        service.optionsChanged(old, wider);
+        assertThat(service.provider(old)).isNotSameAs(first);
+        assertThat(configs).extracting(StorageConfig::connections)
+                .containsExactly(TestRoots.MAX_CONNECTIONS, WIDER_CONNECTIONS);
     }
 }

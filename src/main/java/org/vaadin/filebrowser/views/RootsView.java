@@ -181,7 +181,8 @@ public class RootsView extends Div {
     }
 
     private void openSettingsDialog(FsRoot root) {
-        final var dialog = new RootSettingsDialog(root, options -> {
+        final var limits = workspace.getCatalog().getRootOptionLimits();
+        final var dialog = new RootSettingsDialog(root, limits, options -> {
             workspace.updateOptions(root, options);
             Notices.show("Saved settings for “" + root.name() + "”", "check");
             render();

@@ -58,10 +58,11 @@ public abstract class RemoteProvider<S> implements StorageProvider, AutoCloseabl
         T run(S session) throws IOException;
     }
 
-    protected RemoteProvider(RemoteLocation location, Function<String, String> typeForName) {
+    /** @param sessions the most sessions open to the server at once */
+    protected RemoteProvider(RemoteLocation location, int sessions, Function<String, String> typeForName) {
         this.location = location;
         this.typeForName = typeForName;
-        this.pool = new SessionPool<>(this::connect, this::alive, this::disconnect);
+        this.pool = new SessionPool<>(sessions, this::connect, this::alive, this::disconnect);
     }
 
     // ---- protocol primitives; paths are absolute on the server --------------------------------

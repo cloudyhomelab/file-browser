@@ -13,8 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.ByteArrayInputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
@@ -105,24 +105,24 @@ class FileStreamControllerTest {
     }
 
     /** Counts how often it is closed, and can fail on read or on close. */
-    private static final class Tracked extends ByteArrayInputStream {
+    private static final class Tracked extends FilterInputStream {
 
         private final boolean failRead;
         private final boolean failClose;
         private int closed;
 
         Tracked(String content, boolean failRead, boolean failClose) {
-            super(content.getBytes(StandardCharsets.UTF_8));
+            super(new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)));
             this.failRead = failRead;
             this.failClose = failClose;
         }
 
         @Override
-        public synchronized long transferTo(OutputStream out) throws IOException {
+        public int read(byte[] buffer, int offset, int length) throws IOException {
             if (failRead) {
                 throw new IOException("connection reset");
             }
-            return super.transferTo(out);
+            return super.read(buffer, offset, length);
         }
 
         @Override
@@ -336,7 +336,7 @@ class FileStreamControllerTest {
     @Test
     void refusesFileSystemsThatDontAllowOpeningFiles() throws Exception {
         final var closed = new FsRoot("r1", "Disk", "disk", "/srv", Map.of(), Access.READ_WRITE,
-                new RootOptions(true, true, false), RootStatus.UNKNOWN);
+                TestRoots.features(true, true, false), RootStatus.UNKNOWN);
         when(registry.find(any())).thenReturn(Optional.of(closed));
         fetch("notes.txt").andExpect(status().isForbidden()).andExpect(content().string(""));
         verifyNoInteractions(storage);

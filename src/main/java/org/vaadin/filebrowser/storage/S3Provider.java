@@ -22,6 +22,7 @@ import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.http.apache5.Apache5HttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
@@ -81,7 +82,8 @@ public class S3Provider implements StorageProvider, AutoCloseable {
     public record Connection(String endpoint, String region, URI endpointUrl, String accessKey, String secretKey) {
     }
 
-    public S3Provider(Connection connection, Function<String, String> typeForName) {
+    /** @param connections the most HTTP connections open to the store at once */
+    public S3Provider(Connection connection, int connections, Function<String, String> typeForName) {
         this.location = Location.parse(connection.endpoint());
         if (location == null) {
             throw new StorageException("Use the form s3://bucket or s3://bucket/folder.");
@@ -90,9 +92,11 @@ public class S3Provider implements StorageProvider, AutoCloseable {
         final AwsCredentialsProvider credentials = connection.accessKey() == null
                 ? AnonymousCredentialsProvider.create()
                 : StaticCredentialsProvider.create(AwsBasicCredentials.create(connection.accessKey(), connection.secretKey()));
+        final var http = Apache5HttpClient.builder().maxConnections(connections);
         final var builder = S3Client.builder()
                 .region(Region.of(connection.region()))
-                .credentialsProvider(credentials);
+                .credentialsProvider(credentials)
+                .httpClientBuilder(http);
         if (connection.endpointUrl() != null) {
             // S3-compatible stores: bucket in the path, and only the checksums S3 itself requires
             builder.endpointOverride(connection.endpointUrl())
