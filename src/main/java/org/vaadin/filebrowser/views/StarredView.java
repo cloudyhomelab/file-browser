@@ -28,6 +28,7 @@ import jakarta.annotation.security.PermitAll;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.grid.contextmenu.GridContextMenu;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Main;
@@ -113,10 +114,14 @@ public class StarredView extends Div implements EntryHandler {
             final var line = Ui.divider("fb-group-line");
             final var head = Ui.div("fb-group-head", chip, name, count, line);
             final var section = new Section(head);
-            final var entries = workspace.getLayout() == Layout.GRID
-                    ? new FileGridView(g.entries(), this, workspace.getCatalog())
-                    : new FileListView(g.entries(), this, workspace.getDensity(), workspace.getCatalog());
-            section.add(entries);
+            if (workspace.getLayout() == Layout.GRID) {
+                final var tiles = new FileGridView(g.entries(), this, workspace.getCatalog());
+                section.add(tiles);
+            } else {
+                final var list = new FileListView(g.entries(), this, workspace.getDensity(), workspace.getCatalog());
+                list.setAllRowsVisible();
+                section.add(list);
+            }
             sections.add(section);
         }
         main.add(sections);
@@ -173,15 +178,22 @@ public class StarredView extends Div implements EntryHandler {
 
     @Override
     public void contextMenu(Located entry, Component anchor) {
-        entryMenu.open(entry, anchor, true, starred(entry), false, true, (action, located) -> {
-            if (action == EntryAction.OPEN) {
-                open(located);
-            } else if (action == EntryAction.DOWNLOAD) {
-                Notices.show("Downloading “" + located.entry().name() + "”…", "download");
-            } else if (action == EntryAction.STAR) {
-                toggleStar(located);
-            }
-        });
+        entryMenu.open(entry, anchor, true, starred(entry), false, true, this::onMenuAction);
+    }
+
+    @Override
+    public void fillContextMenu(GridContextMenu<Located> menu, Located entry) {
+        EntryMenu.fill(menu, entry, true, starred(entry), false, true, this::onMenuAction);
+    }
+
+    private void onMenuAction(EntryAction action, Located located) {
+        if (action == EntryAction.OPEN) {
+            open(located);
+        } else if (action == EntryAction.DOWNLOAD) {
+            Notices.show("Downloading “" + located.entry().name() + "”…", "download");
+        } else if (action == EntryAction.STAR) {
+            toggleStar(located);
+        }
     }
 
     @Override

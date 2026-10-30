@@ -7,6 +7,7 @@ import org.vaadin.filebrowser.data.Sort;
 import org.vaadin.filebrowser.data.SortKey;
 
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.grid.contextmenu.GridContextMenu;
 
 /** What the list and grid views ask of the page that hosts them. */
 public interface EntryHandler extends Serializable {
@@ -32,6 +33,9 @@ public interface EntryHandler extends Serializable {
     /** @param anchor the entry's "⋯" button, which the menu opens at */
     void contextMenu(Located entry, Component anchor);
 
+    /** Fills the list's right-click menu for {@code entry} just before it opens. */
+    void fillContextMenu(GridContextMenu<Located> menu, Located entry);
+
     void toggleStar(Located entry);
 
     Sort sort();
@@ -43,7 +47,7 @@ public interface EntryHandler extends Serializable {
         return false;
     }
 
-    default void dragStarted() {
+    default void dragStarted(Located dragged) {
         // only views that move entries by dragging react
     }
 

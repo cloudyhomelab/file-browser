@@ -28,7 +28,8 @@ public class UserAvatar extends Avatar {
         setTooltipEnabled(name != null);
     }
 
-    private static int colorIndex(String name) {
+    /** The palette slot for {@code name}; the same name always gets the same colour. */
+    public static int colorIndex(String name) {
         long hash = 0;
         for (final var c : (name == null ? "" : name).toCharArray()) {
             hash = (hash * HASH_MULTIPLIER + c) & 0xffffffffL;

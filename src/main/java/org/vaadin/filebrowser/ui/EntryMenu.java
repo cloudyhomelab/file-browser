@@ -6,6 +6,7 @@ import java.util.List;
 import org.vaadin.filebrowser.data.Located;
 
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.grid.contextmenu.GridContextMenu;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.popover.Popover;
 import com.vaadin.flow.component.popover.PopoverPosition;
@@ -56,6 +57,24 @@ public class EntryMenu extends Popover {
         }
         setTarget(anchor);
         open();
+    }
+
+    /** Fills a list's right-click menu with the same items as this menu. */
+    public static void fill(GridContextMenu<Located> menu, Located located, boolean starredMode, boolean starred,
+                            boolean readOnly, boolean canPreview, SerializableBiConsumer<EntryAction, Located> onAction) {
+        menu.removeAll();
+        for (final var item : items(located.entry().folder(), starredMode, starred, canPreview)) {
+            if (item == null) {
+                menu.addSeparator();
+                continue;
+            }
+            final var icon = new Icon(item.icon());
+            final var label = Ui.span("", item.label());
+            final var content = Ui.span("fb-context-item", icon, label);
+            final var menuItem = menu.addItem(content, e -> onAction.accept(item.action(), located));
+            menuItem.setEnabled(!(readOnly && item.action().writes()));
+            menuItem.getElement().getClassList().set("fb-context-item--danger", item.danger());
+        }
     }
 
     /** The menu's items in order; null stands for a separator. */

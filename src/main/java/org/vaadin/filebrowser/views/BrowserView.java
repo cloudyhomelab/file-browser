@@ -72,6 +72,7 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.badge.BadgeVariant;
 import com.vaadin.flow.component.breadcrumbs.Breadcrumbs;
 import com.vaadin.flow.component.breadcrumbs.BreadcrumbsItem;
+import com.vaadin.flow.component.grid.contextmenu.GridContextMenu;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
@@ -128,6 +129,10 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private boolean starredView;
     /** Between a drag start and its end; drop targets are active and auto refresh waits meanwhile. */
     private boolean dragging;
+    /** What a drag carries when its drop target gets no server-side data, as for a row dragged out of the list. */
+    private Located draggedEntry;
+    /** Which folder, search and density the list was built for; while it stays the same the list is updated in place. */
+    private String listViewKey;
     private boolean resetting;
     private Registration pollRegistration;
     private Registration taskRegistration;
@@ -441,6 +446,11 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void renderContent(List<Located> entries) {
+        final var key = String.join("|", root.id(), String.join("/", path), query, workspace.getDensity().name());
+        if (canUpdateList(entries, key)) {
+            listView.update(entries);
+            return;
+        }
         content.removeAll();
         listView = null;
         gridView = null;
@@ -459,11 +469,18 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         }
         if (workspace.getLayout() == Layout.LIST) {
             listView = new FileListView(entries, this, workspace.getDensity(), workspace.getCatalog());
+            listViewKey = key;
             content.add(listView);
         } else {
             gridView = new FileGridView(entries, this, workspace.getCatalog());
             content.add(gridView);
         }
+    }
+
+    /** Whether the list on show is for the same folder, search and density, so it can be updated in place. */
+    private boolean canUpdateList(List<Located> entries, String key) {
+        return listView != null && workspace.getLayout() == Layout.LIST && loadError == null && !entries.isEmpty()
+                && key.equals(listViewKey);
     }
 
     private void renderDetails() {
@@ -566,7 +583,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     @Override
-    public void dragStarted() {
+    public void dragStarted(Located dragged) {
+        draggedEntry = dragged;
         dragging = true;
         setDropTargetsActive(true);
     }
@@ -605,6 +623,11 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     public void contextMenu(Located entry, Component anchor) {
         entryMenu.open(entry, anchor, starredView, starred(entry), readOnly(), root.options().opening(),
                 this::handleAction);
+    }
+
+    @Override
+    public void fillContextMenu(GridContextMenu<Located> menu, Located entry) {
+        EntryMenu.fill(menu, entry, starredView, starred(entry), readOnly(), root.options().opening(), this::handleAction);
     }
 
     @Override
@@ -766,10 +789,12 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     /** {@code dragged} was dropped onto a folder in the list, the grid or the tree. */
-    private void dropInto(Located dragged, List<String> dest) {
+    private void dropInto(Located dropped, List<String> dest) {
         setDropTargetsActive(false);
         dragging = false;
-        if (!draggable()) {
+        final var dragged = dropped != null ? dropped : draggedEntry;
+        draggedEntry = null;
+        if (!draggable() || dragged == null) {
             return;
         }
         final var targets = selected(dragged)
