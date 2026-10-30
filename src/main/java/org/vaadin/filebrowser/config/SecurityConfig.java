@@ -41,7 +41,8 @@ public class SecurityConfig {
     public static final String SIGN_IN_PATH = "/sign-in";
     public static final String AUTHORIZATION_PATH = "/oauth2/authorization/";
     private static final String POST_LOGOUT_REDIRECT = "{baseUrl}";
-    private static final String[] PUBLIC_RESOURCES = {"/styles.css", "/icons.svg", "/favicon.svg", "/oidc/**"};
+    private static final String[] PUBLIC_RESOURCES = {"/styles.css", "/icons.svg", "/favicon.svg", "/oidc/**",
+        "/components/*.css"};
 
     // HttpSecurity.build() declares Exception
     @SuppressWarnings("PMD.SignatureDeclareThrowsException")

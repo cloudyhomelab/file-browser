@@ -1,0 +1,50 @@
+/* Defaults have zero specificity, so a plain .add-tile rule in the application overrides them. */
+:where(.add-tile) {
+  --add-tile-min-height: 196px;                     /* keeps the tile level with a row of cards */
+  --add-tile-padding: 20px;                         /* inner padding */
+  --add-tile-gap: 10px;                             /* space between icon, title and description */
+  --add-tile-radius: var(--vaadin-radius-l);
+  --add-tile-border-width: 1.5px;                   /* dashed outline */
+  --add-tile-border-color: var(--vaadin-border-color);
+  --add-tile-hover-border-color: var(--vaadin-focus-ring-color);
+  --add-tile-hover-background: var(--vaadin-background-container);
+  --add-tile-icon-box-size: 44px;                   /* square behind the icon */
+  --add-tile-icon-radius: 11px;                     /* corner of that square */
+  --add-tile-icon-background: var(--vaadin-background-container);
+  --add-tile-icon-color: var(--vaadin-text-color-secondary);
+  --add-tile-icon-hover-background: var(--vaadin-background-color);
+  --add-tile-icon-hover-color: var(--vaadin-focus-ring-color);
+  --add-tile-title-font-size: 15px;
+  --add-tile-title-font-weight: 600;
+  --add-tile-title-line-height: 1.2;
+  --add-tile-title-color: var(--vaadin-text-color);
+  --add-tile-title-hover-color: var(--vaadin-focus-ring-color);
+  --add-tile-description-font-size: 13px;
+  --add-tile-description-line-height: 1.4;
+  --add-tile-description-color: var(--vaadin-text-color-secondary);
+  --add-tile-transition: 120ms ease;                /* hover fade */
+}
+
+.add-tile {
+  min-height: var(--add-tile-min-height); padding: var(--add-tile-padding);
+  border: var(--add-tile-border-width) dashed var(--add-tile-border-color); border-radius: var(--add-tile-radius);
+  background: transparent; cursor: var(--vaadin-clickable-cursor, pointer); font-family: inherit;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--add-tile-gap);
+  transition: background var(--add-tile-transition), border-color var(--add-tile-transition);
+}
+.add-tile-icon {
+  width: var(--add-tile-icon-box-size); height: var(--add-tile-icon-box-size); border-radius: var(--add-tile-icon-radius);
+  background: var(--add-tile-icon-background); color: var(--add-tile-icon-color);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.add-tile-title {
+  font-size: var(--add-tile-title-font-size); font-weight: var(--add-tile-title-font-weight);
+  line-height: var(--add-tile-title-line-height); color: var(--add-tile-title-color);
+}
+.add-tile-description {
+  font-size: var(--add-tile-description-font-size); line-height: var(--add-tile-description-line-height);
+  color: var(--add-tile-description-color);
+}
+.add-tile:hover { border-color: var(--add-tile-hover-border-color); background: var(--add-tile-hover-background); }
+.add-tile:hover .add-tile-icon { background: var(--add-tile-icon-hover-background); color: var(--add-tile-icon-hover-color); }
+.add-tile:hover .add-tile-title { color: var(--add-tile-title-hover-color); }

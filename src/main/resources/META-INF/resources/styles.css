@@ -615,19 +615,16 @@ vaadin-button.fb-login-submit { font-weight: var(--fb-weight-semibold); margin-t
 .fb-capacity--sidebar .fb-capacity-bar { height: 5px; }
 .fb-capacity--sidebar .fb-capacity-bar--striped { opacity: 1; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--r-color) 33%, transparent), color-mix(in srgb, var(--r-color) 33%, transparent) 5px, transparent 5px, transparent 9px); }
 
-/* add file system card */
-.fb-addroot-card {
-  min-height: 196px; border-radius: var(--fb-radius-l); cursor: pointer; padding: 20px;
-  border: 1.5px dashed var(--fb-border-strong); background: transparent;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-  transition: background var(--fb-fast) var(--fb-ease), border-color var(--fb-fast) var(--fb-ease);
+/* add file system tile */
+.add-tile {
+  --add-tile-radius: var(--fb-radius-l); --add-tile-border-color: var(--fb-border-strong);
+  --add-tile-hover-border-color: var(--fb-accent); --add-tile-hover-background: var(--fb-accent-bg-subtle);
+  --add-tile-icon-background: var(--fb-bg-subtle); --add-tile-icon-color: var(--fb-fg-secondary);
+  --add-tile-icon-hover-background: var(--fb-white); --add-tile-icon-hover-color: var(--fb-accent);
+  --add-tile-title-font-weight: var(--fb-weight-semibold); --add-tile-title-color: var(--fb-fg);
+  --add-tile-title-hover-color: var(--fb-accent-text); --add-tile-description-color: var(--fb-fg-secondary);
+  --add-tile-transition: var(--fb-fast) var(--fb-ease); --icon-size: 22px;
 }
-.fb-addroot-card-icon { width: 44px; height: 44px; border-radius: 11px; background: var(--fb-bg-subtle); color: var(--fb-fg-secondary); display: inline-flex; align-items: center; justify-content: center; --icon-size: 22px; }
-.fb-addroot-card-title { font: var(--fb-weight-semibold) 15px/1.2 var(--fb-font-sans); color: var(--fb-fg); }
-.fb-addroot-card-sub { font: 400 13px/1.4 var(--fb-font-sans); color: var(--fb-fg-secondary); }
-.fb-addroot-card:hover { border-color: var(--fb-accent); background: var(--fb-accent-bg-subtle); }
-.fb-addroot-card:hover .fb-addroot-card-icon { background: var(--fb-white); color: var(--fb-accent); }
-.fb-addroot-card:hover .fb-addroot-card-title { color: var(--fb-accent-text); }
 
 .fb-section-rule { display: flex; align-items: center; gap: 10px; margin: 36px 0 16px; }
 .fb-section-rule-label { font: var(--fb-weight-semibold) 13px/1 var(--fb-font-sans); color: var(--fb-fg-secondary); text-transform: uppercase; letter-spacing: 0.04em; }

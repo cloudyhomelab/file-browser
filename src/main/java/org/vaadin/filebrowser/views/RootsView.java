@@ -19,6 +19,7 @@ import org.vaadin.filebrowser.ui.StarredBanner;
 import org.vaadin.filebrowser.ui.Switch;
 import org.vaadin.filebrowser.ui.Notices;
 import org.vaadin.filebrowser.ui.Ui;
+import org.vaadin.filebrowser.ui.components.AddTile;
 import org.vaadin.filebrowser.ui.dialog.AddRootDialog;
 import org.vaadin.filebrowser.ui.dialog.RemoveRootDialog;
 import org.vaadin.filebrowser.ui.dialog.RootSettingsDialog;
@@ -129,10 +130,9 @@ public class RootsView extends Div {
         accessible.forEach(r -> grid.add(card(r)));
         if (admin) {
             final var plusIcon = new Icon("plus");
-            final var addCardIcon = Ui.span("fb-addroot-card-icon", plusIcon);
-            final var addCardTitle = Ui.span("fb-addroot-card-title", "Add file system");
-            final var addCardSub = Ui.span("fb-addroot-card-sub", "Connect a folder on the server: a local disk or a mounted share");
-            final var addCard = Ui.button("fb-addroot-card", this::openAddDialog, addCardIcon, addCardTitle, addCardSub);
+            final var addCard = new AddTile(plusIcon, "Add file system",
+                    "Connect a folder on the server: a local disk or a mounted share");
+            addCard.addClickListener(e -> openAddDialog());
             grid.add(addCard);
         }
         if (grid.getComponentCount() > 0) {
