@@ -357,14 +357,17 @@ vaadin-avatar.fb-avatar--l { --vaadin-avatar-size: 34px; }
 
 /* ---- segmented ---- */
 vaadin-radio-group.fb-seg { flex-shrink: 0; padding: 0; }
-vaadin-radio-group.fb-seg::part(group-field) { display: inline-flex; flex-wrap: nowrap; background: var(--fb-bg-subtle); border-radius: var(--fb-radius-m); padding: 2px; gap: 2px; }
+vaadin-radio-group.fb-seg::part(group-field) { display: inline-flex; flex-wrap: nowrap; height: auto; border: 0; background: var(--fb-bg-subtle); border-radius: var(--fb-radius-m); padding: 2px; gap: 2px; }
 vaadin-radio-group.fb-seg > vaadin-radio-button {
-  height: 28px; margin: 0; padding: 0 10px; cursor: pointer; border-radius: 6px; white-space: nowrap;
+  position: relative; height: 28px; margin: 0; padding: 0 10px; cursor: pointer; border-radius: 6px; white-space: nowrap;
+  --vaadin-radio-button-gap: 0;
   display: inline-flex; align-items: center; justify-content: center;
   font: var(--fb-weight-medium) 12.5px/1 var(--fb-font-sans); color: var(--fb-fg-secondary);
   transition: background var(--fb-fast) var(--fb-ease), color var(--fb-fast) var(--fb-ease);
 }
-vaadin-radio-group.fb-seg > vaadin-radio-button::part(radio) { display: none; }
+vaadin-radio-group.fb-seg > vaadin-radio-button::part(radio), vaadin-radio-group.fb-seg > vaadin-radio-button::before { display: none; }
+/* the native input stays for keyboard and clicks but must not take room next to the label */
+vaadin-radio-group.fb-seg > vaadin-radio-button > input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: inherit; }
 vaadin-radio-group.fb-seg > vaadin-radio-button > label { padding: 0; cursor: inherit; color: inherit; font: inherit; }
 vaadin-radio-group.fb-seg > vaadin-radio-button[checked] { background: var(--fb-white); color: var(--fb-accent-text); box-shadow: var(--fb-shadow-xs); font-weight: var(--fb-weight-semibold); }
 vaadin-radio-group.fb-seg > vaadin-radio-button[focus-ring] { box-shadow: var(--fb-shadow-focus); }
