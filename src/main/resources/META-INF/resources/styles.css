@@ -280,19 +280,17 @@ vaadin-text-field.fb-field--mono { --vaadin-input-field-value-font-family: var(-
 .fb-field-error-text { color: var(--fb-red); }
 
 /* ---- badge ---- */
-.fb-badge {
-  display: inline-flex; align-items: center; gap: 5px; height: 21px; padding: 0 9px;
-  border-radius: var(--fb-radius-full); font: var(--fb-weight-medium) 12px/1 var(--fb-font-sans);
-  white-space: nowrap; color: var(--b-color); background: var(--b-bg); box-shadow: inset 0 0 0 1px var(--b-ring);
-  --icon-size: 12px; flex-shrink: 0;
+vaadin-badge {
+  --vaadin-badge-font-size: 12px; --vaadin-badge-font-weight: var(--fb-weight-medium); --vaadin-badge-line-height: 19px;
+  --vaadin-badge-padding: 0 8px; --vaadin-badge-gap: 5px; --vaadin-badge-border-radius: var(--fb-radius-full);
+  --vaadin-badge-border-width: 1px; --icon-size: 12px; flex-shrink: 0; white-space: nowrap;
+  --vaadin-badge-text-color: var(--fb-fg); --vaadin-badge-background: rgba(11, 11, 11, 0.06); --vaadin-badge-border-color: rgba(11, 11, 11, 0.10);
 }
-.fb-badge--dot { padding: 0 9px 0 7px; }
-.fb-badge-dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
-.fb-badge--neutral { --b-color: var(--fb-fg); --b-bg: rgba(11, 11, 11, 0.06); --b-ring: rgba(11, 11, 11, 0.10); }
-.fb-badge--accent  { --b-color: var(--fb-accent-text); --b-bg: var(--fb-accent-bg-subtle); --b-ring: rgba(50, 102, 228, 0.20); }
-.fb-badge--success { --b-color: var(--fb-green-text); --b-bg: rgba(0, 159, 52, 0.12); --b-ring: rgba(0, 159, 52, 0.22); }
-.fb-badge--warning { --b-color: var(--fb-orange); --b-bg: rgba(220, 86, 0, 0.10); --b-ring: rgba(220, 86, 0, 0.22); }
-.fb-badge--error   { --b-color: var(--fb-red); --b-bg: rgba(219, 55, 58, 0.10); --b-ring: rgba(219, 55, 58, 0.22); }
+vaadin-badge.fb-badge-accent { --vaadin-badge-text-color: var(--fb-accent-text); --vaadin-badge-background: var(--fb-accent-bg-subtle); --vaadin-badge-border-color: rgba(50, 102, 228, 0.20); }
+vaadin-badge[theme~="success"] { --vaadin-badge-text-color: var(--fb-green-text); --vaadin-badge-background: rgba(0, 159, 52, 0.12); --vaadin-badge-border-color: rgba(0, 159, 52, 0.22); }
+vaadin-badge[theme~="warning"] { --vaadin-badge-text-color: var(--fb-orange); --vaadin-badge-background: rgba(220, 86, 0, 0.10); --vaadin-badge-border-color: rgba(220, 86, 0, 0.22); }
+vaadin-badge[theme~="error"] { --vaadin-badge-text-color: var(--fb-red); --vaadin-badge-background: rgba(219, 55, 58, 0.10); --vaadin-badge-border-color: rgba(219, 55, 58, 0.22); }
+.fb-badge-dot { display: block; width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
 
 /* ---- avatar ---- */
 .fb-avatar {
@@ -830,7 +828,6 @@ vaadin-text-field.fb-search [slot="prefix"] { color: var(--fb-fg-secondary); }
 .fb-details-preview { height: 180px; border-radius: var(--fb-radius-l); background: var(--fb-surface-2); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; border: 1px solid var(--fb-border); flex-shrink: 0; }
 .fb-details-preview--image { background: linear-gradient(135deg, color-mix(in srgb, var(--t-fill) 13%, transparent), color-mix(in srgb, var(--t-fill) 2%, transparent)), var(--t-soft); color: var(--t-fill); --icon-size: 44px; }
 .fb-details-badges { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
-.fb-details-badges .fb-badge--accent .fb-icon { margin-right: -2px; }
 .fb-details-meta { display: flex; flex-direction: column; border: 1px solid var(--fb-border); border-radius: var(--fb-radius-m); overflow: hidden; }
 .fb-details-meta-row { display: flex; gap: 12px; padding: 9px 12px; align-items: center; }
 .fb-details-meta-row + .fb-details-meta-row { border-top: 1px solid var(--fb-border-subtle); }
@@ -995,7 +992,7 @@ vaadin-button.fb-btn.fb-field-browse {
   height: 26px; padding: 0 9px; margin-right: -4px; font-size: 12.5px; border-radius: var(--fb-radius-s);
 }
 .fb-picker-tree { max-height: 360px; }
-.fb-move-row > .fb-badge { margin-left: auto; }
+.fb-move-row > vaadin-badge { margin-left: auto; }
 .fb-addroot-types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .fb-addroot-type {
   display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px; cursor: pointer; text-align: left;

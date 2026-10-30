@@ -36,7 +36,6 @@ import org.vaadin.filebrowser.service.Workspace;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.storage.StoragePaths;
-import org.vaadin.filebrowser.ui.Badge;
 import org.vaadin.filebrowser.ui.BulkBar;
 import org.vaadin.filebrowser.ui.DetailsPanel;
 import org.vaadin.filebrowser.ui.EmptyState;
@@ -70,6 +69,7 @@ import jakarta.annotation.security.PermitAll;
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.badge.BadgeVariant;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
@@ -397,7 +397,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             final var crumbs = breadcrumb();
             titleRow.add(crumbs);
             if (readOnly()) {
-                final var readOnlyBadge = new Badge(Badge.Tone.WARNING, "Read only", true);
+                final var readOnlyBadge = Ui.dotBadge("Read only", BadgeVariant.WARNING);
                 titleRow.add(readOnlyBadge);
             }
         }

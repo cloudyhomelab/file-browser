@@ -6,6 +6,8 @@ import org.vaadin.filebrowser.data.KindInfo;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Composite;
+import com.vaadin.flow.component.badge.Badge;
+import com.vaadin.flow.component.badge.BadgeVariant;
 import com.vaadin.flow.component.card.Card;
 import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.function.SerializableRunnable;
@@ -53,7 +55,7 @@ public class DriveCard extends Composite<Card> {
         final var capacity = new CapacityMeter(root, kind, CapacityMeter.Style.CARD);
         card.add(rule, capacity);
 
-        final var typeBadge = new Badge(Badge.Tone.NEUTRAL, kind.label());
+        final var typeBadge = new Badge(kind.label());
         final var detail = root.status().detail();
         final var foot = Ui.div("fb-drive-foot", typeBadge);
         if (!detail.isBlank()) {
@@ -77,14 +79,14 @@ public class DriveCard extends Composite<Card> {
 
     private static Component accessBadge(FsRoot root) {
         if (!root.online()) {
-            return new Badge(Badge.Tone.NEUTRAL, "Offline", true);
+            return Ui.dotBadge("Offline");
         }
         if (root.access() == Access.READ_WRITE) {
-            return new Badge(Badge.Tone.SUCCESS, "Read & write", true);
+            return Ui.dotBadge("Read & write", BadgeVariant.SUCCESS);
         }
         if (root.access() == Access.READ_ONLY) {
-            return new Badge(Badge.Tone.WARNING, "Read only", true);
+            return Ui.dotBadge("Read only", BadgeVariant.WARNING);
         }
-        return new Badge(Badge.Tone.ERROR, "No access", true);
+        return Ui.dotBadge("No access", BadgeVariant.ERROR);
     }
 }

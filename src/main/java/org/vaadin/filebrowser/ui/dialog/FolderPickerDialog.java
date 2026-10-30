@@ -9,12 +9,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import org.vaadin.filebrowser.ui.Badge;
 import org.vaadin.filebrowser.ui.Buttons;
 import org.vaadin.filebrowser.ui.Icon;
 import org.vaadin.filebrowser.ui.SubfolderLoader;
 import org.vaadin.filebrowser.ui.Ui;
 
+import com.vaadin.flow.component.badge.Badge;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
@@ -169,7 +169,7 @@ public class FolderPickerDialog extends FbDialog {
         final var taken = connected.test(absolute(path));
         row.getElement().getClassList().set("fb-move-row--disabled", taken);
         if (taken) {
-            final var badge = new Badge(Badge.Tone.NEUTRAL, "Connected");
+            final var badge = new Badge("Connected");
             row.add(badge);
         } else {
             row.addClickListener(e -> {

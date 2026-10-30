@@ -1,6 +1,8 @@
 package org.vaadin.filebrowser.ui;
 
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.badge.Badge;
+import com.vaadin.flow.component.badge.BadgeVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.NativeButton;
@@ -46,6 +48,14 @@ public final class Ui {
         button.add(content);
         button.getElement().addEventListener("click", e -> onClick.run()).stopPropagation();
         return button;
+    }
+
+    /** A badge led by a dot in its text colour, for a state such as online or read only. */
+    public static Badge dotBadge(String text, BadgeVariant... variants) {
+        final var dot = span("fb-badge-dot", "");
+        final var badge = new Badge(text, dot);
+        badge.addThemeVariants(variants);
+        return badge;
     }
 
     /** A checkbox inside a clickable row or tile, which must not also get the click. */
