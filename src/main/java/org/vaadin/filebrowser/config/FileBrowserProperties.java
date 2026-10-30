@@ -14,12 +14,14 @@ public record FileBrowserProperties(Path databasePath, Map<String, Provider> oid
                                     List<String> allowedEmails, boolean requireVerifiedEmail,
                                     List<String> adminEmails, DataSize maxUploadSize, Path secretKeyFile,
                                     List<String> linkUploadAllowedNetworks, DataSize maxExtractSize,
-                                    Integer maxExtractEntries, Integer maxFolderUploadEntries) {
+                                    Integer maxExtractEntries, Integer maxFolderUploadEntries,
+                                    Integer deleteUndoSeconds) {
 
     /** Unless set, an archive may expand to this many times the upload limit. */
     private static final int DEFAULT_EXTRACT_FACTOR = 4;
     private static final int DEFAULT_EXTRACT_ENTRIES = 10_000;
     private static final int DEFAULT_FOLDER_UPLOAD_ENTRIES = 10_000;
+    private static final int DEFAULT_DELETE_UNDO_SECONDS = 5;
 
     public enum ProviderIcon { GOOGLE, KEYCLOAK, POCKET_ID, GENERIC }
 
@@ -37,6 +39,10 @@ public record FileBrowserProperties(Path databasePath, Map<String, Provider> oid
         linkUploadAllowedNetworks = linkUploadAllowedNetworks == null ? List.of() : List.copyOf(linkUploadAllowedNetworks);
         maxExtractEntries = Objects.requireNonNullElse(maxExtractEntries, DEFAULT_EXTRACT_ENTRIES);
         maxFolderUploadEntries = Objects.requireNonNullElse(maxFolderUploadEntries, DEFAULT_FOLDER_UPLOAD_ENTRIES);
+        deleteUndoSeconds = Objects.requireNonNullElse(deleteUndoSeconds, DEFAULT_DELETE_UNDO_SECONDS);
+        if (deleteUndoSeconds < 0) {
+            throw new IllegalStateException("FILEBROWSER_DELETE_UNDO_SECONDS must be 0 or more: " + deleteUndoSeconds);
+        }
     }
 
     /** The most an extracted archive may add up to: the setting, else a multiple of the upload limit. */

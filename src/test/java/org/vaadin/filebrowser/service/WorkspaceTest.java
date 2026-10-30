@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,9 @@ import org.vaadin.filebrowser.storage.StorageException;
 /** A view keeps the {@link FsRoot} it opened with; changes an admin makes later must still apply. */
 class WorkspaceTest {
 
+    /** Long enough that a pending delete is still waiting when a test looks at it. */
+    private static final Duration UNDO_DELAY = Duration.ofMinutes(1);
+
     @TempDir
     Path dir;
 
@@ -55,6 +59,7 @@ class WorkspaceTest {
     private JdbcClient jdbc;
     private Catalog catalog;
     private StorageService storage;
+    private PendingDeletes pendingDeletes;
 
     @BeforeEach
     void setUp() throws IOException {
@@ -69,6 +74,7 @@ class WorkspaceTest {
         storage = new StorageService(new StorageTypes(List.of(new DiskStorageType(catalog)), catalog));
         registry = new FileSystemRegistry(jdbc, () -> true, () -> "admin@example.com", Clock.systemUTC(),
                 storage::status);
+        pendingDeletes = new PendingDeletes(storage, registry, new UserData(jdbc), UNDO_DELAY);
         // no one is signed in during most tests, so nothing is saved per user
         workspace = workspace(new CurrentUser(null, null));
 
@@ -83,13 +89,14 @@ class WorkspaceTest {
     @AfterEach
     void signOut() {
         SecurityContextHolder.clearContext();
+        pendingDeletes.destroy();
     }
 
     /** Without a secret key, so no secrets can be stored. */
     private Workspace workspace(CurrentUser currentUser) {
         final var secrets = new RootSecrets(jdbc, new SecretBox((String) null));
         final var links = new LinkFetcher(address -> false, SystemDefaultDnsResolver.INSTANCE);
-        return new Workspace(catalog, registry, storage, secrets, links, new UserData(jdbc), currentUser);
+        return new Workspace(catalog, registry, storage, secrets, links, new UserData(jdbc), currentUser, pendingDeletes);
     }
 
     private static CurrentUser signedInAdmin() {
@@ -102,7 +109,7 @@ class WorkspaceTest {
         final var authorities = List.of(new SimpleGrantedAuthority(Roles.ADMIN_AUTHORITY));
         final var user = new DefaultOidcUser(authorities, idToken);
         SecurityContextHolder.getContext().setAuthentication(new OAuth2AuthenticationToken(user, authorities, "dex"));
-        final var properties = new FileBrowserProperties(null, null, null, null, true, null, null, null, null, null, null, null);
+        final var properties = new FileBrowserProperties(null, null, null, null, true, null, null, null, null, null, null, null, null);
         return new CurrentUser(null, properties);
     }
 
@@ -376,5 +383,46 @@ class WorkspaceTest {
         final var config = new StorageConfig(folder.toString(), Map.of(), Map.of(), TestRoots.MAX_CONNECTIONS);
         assertThatThrownBy(() -> workspace.checkRoot(DiskStorageType.KEY, config))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void aPendingDeleteHidesItsItemsAndHoldsTheirNamesUntilUndone() throws Exception {
+        final var docs = Files.createDirectory(folder.resolve("Docs"));
+        Files.writeString(docs.resolve("plan.txt"), "plan");
+        final var pending = workspace.deleteLater(held, List.of(entry("Docs"), entry("notes.txt")));
+
+        assertThat(workspace.list(held, List.of())).isEmpty();
+        assertThat(workspace.deletesWaiting()).isTrue();
+        assertThatThrownBy(() -> workspace.createFolder(held, List.of(), "Docs"))
+                .isInstanceOf(StorageException.class)
+                .hasMessage("“Docs” is being deleted. Undo it or try again in a few seconds.");
+        assertThatThrownBy(() -> workspace.createFolder(held, List.of("Docs"), "Inner"))
+                .hasMessage("“Docs” is being deleted. Undo it or try again in a few seconds.");
+        assertThat(folder.resolve("notes.txt")).exists();
+
+        assertThat(workspace.undoDelete(pending)).isTrue();
+        assertThat(workspace.list(held, List.of())).extracting(StorageEntry::name).containsExactlyInAnyOrder("Docs", "notes.txt");
+        assertThat(workspace.deletesWaiting()).isFalse();
+        workspace.createFolder(held, List.of("Docs"), "Inner");
+        assertThat(docs.resolve("Inner")).isDirectory();
+    }
+
+    @Test
+    void anotherUsersPendingDeleteHoldsTheNameWithoutOfferingUndo() {
+        final var notes = entry("notes.txt");
+        pendingDeletes.schedule(held, "someone@example.com", List.of(notes), outcome -> { });
+
+        assertThat(workspace.list(held, List.of())).extracting(StorageEntry::name).containsExactly("notes.txt");
+        assertThatThrownBy(() -> workspace.copy(held, notes, List.of(), "notes.txt", false))
+                .hasMessage("“notes.txt” is being deleted. Try again in a few seconds.");
+    }
+
+    @Test
+    void aPendingDeleteOnAReadOnlyFileSystemIsRefused() {
+        registry.update("a", "Projects", Access.READ_ONLY);
+
+        assertThatThrownBy(() -> workspace.deleteLater(held, List.of(entry("notes.txt"))))
+                .hasMessage("This file system is read only.");
+        assertThat(workspace.deletesWaiting()).isFalse();
     }
 }

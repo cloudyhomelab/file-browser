@@ -114,9 +114,16 @@ change, so to point it elsewhere remove it and add it again. Removing a file sys
 off the list: its files stay where they are, and everyone's stars in it are removed. Changes apply at
 once, including for people who have it open.
 
-Deleting files and folders in the app is permanent. Uploads are streamed straight into the folder
-and appear only when complete; the limit per file is `FILEBROWSER_MAX_UPLOAD_SIZE` (default
-`5GB`). Downloading a folder or several items produces a zip built on the fly.
+Deleting files and folders in the app is permanent, with no trash: the app doesn't own the storage,
+so it couldn't promise that trashed items survive other clients. Deleting a folder asks for its name
+to be typed (for several items including a folder, "Delete N items"). The delete then waits
+`FILEBROWSER_DELETE_UNDO_SECONDS` seconds (default 5) with an Undo button; the items disappear for the
+person deleting them at once and for everyone else when the delete runs. It runs on the server whether
+or not the page is still open; if the server stops before then, nothing is deleted. `0` deletes at
+once.
+
+Uploads are streamed straight into the folder and appear only when complete; the limit per file is
+`FILEBROWSER_MAX_UPLOAD_SIZE` (default `5GB`). Downloading a folder or several items produces a zip built on the fly.
 
 Whole folders can be uploaded by dropping them or with "Choose folder" in the upload dialog; their
 structure is kept, including empty folders when dropped (the browser's folder picker doesn't list
