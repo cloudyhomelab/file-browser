@@ -389,10 +389,11 @@ class WorkspaceTest {
     void aPendingDeleteHidesItsItemsAndHoldsTheirNamesUntilUndone() throws Exception {
         final var docs = Files.createDirectory(folder.resolve("Docs"));
         Files.writeString(docs.resolve("plan.txt"), "plan");
-        final var pending = workspace.deleteLater(held, List.of(entry("Docs"), entry("notes.txt")));
+        final var deletes = workspace.getDeletes();
+        final var pending = deletes.schedule(held, List.of(entry("Docs"), entry("notes.txt")));
 
         assertThat(workspace.list(held, List.of())).isEmpty();
-        assertThat(workspace.deletesWaiting()).isTrue();
+        assertThat(deletes.anyWaiting()).isTrue();
         assertThatThrownBy(() -> workspace.createFolder(held, List.of(), "Docs"))
                 .isInstanceOf(StorageException.class)
                 .hasMessage("“Docs” is being deleted. Undo it or try again in a few seconds.");
@@ -400,9 +401,9 @@ class WorkspaceTest {
                 .hasMessage("“Docs” is being deleted. Undo it or try again in a few seconds.");
         assertThat(folder.resolve("notes.txt")).exists();
 
-        assertThat(workspace.undoDelete(pending)).isTrue();
+        assertThat(deletes.undo(pending)).isTrue();
         assertThat(workspace.list(held, List.of())).extracting(StorageEntry::name).containsExactlyInAnyOrder("Docs", "notes.txt");
-        assertThat(workspace.deletesWaiting()).isFalse();
+        assertThat(deletes.anyWaiting()).isFalse();
         workspace.createFolder(held, List.of("Docs"), "Inner");
         assertThat(docs.resolve("Inner")).isDirectory();
     }
@@ -421,8 +422,11 @@ class WorkspaceTest {
     void aPendingDeleteOnAReadOnlyFileSystemIsRefused() {
         registry.update("a", "Projects", Access.READ_ONLY);
 
-        assertThatThrownBy(() -> workspace.deleteLater(held, List.of(entry("notes.txt"))))
+        final var deletes = workspace.getDeletes();
+        final var notes = entry("notes.txt");
+
+        assertThatThrownBy(() -> deletes.schedule(held, List.of(notes)))
                 .hasMessage("This file system is read only.");
-        assertThat(workspace.deletesWaiting()).isFalse();
+        assertThat(deletes.anyWaiting()).isFalse();
     }
 }

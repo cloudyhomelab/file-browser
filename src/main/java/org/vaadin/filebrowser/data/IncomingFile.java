@@ -2,6 +2,7 @@ package org.vaadin.filebrowser.data;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A file the user picked, dropped or gave as a web link, before it is uploaded.
@@ -18,10 +19,8 @@ public record IncomingFile(String clientId, String name, String type, long size,
 
     public static final long UNKNOWN_SIZE = -1;
 
-    // PMD reads a compact constructor's reassigned parameters as unused
-    @SuppressWarnings("PMD.UnusedAssignment")
     public IncomingFile {
-        folder = folder == null ? List.of() : List.copyOf(folder);
+        Objects.requireNonNull(folder, "folder");
     }
 
     public IncomingFile(String clientId, String name, String type, long size) {
@@ -37,7 +36,8 @@ public record IncomingFile(String clientId, String name, String type, long size,
     }
 
     public IncomingFile inFolder(List<String> segments) {
-        return new IncomingFile(clientId, name, type, size, url, extract, segments);
+        final var copied = List.copyOf(segments);
+        return new IncomingFile(clientId, name, type, size, url, extract, copied);
     }
 
     public boolean fromLink() {

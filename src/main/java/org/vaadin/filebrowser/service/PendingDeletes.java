@@ -108,7 +108,11 @@ public class PendingDeletes implements DisposableBean {
 
     /** Deletes {@code entries} after the delay unless cancelled; {@code onDone} gets the outcome on another thread. */
     public Pending schedule(FsRoot root, String email, List<StorageEntry> entries, Consumer<Outcome> onDone) {
-        final var pending = new Pending(UUID.randomUUID().toString(), root, email, List.copyOf(entries));
+        final var now = registry.find(root.id()).orElseThrow(() -> new StorageException("This file system was removed."));
+        if (now.readOnly()) {
+            throw new StorageException("This file system is read only.");
+        }
+        final var pending = new Pending(UUID.randomUUID().toString(), now, email, List.copyOf(entries));
         final var waiting = new Waiting(pending, onDone);
         synchronized (this) {
             deletes.put(pending.id(), waiting);

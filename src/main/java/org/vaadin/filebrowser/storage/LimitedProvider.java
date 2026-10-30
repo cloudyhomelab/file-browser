@@ -181,15 +181,18 @@ public final class LimitedProvider implements StorageProvider, AutoCloseable {
         closeDelegate();
     }
 
-    // closed explicitly: only some providers are closeable
-    @SuppressWarnings("PMD.CloseResource")
     private void closeDelegate() {
-        if (delegate instanceof AutoCloseable closeable) {
-            try {
-                closeable.close();
-            } catch (Exception ignored) {
-                // it is no longer used either way
-            }
+        // only some providers hold anything to close
+        if (delegate instanceof AutoCloseable) {
+            closeQuietly((AutoCloseable) delegate);
+        }
+    }
+
+    private static void closeQuietly(AutoCloseable resource) {
+        try {
+            resource.close();
+        } catch (Exception ignored) {
+            // it is no longer used either way
         }
     }
 

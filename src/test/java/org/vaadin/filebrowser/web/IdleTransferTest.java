@@ -11,9 +11,12 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class IdleTransferTest {
@@ -21,6 +24,8 @@ class IdleTransferTest {
     private static final Duration IDLE_LIMIT = Duration.ofMillis(100);
     private static final Duration LONG_WAIT = Duration.ofSeconds(5);
     private static final byte[] CONTENT = "some bytes".getBytes();
+
+    private final ScheduledExecutorService watcher = Executors.newSingleThreadScheduledExecutor();
 
     /** A file whose stream fails once closed, as a storage stream does. */
     private static final class Source extends FilterInputStream {
@@ -71,11 +76,16 @@ class IdleTransferTest {
         }
     }
 
+    @AfterEach
+    void stopWatcher() {
+        watcher.shutdownNow();
+    }
+
     @Test
     void copiesWhatTheClientReads() throws IOException {
         final var source = new Source();
         final var out = new ByteArrayOutputStream();
-        IdleTransfer.transfer(source, out, IDLE_LIMIT);
+        IdleTransfer.transfer(source, out, IDLE_LIMIT, watcher);
         assertThat(out.toByteArray()).isEqualTo(CONTENT);
         assertThat(source.closed).isFalse();
     }
@@ -85,7 +95,7 @@ class IdleTransferTest {
         final var source = new Source();
         final var started = System.nanoTime();
         final var client = new PausedClient(source);
-        IdleTransfer.transfer(source, client, IDLE_LIMIT);
+        IdleTransfer.transfer(source, client, IDLE_LIMIT, watcher);
         assertThat(source.closed).isTrue();
         assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(LONG_WAIT);
     }
@@ -99,6 +109,6 @@ class IdleTransferTest {
                 throw new IOException("client left");
             }
         };
-        assertThatThrownBy(() -> IdleTransfer.transfer(source, gone, IDLE_LIMIT)).hasMessage("client left");
+        assertThatThrownBy(() -> IdleTransfer.transfer(source, gone, IDLE_LIMIT, watcher)).hasMessage("client left");
     }
 }

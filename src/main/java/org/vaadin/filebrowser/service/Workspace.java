@@ -1,7 +1,6 @@
 package org.vaadin.filebrowser.service;
 
 import java.io.Serializable;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -9,10 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Objects;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Stream;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -41,9 +38,8 @@ import lombok.Getter;
  * operations through {@link StorageService}, the user's starred items and view preferences (saved
  * through {@link UserData}), uploads, transfers and deletes waiting to be undone. Lives for the Vaadin session.
  */
-// holds app-wide services; sessions are never serialized. Both go with #76. Views reach every file operation
-// through this one class, so its public surface is wide on purpose
-@SuppressWarnings({"PMD.NonSerializableClass", "PMD.TooManyMethods", "PMD.ExcessivePublicCount"})
+// holds app-wide services; sessions are never serialized. Both go with #76
+@SuppressWarnings({"PMD.NonSerializableClass", "PMD.TooManyMethods"})
 @SpringComponent
 @VaadinSessionScope
 public class Workspace implements Serializable {
@@ -70,9 +66,8 @@ public class Workspace implements Serializable {
     private final CurrentUser currentUser;
     private final String email;
     private final PendingDeletes pendingDeletes;
-    /** Ids of this session's deletes that have not finished. */
-    private final Set<String> waitingDeletes = ConcurrentHashMap.newKeySet();
-    private final Queue<PendingDeletes.Outcome> finishedDeletes = new ConcurrentLinkedQueue<>();
+    @Getter
+    private final DeleteQueue deletes;
 
     @Getter
     private Layout layout = UserData.Preferences.DEFAULT.layout();
@@ -96,6 +91,7 @@ public class Workspace implements Serializable {
         this.pendingDeletes = pendingDeletes;
         // the session is created after sign-in, so the user is known here
         this.email = currentUser.get().map(CurrentUser.User::email).orElse(null);
+        this.deletes = new DeleteQueue(pendingDeletes, owner());
         if (email != null) {
             starred.addAll(userData.starred(email));
             final var preferences = userData.preferences(email).orElse(UserData.Preferences.DEFAULT);
@@ -363,47 +359,6 @@ public class Workspace implements Serializable {
     public void delete(FsRoot root, StorageEntry entry) {
         writable(root).delete(entry.path());
         dropStars(root.id(), entry.path());
-    }
-
-    /** Whether deletes wait so they can be undone, rather than running at once through {@link #delete}. */
-    public boolean deletesUndoable() {
-        return pendingDeletes.undoable();
-    }
-
-    public Duration deleteDelay() {
-        return pendingDeletes.delay();
-    }
-
-    /** Deletes {@code entries} once the delay is over; until then they are hidden from this user and can be undone. */
-    public PendingDeletes.Pending deleteLater(FsRoot root, List<StorageEntry> entries) {
-        final var now = writableRoot(root);
-        final var pending = pendingDeletes.schedule(now, owner(), entries, outcome -> {
-            finishedDeletes.add(outcome);
-            waitingDeletes.remove(outcome.pending().id());
-        });
-        waitingDeletes.add(pending.id());
-        return pending;
-    }
-
-    /** False when the delete has already started. */
-    public boolean undoDelete(PendingDeletes.Pending pending) {
-        final var cancelled = pendingDeletes.cancel(pending.id());
-        if (cancelled) {
-            waitingDeletes.remove(pending.id());
-        }
-        return cancelled;
-    }
-
-    public boolean deletesWaiting() {
-        return !waitingDeletes.isEmpty();
-    }
-
-    public List<PendingDeletes.Outcome> takeFinishedDeletes() {
-        final var out = new ArrayList<PendingDeletes.Outcome>();
-        for (var outcome = finishedDeletes.poll(); outcome != null; outcome = finishedDeletes.poll()) {
-            out.add(outcome);
-        }
-        return out;
     }
 
     /**
