@@ -24,10 +24,10 @@ public interface EntryHandler extends Serializable {
 
     void toggleAll(boolean on);
 
-    /** Folder click, file double-click. */
+    /** Double-click, or Enter on the list's focused row: enters a folder, previews a file. */
     void open(Located entry);
 
-    /** File single click. */
+    /** Single click: shows the entry's details where the view has them. */
     void selectRow(Located entry);
 
     /** @param anchor the entry's "⋯" button, which the menu opens at */

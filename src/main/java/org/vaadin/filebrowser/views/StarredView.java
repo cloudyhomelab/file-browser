@@ -173,7 +173,7 @@ public class StarredView extends Div implements EntryHandler {
 
     @Override
     public void selectRow(Located entry) {
-        open(entry);
+        // the starred page has no details panel; a double-click opens the entry
     }
 
     @Override
