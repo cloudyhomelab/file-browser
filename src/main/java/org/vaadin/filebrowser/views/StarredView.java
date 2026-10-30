@@ -72,9 +72,8 @@ public class StarredView extends Div implements EntryHandler {
                 .toList();
         final var total = groups.stream().mapToInt(g -> g.entries().size()).sum();
 
-        final var backIcon = new Icon("angle-left");
-        final var backLabel = Ui.span("", "All file systems");
-        final var back = Ui.button("fb-back-link", () -> UI.getCurrent().navigate(RootsView.class), backIcon, backLabel);
+        final var back = Ui.textButton("fb-back-link", "All file systems", "angle-left",
+                () -> UI.getCurrent().navigate(RootsView.class));
         final var starIcon = new Icon("star");
         final var titleText = Ui.span("", "Starred");
         final var title = new H1();

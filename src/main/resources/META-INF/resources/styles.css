@@ -167,6 +167,11 @@ h1, h2, h3, p { margin: 0; }
 }
 .fb-icon-btn:hover { background: var(--fb-bg-subtle); }
 .fb-icon-btn--s { width: 28px; height: 28px; --icon-size: 16px; }
+/* Aura's tertiary button sets padding-inline through a selector more specific than a class name */
+vaadin-button.fb-icon-btn { padding-inline: 0 !important; }
+vaadin-button.fb-bulkbar-btn { padding-inline: 11px !important; --vaadin-button-gap: 6px; }
+vaadin-button.fb-drive-request { padding-inline: 13px !important; --vaadin-button-gap: 6px; }
+vaadin-button.fb-back-link { padding-inline: 0 8px !important; --vaadin-button-gap: 6px; }
 
 .fb-ghost-btn {
   display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 11px; cursor: pointer;

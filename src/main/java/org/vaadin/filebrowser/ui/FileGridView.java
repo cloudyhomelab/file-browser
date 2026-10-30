@@ -43,10 +43,9 @@ public class FileGridView extends Composite<Div> {
             final var starIcon = new Icon("star");
             card.setStartIndicator(starIcon);
         }
-        final var dotsIcon = new Icon("dots");
-        final var dots = Ui.button("fb-icon-btn fb-icon-btn--s", () -> { }, dotsIcon);
-        dots.getElement().setAttribute("aria-label", "More actions");
-        dots.getElement().addEventListener("click", e -> handler.contextMenu(located, dots));
+        final var dots = Ui.iconButton("dots", "More actions");
+        dots.addClassName("fb-icon-btn--s");
+        dots.addClickListener(e -> handler.contextMenu(located, dots));
         final var star = new StarToggle(starred, () -> handler.toggleStar(located));
         card.setEndControls(star, dots);
 

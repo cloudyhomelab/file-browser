@@ -111,10 +111,9 @@ public class FileListView extends Composite<Div> {
 
         final var star = new StarToggle(starred, () -> handler.toggleStar(located));
         star.getElement().getClassList().set("fb-reveal", !starred);
-        final var dotsIcon = new Icon("dots");
-        final var dots = Ui.button("fb-icon-btn fb-icon-btn--s fb-reveal", () -> { }, dotsIcon);
-        dots.getElement().setAttribute("aria-label", "More actions");
-        dots.getElement().addEventListener("click", e -> handler.contextMenu(located, dots));
+        final var dots = Ui.iconButton("dots", "More actions");
+        dots.addClassNames("fb-icon-btn--s", "fb-reveal");
+        dots.addClickListener(e -> handler.contextMenu(located, dots));
         final var actions = Ui.span("fb-row-actions", star, dots);
         row.add(actions);
 

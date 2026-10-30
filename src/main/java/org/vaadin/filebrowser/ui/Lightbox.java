@@ -12,13 +12,13 @@ import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.ModalityMode;
 import com.vaadin.flow.component.Shortcuts;
+import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.AnchorTarget;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.IFrame;
 import com.vaadin.flow.component.html.Image;
-import com.vaadin.flow.component.html.NativeButton;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.dom.Element;
 import com.vaadin.flow.function.SerializableConsumer;
@@ -38,8 +38,8 @@ public class Lightbox extends Dialog {
     private final Span name = Ui.span("fb-lightbox-name", "");
     private final Span position = Ui.span("fb-lightbox-position", "");
     private final Anchor newTab = new Anchor();
-    private final NativeButton previousButton;
-    private final NativeButton nextButton;
+    private final Button previousButton;
+    private final Button nextButton;
     private final Div stage = Ui.div("fb-lightbox-stage");
     private int index;
 

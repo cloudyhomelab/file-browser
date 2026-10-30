@@ -43,10 +43,9 @@ public class DriveCard extends Composite<Card> {
         status.getElement().setAttribute("title", root.online() ? "Online" : "Offline");
         final var suffix = Ui.div("fb-drive-suffix", status);
         if (onMenu != null) {
-            final var dotsIcon = new Icon("dots");
-            final var dots = Ui.button("fb-icon-btn fb-icon-btn--s fb-drive-more", () -> { }, dotsIcon);
-            dots.getElement().setAttribute("aria-label", "File system actions");
-            dots.getElement().addEventListener("click", e -> onMenu.accept(dots)).stopPropagation();
+            final var dots = Ui.iconButton("dots", "File system actions");
+            dots.addClassNames("fb-icon-btn--s", "fb-drive-more");
+            dots.addClickListener(e -> onMenu.accept(dots));
             suffix.add(dots);
         }
         card.setHeaderSuffix(suffix);
@@ -69,9 +68,7 @@ public class DriveCard extends Composite<Card> {
         card.addToFooter(foot);
 
         if (root.locked()) {
-            final var lockIcon = new Icon("lock");
-            final var requestLabel = Ui.span("", "Request access");
-            final var request = Ui.button("fb-drive-request", onRequestAccess, lockIcon, requestLabel);
+            final var request = Ui.textButton("fb-drive-request", "Request access", "lock", onRequestAccess);
             final var lock = Ui.div("fb-drive-lock", request);
             card.add(lock);
         }

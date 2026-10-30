@@ -1,8 +1,8 @@
 package org.vaadin.filebrowser.ui;
 
 import com.vaadin.flow.component.Composite;
+import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.NativeButton;
 import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.function.SerializableRunnable;
 
@@ -22,18 +22,15 @@ public class BulkBar extends Composite<Div> {
         final var copy = action("copy", "Copy", EntryAction.COPY, false, false, onAction);
         final var delete = action("trash", "Delete", EntryAction.DELETE, true, readOnly, onAction);
         final var trailingSeparator = Ui.divider("fb-bulkbar-sep fb-bulkbar-sep--tight");
-        final var crossIcon = new Icon("cross");
-        final var clearButton = Ui.button("fb-bulkbar-clear", onClear, crossIcon);
-        final var clear = Ui.withTitle(clearButton, "Clear selection");
+        final var clear = Ui.iconButton("cross", "Clear selection", onClear);
+        clear.addClassName("fb-bulkbar-clear");
         div.add(counter, leadingSeparator, download, move, copy, delete, trailingSeparator, clear);
     }
 
-    private static NativeButton action(String icon, String label, EntryAction action, boolean danger, boolean disabled,
-                                       SerializableConsumer<EntryAction> onAction) {
-        final var iconComponent = new Icon(icon);
-        final var labelComponent = Ui.span("", label);
-        final var button = Ui.button("fb-bulkbar-btn" + (danger ? " fb-bulkbar-btn--danger" : ""),
-                () -> onAction.accept(action), iconComponent, labelComponent);
+    private static Button action(String icon, String label, EntryAction action, boolean danger, boolean disabled,
+                                 SerializableConsumer<EntryAction> onAction) {
+        final var button = Ui.textButton("fb-bulkbar-btn", label, icon, () -> onAction.accept(action));
+        button.getElement().getClassList().set("fb-bulkbar-btn--danger", danger);
         button.setEnabled(!disabled);
         return button;
     }
