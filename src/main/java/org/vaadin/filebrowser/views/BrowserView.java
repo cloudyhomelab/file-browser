@@ -70,6 +70,8 @@ import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.badge.BadgeVariant;
+import com.vaadin.flow.component.breadcrumbs.Breadcrumbs;
+import com.vaadin.flow.component.breadcrumbs.BreadcrumbsItem;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
@@ -414,22 +416,28 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
         }
     }
 
-    private Div breadcrumb() {
-        final var crumbs = Ui.div("fb-breadcrumb");
+    private Breadcrumbs breadcrumb() {
+        final var crumbs = new Breadcrumbs(Breadcrumbs.Mode.MANUAL);
+        crumbs.addClassName("fb-breadcrumb");
+        final var rootItem = crumb(root.name(), List.of());
         final var rootChip = RootChip.of(root, workspace.getCatalog(), RootChip.Size.XS);
-        final var rootName = Ui.span("", root.name());
-        final var rootCrumb = Ui.button("fb-crumb fb-crumb--root", () -> navTo(List.of()), rootChip, rootName);
-        crumbs.add(rootCrumb);
+        rootItem.setPrefixComponent(rootChip);
+        crumbs.add(rootItem);
         for (int i = 0; i < path.size(); i++) {
             final var target = List.copyOf(path.subList(0, i + 1));
-            final var last = i == path.size() - 1;
-            final var separatorIcon = new Icon("angle-right");
-            final var separator = Ui.span("fb-crumb-sep", separatorIcon);
-            final var segmentName = Ui.span("", path.get(i));
-            final var crumb = Ui.button("fb-crumb" + (last ? " fb-crumb--current" : ""), () -> navTo(target), segmentName);
-            crumbs.add(separator, crumb);
+            final var item = crumb(path.get(i), target);
+            crumbs.add(item);
         }
         return crumbs;
+    }
+
+    /** The current folder is the last item and is not a link. */
+    private BreadcrumbsItem crumb(String name, List<String> target) {
+        if (target.equals(path)) {
+            return new BreadcrumbsItem(name);
+        }
+        final var params = params(root.id(), target);
+        return new BreadcrumbsItem(name, BrowserView.class, params);
     }
 
     private void renderContent(List<Located> entries) {
