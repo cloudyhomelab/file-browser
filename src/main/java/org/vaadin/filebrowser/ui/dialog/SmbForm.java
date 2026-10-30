@@ -4,9 +4,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.vaadin.filebrowser.storage.SmbStorageType;
-import org.vaadin.filebrowser.ui.Switch;
 import org.vaadin.filebrowser.ui.Ui;
 
+import com.vaadin.flow.component.checkbox.Switch;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.textfield.Autocomplete;
@@ -25,7 +25,7 @@ public class SmbForm extends RootForm {
         signIn = new SignInBox(context, this::field);
         final var settings = editing() ? context.editing().settings() : Map.<String, String>of();
         requireEncryption = new Switch("Require encryption", SmbStorageType.requireEncryption(settings),
-                on -> context.onChange().run());
+                e -> context.onChange().run());
         domain.addClassName("fb-field--mono");
         domain.setAutocomplete(Autocomplete.OFF);
         field(domain);
@@ -36,7 +36,7 @@ public class SmbForm extends RootForm {
         signIn.fields(signIn.getUser(), signIn.getPassword(), domain);
         add(signIn);
         if (editing()) {
-            requireEncryption.locked();
+            requireEncryption.setEnabled(false);
             signIn.lock(signIn.getUser(), SmbStorageType.USER);
             signIn.lock(signIn.getPassword(), SmbStorageType.PASSWORD);
             signIn.lock(domain, SmbStorageType.DOMAIN);
@@ -51,7 +51,7 @@ public class SmbForm extends RootForm {
     @Override
     protected void updateFields() {
         securityHint.removeAll();
-        securityHint.add(new Span(requireEncryption.isOn()
+        securityHint.add(new Span(requireEncryption.getValue()
                 ? "Every message is signed and encrypted; a server that doesn't encrypt is refused."
                 : "Every message is signed, and encrypted when the server offers it."));
         signIn.update(signIn.started(), credentialsProblem(), SignInBox.STORED);
@@ -74,7 +74,7 @@ public class SmbForm extends RootForm {
 
     @Override
     public Map<String, String> settings() {
-        return requireEncryption.isOn() ? Map.of(SmbStorageType.REQUIRE_ENCRYPTION, "true") : Map.of();
+        return requireEncryption.getValue() ? Map.of(SmbStorageType.REQUIRE_ENCRYPTION, "true") : Map.of();
     }
 
     @Override

@@ -16,7 +16,6 @@ import org.vaadin.filebrowser.ui.DriveCard;
 import org.vaadin.filebrowser.ui.Icon;
 import org.vaadin.filebrowser.ui.RootMenu;
 import org.vaadin.filebrowser.ui.StarredBanner;
-import org.vaadin.filebrowser.ui.Switch;
 import org.vaadin.filebrowser.ui.Notices;
 import org.vaadin.filebrowser.ui.Ui;
 import org.vaadin.filebrowser.ui.components.AddTile;
@@ -28,6 +27,7 @@ import jakarta.annotation.security.PermitAll;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.checkbox.Switch;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Main;
@@ -88,8 +88,8 @@ public class RootsView extends Div {
         final var spacer = Ui.spacer();
         final var titlebar = Ui.div("fb-page-titlebar", title, spacer);
         if (!roots.isEmpty()) {
-            final var groupSwitch = new Switch("Group by type", workspace.isGroupByType(), on -> {
-                workspace.setGroupByType(on);
+            final var groupSwitch = new Switch("Group by type", workspace.isGroupByType(), e -> {
+                workspace.setGroupByType(e.getValue());
                 render();
             });
             titlebar.add(groupSwitch);
