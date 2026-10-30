@@ -677,7 +677,7 @@ vaadin-progress-bar.fb-capacity-bar--striped { --vaadin-progress-bar-background:
 .fb-tree-row:hover { background: var(--fb-bg-subtle); }
 .fb-tree-row--active, .fb-tree-row--active:hover { background: var(--fb-accent-bg-subtle); color: var(--fb-accent-text); font-weight: var(--fb-weight-semibold); }
 .fb-tree-row--active > .fb-icon { color: var(--fb-accent); }
-vaadin-grid.fb-folder-tree { border: 0; background: transparent; --vaadin-grid-tree-toggle-level-offset: var(--fb-tree-indent); }
+vaadin-grid.fb-folder-tree { border: 0; background: transparent; --vaadin-grid-cell-padding: 0; --vaadin-grid-tree-toggle-level-offset: var(--fb-tree-indent); }
 vaadin-grid.fb-folder-tree::part(cell) { border: 0; background: transparent; min-height: 30px; padding: 0; }
 vaadin-grid.fb-folder-tree::part(body-cell) { border-radius: var(--fb-radius-m); cursor: pointer; }
 vaadin-grid.fb-folder-tree::part(body-cell):hover { background: var(--fb-bg-subtle); }
