@@ -459,6 +459,7 @@ vaadin-notification-card.fb-toast::part(content) { display: flex; align-items: c
   display: inline-flex; align-items: center; justify-content: center; --icon-size: 14px; flex-shrink: 0;
 }
 .fb-toast-text { font: var(--fb-weight-medium) 13.5px/1 var(--fb-font-sans); color: var(--fb-fg); }
+.fb-toast-action { margin-inline: 4px -8px; }
 
 /* ================= login ================= */
 
@@ -898,6 +899,13 @@ vaadin-dialog.fb-dialog--wide::part(overlay) { width: 560px; }
 .fb-callout { margin-top: 12px; display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-radius: var(--fb-radius-m); font: 400 13px/1.4 var(--fb-font-sans); color: var(--fb-fg); }
 .fb-callout--warning { background: rgba(220, 86, 0, 0.08); border: 1px solid rgba(220, 86, 0, 0.20); }
 .fb-callout--warning > .fb-icon { color: var(--fb-orange); }
+.fb-delete-list {
+  margin-top: 12px; max-height: 168px; overflow-y: auto; /* about six rows, then it scrolls */
+  border: 1px solid var(--fb-border); border-radius: var(--fb-radius-m); padding: 4px 0;
+}
+.fb-delete-list-item { display: flex; align-items: center; gap: 8px; padding: 4px 12px; font: 400 13px/1.4 var(--fb-font-sans); color: var(--fb-fg); --icon-size: 14px; }
+.fb-delete-list-item > .fb-icon { color: var(--fb-fg-tertiary); flex-shrink: 0; }
+.fb-delete-confirm { margin-top: 12px; }
 .fb-section-label { margin: 14px 0 8px; font: var(--fb-weight-semibold) 12px/1 var(--fb-font-sans); color: var(--fb-fg-tertiary); text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* move */

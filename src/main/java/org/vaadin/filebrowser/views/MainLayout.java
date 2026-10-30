@@ -9,6 +9,8 @@ import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.vaadin.filebrowser.config.FileBrowserProperties;
+import org.vaadin.filebrowser.data.Formats;
+import org.vaadin.filebrowser.service.PendingDeletes;
 import org.vaadin.filebrowser.service.TransferTask;
 import org.vaadin.filebrowser.service.UploadTask;
 import org.vaadin.filebrowser.service.Workspace;
@@ -142,8 +144,8 @@ public class MainLayout extends Div implements RouterLayout {
 
     /** One timer for all: fast while uploads or transfers run, else as the view asks, else off. */
     private void updatePollInterval() {
-        final var interval = workspace.getUploads().active() || workspace.getTransfers().pending() ? TASK_POLL_MS
-                : viewPollMs;
+        final var busy = workspace.getUploads().active() || workspace.getTransfers().pending() || workspace.deletesWaiting();
+        final var interval = busy ? TASK_POLL_MS : viewPollMs;
         getUI().ifPresent(ui -> ui.setPollInterval(interval));
     }
 
@@ -154,6 +156,7 @@ public class MainLayout extends Div implements RouterLayout {
         final var finished = uploads.takeFinished();
         final var foldersFinished = uploads.takeFinishedFolders();
         final var transfersFinished = workspace.getTransfers().takeFinished();
+        final var deletesFinished = workspace.takeFinishedDeletes();
         // in the order they were queued, so the newest ends up on top of the notifications, as in the dock
         final var announcements = new ArrayList<Map.Entry<Instant, Runnable>>();
         finished.forEach(u -> announcements.add(Map.entry(u.getQueuedAt(), () -> announce(u))));
@@ -162,10 +165,12 @@ public class MainLayout extends Div implements RouterLayout {
         transfersFinished.forEach(t -> announcements.add(Map.entry(t.getQueuedAt(), () -> announce(t))));
         announcements.sort(Map.Entry.comparingByKey());
         announcements.forEach(a -> a.getValue().run());
+        deletesFinished.forEach(MainLayout::announce);
         showDock();
         updatePollInterval();
         // transfers and folder uploads add folders, which the folder tree shows too
-        final var foldersChanged = !transfersFinished.isEmpty() || !ready.isEmpty() || !foldersFinished.isEmpty();
+        final var foldersChanged = !transfersFinished.isEmpty() || !ready.isEmpty() || !foldersFinished.isEmpty()
+                || !deletesFinished.isEmpty();
         if (foldersChanged || !finished.isEmpty()) {
             listeners.forEach(l -> l.tasksFinished(foldersChanged));
         }
@@ -179,6 +184,18 @@ public class MainLayout extends Div implements RouterLayout {
                     : "Uploaded “" + upload.getName() + "” to " + upload.destinationLabel(), "check");
             case FAILED -> Notices.seen(upload.getError(), "warn");
             default -> { }
+        }
+    }
+
+    private static void announce(PendingDeletes.Outcome delete) {
+        final var pending = delete.pending();
+        if (delete.deleted() > 0) {
+            final var all = delete.deleted() == pending.entries().size();
+            Notices.show((all ? pending.label() : Formats.plural(delete.deleted(), "item")) + " deleted", "trash");
+        }
+        delete.kept().forEach(name -> Notices.show("“" + name + "” changed during the wait, so it was kept.", "warn"));
+        if (delete.problem() != null) {
+            Notices.error(delete.problem());
         }
     }
 

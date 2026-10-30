@@ -687,7 +687,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             case COPY -> pickDestination(Mode.COPY, targets);
             case DELETE -> {
                 final var entries = targets.stream().map(Located::entry).toList();
-                final var dialog = new DeleteDialog(entries, () -> delete(targets));
+                final var delay = workspace.deletesUndoable() ? workspace.deleteDelay() : null;
+                final var dialog = new DeleteDialog(entries, delay, () -> delete(targets));
                 dialog.open();
             }
             case STAR -> {
@@ -873,6 +874,10 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void delete(List<Located> targets) {
+        if (workspace.deletesUndoable()) {
+            deleteLater(targets);
+            return;
+        }
         final var done = forEachTarget(targets, e -> workspace.delete(root, e));
         selectedPaths.clear();
         if (targets.stream().anyMatch(this::focused)) {
@@ -882,6 +887,33 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
             final var deletedLabel = done == targets.size() ? label(targets) : Formats.plural(done, "item");
             Notices.show(deletedLabel + " deleted", "trash");
         }
+        afterChange();
+    }
+
+    /** Hides the targets now; the delete runs on the server once the toast's Undo has expired. */
+    private void deleteLater(List<Located> targets) {
+        final var entries = targets.stream().map(Located::entry).toList();
+        try {
+            final var pending = workspace.deleteLater(root, entries);
+            final var label = pending.label();
+            Notices.undoable("Deleted " + label, "trash", workspace.deleteDelay(), () -> {
+                if (workspace.undoDelete(pending)) {
+                    Notices.show("Restored " + label, "refresh");
+                    tasksChanged();
+                    afterChange();
+                } else {
+                    Notices.error("Too late to undo: " + label + " is already being deleted.");
+                }
+            });
+        } catch (StorageException e) {
+            Notices.error(e.getMessage());
+            return;
+        }
+        selectedPaths.clear();
+        if (targets.stream().anyMatch(this::focused)) {
+            focusedPath = null;
+        }
+        tasksChanged();
         afterChange();
     }
 

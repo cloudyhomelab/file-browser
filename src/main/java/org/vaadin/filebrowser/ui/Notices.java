@@ -1,6 +1,9 @@
 package org.vaadin.filebrowser.ui;
 
+import java.time.Duration;
+
 import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.function.SerializableRunnable;
 
 /** Posts to the session's {@link NoticeLog}. Errors and refusals also pop up, since nothing else shows them. */
 public final class Notices {
@@ -23,6 +26,24 @@ public final class Notices {
     public static void error(String message) {
         NoticeLog.current().add(message, ERROR_ICON, true);
         toast(message);
+    }
+
+    /** A toast with an Undo button that closes after {@code duration}; the outcome itself goes to the log later. */
+    public static void undoable(String message, String icon, Duration duration, SerializableRunnable onUndo) {
+        final var notification = new Notification();
+        notification.addClassName("fb-toast");
+        final var iconComponent = new Icon(icon);
+        final var iconBadge = Ui.span("fb-toast-icon", iconComponent);
+        final var text = Ui.span("fb-toast-text", message);
+        final var undo = Buttons.create(Buttons.Kind.TERTIARY, "Undo", null, () -> {
+            notification.close();
+            onUndo.run();
+        });
+        undo.addClassName("fb-toast-action");
+        notification.add(iconBadge, text, undo);
+        notification.setPosition(Notification.Position.BOTTOM_CENTER);
+        notification.setDuration((int) duration.toMillis());
+        notification.open();
     }
 
     public static void readOnly() {
