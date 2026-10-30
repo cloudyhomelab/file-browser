@@ -13,6 +13,8 @@ import java.util.Optional;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.Getter;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;
@@ -37,8 +39,14 @@ public class Catalog implements Serializable {
     /** What a new file system starts with. */
     @Getter
     private final RootOptions rootOptions;
+    @Getter
+    private final RootOptionLimits rootOptionLimits;
 
     /** @param tints the colours kinds may use; each has a {@code fb-tint-*} class in styles.css */
+    record RootOptionsFile(@JsonProperty("defaults") RootOptions defaults,
+                           @JsonProperty("limits") RootOptionLimits limits) implements Serializable {
+    }
+
     record MountKinds(List<String> tints, Map<String, String> storeTypes, Map<String, KindInfo> kinds)
             implements Serializable {
     }
@@ -73,7 +81,13 @@ public class Catalog implements Serializable {
                 .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
                 .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
                 .build();
-        this.rootOptions = read(strict, "data/root-options.json", new TypeReference<>() { });
+        final RootOptionsFile optionsFile = read(strict, "data/root-options.json", new TypeReference<>() { });
+        final var defaultsProblem = optionsFile.limits().problem(optionsFile.defaults());
+        if (defaultsProblem != null) {
+            throw new IllegalStateException("data/root-options.json defaults: " + defaultsProblem);
+        }
+        this.rootOptions = optionsFile.defaults();
+        this.rootOptionLimits = optionsFile.limits();
     }
 
     private static Map<String, String> byExtension(Map<String, List<String>> extensionsByType) {

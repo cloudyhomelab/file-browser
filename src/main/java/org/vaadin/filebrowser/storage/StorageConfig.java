@@ -5,8 +5,11 @@ import java.util.Map;
 /**
  * What a {@link StorageType} needs to open a file system: its endpoint, plain settings (stored as
  * they are) and secrets (stored encrypted). Which keys go where is up to each type.
+ *
+ * @param connections the most connections the provider keeps open at once
  */
-public record StorageConfig(String endpoint, Map<String, String> settings, Map<String, String> secrets) {
+public record StorageConfig(String endpoint, Map<String, String> settings, Map<String, String> secrets,
+                            int connections) {
 
     public StorageConfig {
         settings = Map.copyOf(settings);
@@ -26,6 +29,7 @@ public record StorageConfig(String endpoint, Map<String, String> settings, Map<S
     /** Never print the secrets, e.g. in a log line or an error. */
     @Override
     public String toString() {
-        return "StorageConfig[endpoint=" + endpoint + ", settings=" + settings + ", secrets=" + secrets.keySet() + "]";
+        return "StorageConfig[endpoint=" + endpoint + ", settings=" + settings + ", secrets=" + secrets.keySet()
+                + ", connections=" + connections + "]";
     }
 }

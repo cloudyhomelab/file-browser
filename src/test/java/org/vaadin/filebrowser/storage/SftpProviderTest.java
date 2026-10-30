@@ -15,6 +15,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.vaadin.filebrowser.data.Catalog;
+import org.vaadin.filebrowser.data.TestRoots;
 
 /** Runs against an OpenSSH server; skipped where Docker isn't available (e.g. the image build). */
 @Testcontainers(disabledWithoutDocker = true)
@@ -51,7 +52,7 @@ class SftpProviderTest extends RemoteProviderContract {
 
     private static StorageProvider open(String folder, Map<String, String> secrets, String pin) {
         final Map<String, String> settings = pin == null ? Map.of() : Map.of(SftpStorageType.HOST_KEY, pin);
-        return TYPE.open(new StorageConfig(endpoint(folder), settings, secrets));
+        return TYPE.open(new StorageConfig(endpoint(folder), settings, secrets, TestRoots.MAX_CONNECTIONS));
     }
 
     private static Map<String, String> password(String password) {

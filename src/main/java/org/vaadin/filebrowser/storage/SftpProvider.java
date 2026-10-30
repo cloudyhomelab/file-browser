@@ -72,8 +72,8 @@ public class SftpProvider extends RemoteProvider<SftpProvider.Session> {
     }
 
     /** @param client started, with {@link #verifier()} as its server key verifier */
-    public SftpProvider(SshClient client, Connection connection, Function<String, String> typeForName) {
-        super(connection.location(), typeForName);
+    public SftpProvider(SshClient client, Connection connection, int sessions, Function<String, String> typeForName) {
+        super(connection.location(), sessions, typeForName);
         this.client = client;
         this.connection = connection;
     }

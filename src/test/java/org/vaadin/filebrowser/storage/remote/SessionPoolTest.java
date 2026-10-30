@@ -14,9 +14,12 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
+import org.vaadin.filebrowser.data.TestRoots;
 import org.vaadin.filebrowser.storage.StorageException;
 
 class SessionPoolTest {
+
+    private static final Duration SHORT_WAIT = Duration.ofMillis(50);
 
     private final AtomicInteger opened = new AtomicInteger();
     private final List<Integer> closed = new ArrayList<>();
@@ -41,7 +44,11 @@ class SessionPoolTest {
     };
 
     private SessionPool<Integer> pool() {
-        return new SessionPool<>(opened::incrementAndGet, session -> alive, closed::add, clock);
+        return pool(TestRoots.MAX_CONNECTIONS);
+    }
+
+    private SessionPool<Integer> pool(int size) {
+        return new SessionPool<>(size, opened::incrementAndGet, session -> alive, closed::add, clock, SHORT_WAIT);
     }
 
     @Test
@@ -79,5 +86,15 @@ class SessionPoolTest {
         pool.close();
         assertThat(closed).containsExactly(1);
         assertThatThrownBy(pool::borrow).isInstanceOf(StorageException.class);
+    }
+
+    @Test
+    void opensNoMoreSessionsThanItsSize() throws IOException {
+        try (final var pool = pool(2)) {
+            pool.borrow();
+            pool.borrow();
+            assertThatThrownBy(pool::borrow).hasMessageContaining("busy");
+            assertThat(opened).hasValue(2);
+        }
     }
 }

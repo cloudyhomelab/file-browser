@@ -154,7 +154,12 @@ public class Workspace implements Serializable {
     }
 
     public void updateOptions(FsRoot root, RootOptions options) {
+        final var problem = catalog.getRootOptionLimits().problem(options);
+        if (problem != null) {
+            throw new StorageException(problem);
+        }
         registry.updateOptions(root.id(), options);
+        storage.optionsChanged(root, options);
     }
 
     public void removeRoot(FsRoot root) {

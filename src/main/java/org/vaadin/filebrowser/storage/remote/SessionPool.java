@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import org.vaadin.filebrowser.storage.LimitedProvider;
 import org.vaadin.filebrowser.storage.StorageException;
 
 /**
@@ -23,11 +24,9 @@ import org.vaadin.filebrowser.storage.StorageException;
  */
 public final class SessionPool<S> implements AutoCloseable {
 
-    public static final int MAX_SESSIONS = 4;
     private static final Duration IDLE_LIMIT = Duration.ofSeconds(60);
     /** Servers drop quiet connections without telling, so one unused this long is checked first. */
     private static final Duration CHECK_AFTER = Duration.ofSeconds(10);
-    private static final Duration WAIT_LIMIT = Duration.ofSeconds(30);
     private static final ScheduledExecutorService SWEEPER = Executors.newSingleThreadScheduledExecutor(
             Thread.ofPlatform().daemon().name("remote-session-sweeper").factory());
 
@@ -35,7 +34,8 @@ public final class SessionPool<S> implements AutoCloseable {
     private final Predicate<S> alive;
     private final Consumer<S> closer;
     private final Clock clock;
-    private final Semaphore permits = new Semaphore(MAX_SESSIONS, true);
+    private final Semaphore permits;
+    private final Duration waitLimit;
     private final Deque<Idle<S>> idle = new ArrayDeque<>();
     private final ScheduledFuture<?> sweep;
     private boolean closed;
@@ -50,14 +50,18 @@ public final class SessionPool<S> implements AutoCloseable {
     }
 
     /**
+     * @param size   the most sessions open at once
      * @param alive  whether a session still works; may talk to the server
      * @param closer closes a session, quietly
      */
-    public SessionPool(Opener<S> opener, Predicate<S> alive, Consumer<S> closer) {
-        this(opener, alive, closer, Clock.systemUTC());
+    public SessionPool(int size, Opener<S> opener, Predicate<S> alive, Consumer<S> closer) {
+        this(size, opener, alive, closer, Clock.systemUTC(), LimitedProvider.WAIT_LIMIT);
     }
 
-    SessionPool(Opener<S> opener, Predicate<S> alive, Consumer<S> closer, Clock clock) {
+    SessionPool(int size, Opener<S> opener, Predicate<S> alive, Consumer<S> closer, Clock clock,
+                Duration waitLimit) {
+        this.permits = new Semaphore(size, true);
+        this.waitLimit = waitLimit;
         this.opener = opener;
         this.alive = alive;
         this.closer = closer;
@@ -69,7 +73,7 @@ public final class SessionPool<S> implements AutoCloseable {
     /** A working session; give it back with {@link #release}. */
     public S borrow() throws IOException {
         try {
-            if (!permits.tryAcquire(WAIT_LIMIT.toMillis(), TimeUnit.MILLISECONDS)) {
+            if (!permits.tryAcquire(waitLimit.toMillis(), TimeUnit.MILLISECONDS)) {
                 throw new StorageException("The server is busy. Try again in a moment.");
             }
         } catch (InterruptedException e) {

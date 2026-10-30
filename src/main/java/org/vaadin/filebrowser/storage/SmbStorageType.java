@@ -56,7 +56,7 @@ public class SmbStorageType implements StorageType {
 
     @Override
     public StorageProvider open(StorageConfig config) {
-        return new SmbProvider(CONFIG, connection(config), catalog::typeForFileName);
+        return new SmbProvider(CONFIG, connection(config), config.connections(), catalog::typeForFileName);
     }
 
     static SmbProvider.Connection connection(StorageConfig config) {

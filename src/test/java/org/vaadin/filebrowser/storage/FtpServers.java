@@ -14,6 +14,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.MountableFile;
 import org.vaadin.filebrowser.data.Catalog;
+import org.vaadin.filebrowser.data.TestRoots;
 
 /**
  * vsftpd test servers, set up like the dev ones, with a certificate made for the run. Passive data ports are announced by the server,
@@ -87,7 +88,7 @@ final class FtpServers {
         if (secrets.isEmpty()) {
             settings.put(FtpStorageType.ANONYMOUS, "true");
         }
-        return TYPE.open(new StorageConfig(endpoint, settings, secrets));
+        return TYPE.open(new StorageConfig(endpoint, settings, secrets, TestRoots.MAX_CONNECTIONS));
     }
 
     static Map<String, String> signIn(String password) {

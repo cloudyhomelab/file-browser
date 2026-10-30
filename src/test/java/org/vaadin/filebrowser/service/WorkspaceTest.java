@@ -230,8 +230,17 @@ class WorkspaceTest {
     }
 
     @Test
+    void connectionLimitsOutsideTheAllowedRangeAreNotSaved() {
+        final var tooFew = new RootOptions(true, true, true, 2, 1, TestRoots.IDLE_STREAM_SECONDS);
+        assertThatThrownBy(() -> workspace.updateOptions(held, tooFew))
+                .isInstanceOf(StorageException.class)
+                .hasMessageContaining("Maximum open connections");
+        assertThat(registry.find("a").orElseThrow().options()).isEqualTo(TestRoots.ALL_ALLOWED);
+    }
+
+    @Test
     void linkUploadsAndExtractionAreRefusedOnceTurnedOff() {
-        registry.updateOptions("a", new RootOptions(false, false, true));
+        registry.updateOptions("a", TestRoots.features(false, false, true));
 
         assertThatThrownBy(() -> workspace.inspectLink(held, "https://example.com/report.pdf"))
                 .isInstanceOf(StorageException.class)
@@ -357,13 +366,14 @@ class WorkspaceTest {
     void anAdminIsToldWhenKeysCannotBeStored() {
         final var admin = workspace(signedInAdmin());
         final var keys = Map.of(S3StorageType.ACCESS_KEY, "AKIDEXAMPLE", S3StorageType.SECRET_KEY, "wJalrXUtnFEMI");
-        final var config = new StorageConfig("s3://assets", Map.of(S3StorageType.REGION, "eu-central-1"), keys);
+        final var config = new StorageConfig("s3://assets", Map.of(S3StorageType.REGION, "eu-central-1"), keys,
+                TestRoots.MAX_CONNECTIONS);
         assertThat(admin.checkRoot(S3StorageType.KEY, config).problem()).contains("FILEBROWSER_SECRET_KEY_FILE");
     }
 
     @Test
     void onlyAdminsCanCheckAFileSystemBeforeAddingIt() {
-        final var config = new StorageConfig(folder.toString(), Map.of(), Map.of());
+        final var config = new StorageConfig(folder.toString(), Map.of(), Map.of(), TestRoots.MAX_CONNECTIONS);
         assertThatThrownBy(() -> workspace.checkRoot(DiskStorageType.KEY, config))
                 .isInstanceOf(AccessDeniedException.class);
     }

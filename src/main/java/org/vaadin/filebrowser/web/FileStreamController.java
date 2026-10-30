@@ -3,6 +3,7 @@ package org.vaadin.filebrowser.web;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -98,7 +99,8 @@ public class FileStreamController {
             response.setStatus(HttpStatus.NOT_FOUND.value());
             return;
         }
-        send(provider, found.orElseThrow(), request, response);
+        final var idleLimit = Duration.ofSeconds(root.orElseThrow().options().idleStreamSeconds());
+        send(provider, found.orElseThrow(), idleLimit, request, response);
     }
 
     private static Optional<HttpStatus> pathRefusal(String relative) {
@@ -125,7 +127,7 @@ public class FileStreamController {
 
     // close() reports a failure to close instead of throwing it, and the stream is null for HEAD
     @SuppressWarnings("PMD.UseTryWithResources")
-    private void send(StorageProvider provider, StorageEntry entry, HttpServletRequest request,
+    private void send(StorageProvider provider, StorageEntry entry, Duration idleLimit, HttpServletRequest request,
                       HttpServletResponse response) throws IOException {
         final var etag = etag(entry);
         final var lastModified = entry.modified() == null ? -1 : entry.modified().toEpochMilli();
@@ -157,7 +159,7 @@ public class FileStreamController {
             describe(entry, viewType, response);
             setLength(range, size, response);
             if (in != null) {
-                in.transferTo(response.getOutputStream());
+                IdleTransfer.transfer(in, response.getOutputStream(), idleLimit);
             }
         } finally {
             close(in, entry);

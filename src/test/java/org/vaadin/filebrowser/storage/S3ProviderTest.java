@@ -19,6 +19,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.vaadin.filebrowser.data.TestRoots;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -52,7 +53,7 @@ class S3ProviderTest {
 
     private static S3Provider provider(String endpoint, String accessKey, String secretKey) {
         final var connection = new S3Provider.Connection(endpoint, REGION, endpointUrl(), accessKey, secretKey);
-        return new S3Provider(connection, name -> name.endsWith(".txt") ? "text" : "generic");
+        return new S3Provider(connection, TestRoots.MAX_CONNECTIONS, name -> name.endsWith(".txt") ? "text" : "generic");
     }
 
     private void put(String key, String content) {

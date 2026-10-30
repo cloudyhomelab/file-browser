@@ -138,7 +138,7 @@ class FileSystemRegistryTest {
         assertThatThrownBy(() -> regular.update("a", "Renamed", Access.READ_WRITE))
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> regular.remove("a")).isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> regular.updateOptions("a", new RootOptions(false, false, false)))
+        assertThatThrownBy(() -> regular.updateOptions("a", TestRoots.features(false, false, false)))
                 .isInstanceOf(AccessDeniedException.class);
         final var unchanged = regular.find("a").orElseThrow();
         assertThat(unchanged.name()).isEqualTo("Projects");
@@ -149,12 +149,12 @@ class FileSystemRegistryTest {
     @Test
     void storesItsOwnOptions() {
         final var admin = registry(true);
-        final var noLinks = new RootOptions(false, true, true);
+        final var noLinks = TestRoots.features(false, true, true);
         admin.add(new FsRoot("a", "Projects", DiskStorageType.KEY, "/srv/projects", Map.of(), Access.READ_WRITE,
                 noLinks, RootStatus.UNKNOWN), Map.of());
         assertThat(admin.find("a").orElseThrow().options()).isEqualTo(noLinks);
 
-        final var nothing = new RootOptions(false, false, false);
+        final var nothing = TestRoots.features(false, false, false);
         admin.updateOptions("a", nothing);
         assertThat(registry(false).find("a").orElseThrow().options()).isEqualTo(nothing);
     }
@@ -167,7 +167,7 @@ class FileSystemRegistryTest {
     }
 
     @Test
-    void theMigrationAllowsEverythingOnExistingFileSystems() {
+    void theMigrationsGiveExistingFileSystemsTheDefaults() {
         final var config = new SQLiteConfig();
         final var dataSource = new SQLiteDataSource(config);
         dataSource.setUrl("jdbc:sqlite:" + dir.resolve("old.db"));
@@ -180,6 +180,25 @@ class FileSystemRegistryTest {
         Flyway.configure().dataSource(dataSource).load().migrate();
         final var registry = new FileSystemRegistry(old, () -> false, () -> "", Clock.fixed(NOW, ZoneOffset.UTC),
                 root -> ONLINE);
-        assertThat(registry.find("a").orElseThrow().options()).isEqualTo(new RootOptions(true, true, true));
+        assertThat(registry.find("a").orElseThrow().options()).isEqualTo(TestRoots.features(true, true, true));
+    }
+
+    @Test
+    void theConnectionMigrationKeepsTheFeaturesAdminsChose() {
+        final var config = new SQLiteConfig();
+        final var dataSource = new SQLiteDataSource(config);
+        dataSource.setUrl("jdbc:sqlite:" + dir.resolve("v7.db"));
+        Flyway.configure().dataSource(dataSource).target("7").load().migrate();
+        final var old = JdbcClient.create(dataSource);
+        old.sql("""
+                INSERT INTO file_system (id, name, type, endpoint, access, options, created_by, created_at)
+                VALUES ('a', 'Projects', 'disk', '/srv/projects', 'READ_WRITE',
+                        '{"link_uploads": false, "extraction": true, "opening": false}', 'admin@example.com',
+                        '2026-01-01')
+                """).update();
+        Flyway.configure().dataSource(dataSource).load().migrate();
+        final var registry = new FileSystemRegistry(old, () -> false, () -> "", Clock.fixed(NOW, ZoneOffset.UTC),
+                root -> ONLINE);
+        assertThat(registry.find("a").orElseThrow().options()).isEqualTo(TestRoots.features(false, true, false));
     }
 }
