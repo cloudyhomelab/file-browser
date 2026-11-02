@@ -5,7 +5,7 @@ import java.util.List;
 import org.vaadin.filebrowser.data.Catalog;
 import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.Located;
-import org.vaadin.filebrowser.service.CurrentUser;
+import org.vaadin.filebrowser.service.FileBrowserUser;
 
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Aside;
@@ -26,7 +26,7 @@ public class Sidebar extends Composite<Aside> {
                             SerializableRunnable onLogout, SerializableBiConsumer<Located, List<String>> onDropInto) {
     }
 
-    public Sidebar(FsRoot root, List<FsRoot> browsable, SubfolderLoader folders, Catalog catalog, CurrentUser.User user,
+    public Sidebar(FsRoot root, List<FsRoot> browsable, SubfolderLoader folders, Catalog catalog, FileBrowserUser user,
                    Callbacks callbacks) {
         final var aside = getContent();
         aside.setClassName("fb-sidebar");
@@ -40,8 +40,8 @@ public class Sidebar extends Composite<Aside> {
         final var nav = new Nav(folderTree);
         nav.setClassName("fb-sidebar-nav");
 
-        final var userName = user == null ? "" : user.name();
-        final var userSub = user == null ? "" : "Signed in with " + user.providerLabel();
+        final var userName = user == null ? "" : user.getDisplayName();
+        final var userSub = user == null ? "" : "Signed in with " + user.getProviderLabel();
         final var avatar = new UserAvatar(userName, UserAvatar.Size.M);
         final var nameLabel = Ui.span("fb-sidebar-user-name", userName);
         final var subLabel = Ui.span("fb-sidebar-user-sub", userSub);

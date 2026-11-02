@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import org.vaadin.filebrowser.data.FsRoot;
-import org.vaadin.filebrowser.service.CurrentUser;
+import org.vaadin.filebrowser.service.FileBrowserUser;
 import org.vaadin.filebrowser.service.Workspace;
 import org.vaadin.filebrowser.storage.StorageException;
 import org.vaadin.filebrowser.ui.AppHeader;
@@ -35,6 +35,7 @@ import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.function.SerializableConsumer;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.spring.security.AuthenticationContext;
 
 /** "Your file systems" landing page. */
 @PermitAll
@@ -43,19 +44,21 @@ import com.vaadin.flow.router.Route;
 public class RootsView extends Div {
 
     private final Workspace workspace;
-    private final CurrentUser currentUser;
+    private final transient AuthenticationContext authenticationContext;
+    private final FileBrowserUser user;
     private final Main main = new Main();
     private final RootMenu rootMenu = new RootMenu();
 
-    public RootsView(Workspace workspace, CurrentUser currentUser) {
+    public RootsView(Workspace workspace, AuthenticationContext authenticationContext) {
         this.workspace = workspace;
-        this.currentUser = currentUser;
+        this.authenticationContext = authenticationContext;
+        this.user = authenticationContext.getAuthenticatedUser(FileBrowserUser.class).orElse(null);
         setClassName("fb-page");
         main.setClassName("fb-page-main");
-        currentUser.get().ifPresent(user -> {
+        if (user != null) {
             final var header = new AppHeader(user, this::logout);
             add(header);
-        });
+        }
         add(main, rootMenu);
         render();
     }
@@ -67,7 +70,7 @@ public class RootsView extends Div {
                 .toList();
         final var accessible = roots.stream().filter(r -> !r.locked()).toList();
         final var restricted = roots.stream().filter(FsRoot::locked).toList();
-        final var admin = currentUser.isAdmin();
+        final var admin = isAdmin();
         main.add(titlebar(roots, admin), intro(roots, accessible, admin));
         if (!roots.isEmpty()) {
             final var starredCount = workspace.browsableRoots().stream().mapToInt(r -> workspace.starredIn(r).size()).sum();
@@ -162,7 +165,7 @@ public class RootsView extends Div {
         // a file system of a type the app no longer has a form for can only be removed
         final SerializableConsumer<FsRoot> onEdit = AddRootDialog.canEdit(workspace, root.type())
                 ? this::openEditDialog : null;
-        final SerializableConsumer<Component> onMenu = currentUser.isAdmin()
+        final SerializableConsumer<Component> onMenu = isAdmin()
                 ? anchor -> rootMenu.open(root, anchor, onEdit, this::openSettingsDialog, this::openRemoveDialog)
                 : null;
         return new DriveCard(root, kind,
@@ -214,7 +217,11 @@ public class RootsView extends Div {
         dialog.open();
     }
 
+    private boolean isAdmin() {
+        return user != null && user.isAdmin();
+    }
+
     private void logout() {
-        currentUser.signOut();
+        authenticationContext.logout();
     }
 }

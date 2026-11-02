@@ -24,10 +24,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
-import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.sqlite.SQLiteConfig;
 import org.sqlite.SQLiteDataSource;
-import org.vaadin.filebrowser.config.FileBrowserProperties;
 import org.vaadin.filebrowser.config.Roles;
 import org.vaadin.filebrowser.data.Access;
 import org.vaadin.filebrowser.data.Catalog;
@@ -42,6 +40,8 @@ import org.vaadin.filebrowser.storage.S3StorageType;
 import org.vaadin.filebrowser.storage.StorageConfig;
 import org.vaadin.filebrowser.storage.StorageEntry;
 import org.vaadin.filebrowser.storage.StorageException;
+
+import com.vaadin.flow.spring.security.AuthenticationContext;
 
 /** A view keeps the {@link FsRoot} it opened with; changes an admin makes later must still apply. */
 class WorkspaceTest {
@@ -76,7 +76,7 @@ class WorkspaceTest {
                 storage::status);
         pendingDeletes = new PendingDeletes(storage, registry, new UserData(jdbc), UNDO_DELAY);
         // no one is signed in during most tests, so nothing is saved per user
-        workspace = workspace(new CurrentUser(null, null));
+        workspace = workspace(new AuthenticationContext());
 
         folder = Files.createDirectory(dir.resolve("projects"));
         Files.writeString(folder.resolve("notes.txt"), "notes");
@@ -93,13 +93,13 @@ class WorkspaceTest {
     }
 
     /** Without a secret key, so no secrets can be stored. */
-    private Workspace workspace(CurrentUser currentUser) {
+    private Workspace workspace(AuthenticationContext authenticationContext) {
         final var secrets = new RootSecrets(jdbc, new SecretBox((String) null));
         final var links = new LinkFetcher(address -> false, SystemDefaultDnsResolver.INSTANCE);
-        return new Workspace(catalog, registry, storage, secrets, links, new UserData(jdbc), currentUser, pendingDeletes);
+        return new Workspace(catalog, registry, storage, secrets, links, new UserData(jdbc), authenticationContext, pendingDeletes);
     }
 
-    private static CurrentUser signedInAdmin() {
+    private static AuthenticationContext signedInAdmin() {
         final var idToken = OidcIdToken.withTokenValue("token")
                 .subject("admin")
                 .claim("email", "admin@example.com")
@@ -107,10 +107,9 @@ class WorkspaceTest {
                 .expiresAt(Instant.now().plusSeconds(60))
                 .build();
         final var authorities = List.of(new SimpleGrantedAuthority(Roles.ADMIN_AUTHORITY));
-        final var user = new DefaultOidcUser(authorities, idToken);
+        final var user = new FileBrowserUser(authorities, idToken, null, null, "Dex");
         SecurityContextHolder.getContext().setAuthentication(new OAuth2AuthenticationToken(user, authorities, "dex"));
-        final var properties = new FileBrowserProperties(null, null, null, null, true, null, null, null, null, null, null, null, null);
-        return new CurrentUser(null, properties);
+        return new AuthenticationContext();
     }
 
     private static void finish(TransferTask task) throws InterruptedException {

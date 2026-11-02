@@ -30,6 +30,7 @@ import org.vaadin.filebrowser.storage.VerifiedCopy;
 
 import com.vaadin.flow.spring.annotation.SpringComponent;
 import com.vaadin.flow.spring.annotation.VaadinSessionScope;
+import com.vaadin.flow.spring.security.AuthenticationContext;
 
 import lombok.Getter;
 
@@ -63,7 +64,7 @@ public class Workspace implements Serializable {
     @Getter
     private final TransferQueue transfers = new TransferQueue(new TransferWork());
     private final UserData userData;
-    private final CurrentUser currentUser;
+    private final FileBrowserUser user;
     private final String email;
     private final PendingDeletes pendingDeletes;
     @Getter
@@ -79,7 +80,8 @@ public class Workspace implements Serializable {
     private boolean groupByType = UserData.Preferences.DEFAULT.groupByType();
 
     public Workspace(Catalog catalog, FileSystemRegistry registry, StorageService storage, RootSecrets secrets,
-                     LinkFetcher links, UserData userData, CurrentUser currentUser, PendingDeletes pendingDeletes) {
+                     LinkFetcher links, UserData userData, AuthenticationContext authenticationContext,
+                     PendingDeletes pendingDeletes) {
         this.catalog = catalog;
         this.registry = registry;
         this.storage = storage;
@@ -87,10 +89,10 @@ public class Workspace implements Serializable {
         this.links = links;
         this.uploads = new UploadQueue(storage);
         this.userData = userData;
-        this.currentUser = currentUser;
         this.pendingDeletes = pendingDeletes;
         // the session is created after sign-in, so the user is known here
-        this.email = currentUser.get().map(CurrentUser.User::email).orElse(null);
+        this.user = authenticationContext.getAuthenticatedUser(FileBrowserUser.class).orElse(null);
+        this.email = user == null ? null : user.getEmail();
         this.deletes = new DeleteQueue(pendingDeletes, owner());
         if (email != null) {
             starred.addAll(userData.starred(email));
@@ -138,7 +140,7 @@ public class Workspace implements Serializable {
 
     /** Whether a file system can be added with these settings, or which server key to confirm first; admins only. */
     public StorageService.Check checkRoot(String type, StorageConfig config) {
-        if (!currentUser.isAdmin()) {
+        if (!isAdmin()) {
             throw new AccessDeniedException("Only admins can add file systems");
         }
         if (!config.secrets().isEmpty() && !secrets.canStore()) {
@@ -149,7 +151,7 @@ public class Workspace implements Serializable {
 
     /** The names of the secrets stored for {@code root}, for showing what is set; admins only. */
     public Set<String> secretNames(FsRoot root) {
-        if (!currentUser.isAdmin()) {
+        if (!isAdmin()) {
             throw new AccessDeniedException("Only admins can edit file systems");
         }
         return secrets.names(root.id());
@@ -181,7 +183,7 @@ public class Workspace implements Serializable {
 
     /** Folders inside a server path, for choosing one to add; only admins may see the server's layout. */
     public List<String> serverFolders(String path) {
-        if (!currentUser.isAdmin()) {
+        if (!isAdmin()) {
             throw new AccessDeniedException("Only admins can browse the server's folders");
         }
         return storage.serverFolders(path);
@@ -189,6 +191,10 @@ public class Workspace implements Serializable {
 
     public StorageService.PathProbe probe(String path) {
         return storage.probe(path);
+    }
+
+    private boolean isAdmin() {
+        return user != null && user.isAdmin();
     }
 
     // ---- reading --------------------------------------------------------------------------

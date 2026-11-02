@@ -8,7 +8,7 @@ import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.Located;
 import org.vaadin.filebrowser.data.Sort;
 import org.vaadin.filebrowser.data.SortKey;
-import org.vaadin.filebrowser.service.CurrentUser;
+import org.vaadin.filebrowser.service.FileBrowserUser;
 import org.vaadin.filebrowser.service.Workspace;
 import org.vaadin.filebrowser.service.Workspace.Layout;
 import org.vaadin.filebrowser.ui.AppHeader;
@@ -37,6 +37,7 @@ import com.vaadin.flow.component.html.Section;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.QueryParameters;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.spring.security.AuthenticationContext;
 
 /** Starred items from every accessible file system, grouped by root. */
 @PermitAll
@@ -45,22 +46,24 @@ import com.vaadin.flow.router.Route;
 public class StarredView extends Div implements EntryHandler {
 
     private final Workspace workspace;
-    private final CurrentUser currentUser;
+    private final transient AuthenticationContext authenticationContext;
+    private final FileBrowserUser user;
     private final Main main = new Main();
     private final EntryMenu entryMenu = new EntryMenu();
 
     private record Group(FsRoot root, List<Located> entries) {
     }
 
-    public StarredView(Workspace workspace, CurrentUser currentUser) {
+    public StarredView(Workspace workspace, AuthenticationContext authenticationContext) {
         this.workspace = workspace;
-        this.currentUser = currentUser;
+        this.authenticationContext = authenticationContext;
+        this.user = authenticationContext.getAuthenticatedUser(FileBrowserUser.class).orElse(null);
         setClassName("fb-page");
         main.setClassName("fb-page-main fb-page-main--starred");
-        currentUser.get().ifPresent(user -> {
+        if (user != null) {
             final var header = new AppHeader(user, this::logout);
             add(header);
-        });
+        }
         add(main, entryMenu);
         render();
     }
@@ -128,7 +131,7 @@ public class StarredView extends Div implements EntryHandler {
     }
 
     private void logout() {
-        currentUser.signOut();
+        authenticationContext.logout();
     }
 
     @Override

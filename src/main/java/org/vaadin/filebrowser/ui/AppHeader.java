@@ -1,6 +1,6 @@
 package org.vaadin.filebrowser.ui;
 
-import org.vaadin.filebrowser.service.CurrentUser;
+import org.vaadin.filebrowser.service.FileBrowserUser;
 
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Header;
@@ -10,7 +10,7 @@ import com.vaadin.flow.function.SerializableRunnable;
 /** Top bar of the full-width pages (file-system picker, starred). */
 public class AppHeader extends Composite<Header> {
 
-    public AppHeader(CurrentUser.User user, SerializableRunnable onLogout) {
+    public AppHeader(FileBrowserUser user, SerializableRunnable onLogout) {
         getContent().setClassName("fb-topbar");
         final var brand = Brand.withName(Brand.Size.M);
         final var spacer = Ui.spacer();
