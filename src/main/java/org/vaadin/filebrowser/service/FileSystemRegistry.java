@@ -20,6 +20,8 @@ import org.vaadin.filebrowser.data.FsRoot;
 import org.vaadin.filebrowser.data.RootOptions;
 import org.vaadin.filebrowser.data.RootStatus;
 
+import com.vaadin.flow.spring.security.AuthenticationContext;
+
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -42,9 +44,14 @@ public class FileSystemRegistry {
     private final Function<FsRoot, RootStatus> status;
 
     @Autowired
-    public FileSystemRegistry(JdbcClient jdbc, CurrentUser currentUser, StorageService storage) {
-        this(jdbc, currentUser::isAdmin, () -> currentUser.get().map(CurrentUser.User::email).orElse(""),
+    public FileSystemRegistry(JdbcClient jdbc, AuthenticationContext authenticationContext, StorageService storage) {
+        this(jdbc, () -> signedIn(authenticationContext).map(FileBrowserUser::isAdmin).orElse(Boolean.FALSE),
+                () -> signedIn(authenticationContext).map(FileBrowserUser::getEmail).orElse(""),
                 Clock.systemUTC(), storage::status);
+    }
+
+    private static Optional<FileBrowserUser> signedIn(AuthenticationContext authenticationContext) {
+        return authenticationContext.getAuthenticatedUser(FileBrowserUser.class);
     }
 
     FileSystemRegistry(JdbcClient jdbc, BooleanSupplier adminCheck, Supplier<String> currentEmail, Clock clock,

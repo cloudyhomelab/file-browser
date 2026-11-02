@@ -1,7 +1,7 @@
 package org.vaadin.filebrowser.ui;
 
 import org.vaadin.filebrowser.data.Formats;
-import org.vaadin.filebrowser.service.CurrentUser;
+import org.vaadin.filebrowser.service.FileBrowserUser;
 
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.html.Div;
@@ -13,11 +13,11 @@ import com.vaadin.flow.function.SerializableRunnable;
 
 public class AccountMenu extends Composite<Div> {
 
-    public AccountMenu(CurrentUser.User user, SerializableRunnable onLogout) {
+    public AccountMenu(FileBrowserUser user, SerializableRunnable onLogout) {
         final var trigger = new NativeButton();
         trigger.setClassName("fb-account-trigger");
-        final var avatar = new UserAvatar(user.name(), UserAvatar.Size.M);
-        final var firstName = Formats.firstName(user.name());
+        final var avatar = new UserAvatar(user.getDisplayName(), UserAvatar.Size.M);
+        final var firstName = Formats.firstName(user.getDisplayName());
         final var firstNameLabel = Ui.span("fb-account-first", firstName);
         final var caret = new Icon("angle-down");
         trigger.add(avatar, firstNameLabel, caret);
@@ -29,10 +29,10 @@ public class AccountMenu extends Composite<Div> {
         popover.addThemeVariants(PopoverVariant.NO_PADDING);
         popover.addOpenedChangeListener(e -> trigger.getElement().getClassList().set("fb-open", e.isOpened()));
 
-        final var largeAvatar = new UserAvatar(user.name(), UserAvatar.Size.L);
-        final var nameText = Ui.span("", user.name());
+        final var largeAvatar = new UserAvatar(user.getDisplayName(), UserAvatar.Size.L);
+        final var nameText = Ui.span("", user.getDisplayName());
         final var name = Ui.div("fb-account-name", nameText);
-        final var emailText = Ui.span("", user.email());
+        final var emailText = Ui.span("", user.getEmail());
         final var email = Ui.div("fb-account-email", emailText);
         final var names = Ui.div("fb-account-names", name, email);
         final var identity = Ui.div("fb-account-identity", largeAvatar, names);

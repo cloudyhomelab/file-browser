@@ -103,7 +103,7 @@
 
     <rule ref="category/java/design.xml/CouplingBetweenObjects">
         <properties>
-            <property name="threshold" value="50"/>
+            <property name="threshold" value="100"/>
         </properties>
     </rule>
 

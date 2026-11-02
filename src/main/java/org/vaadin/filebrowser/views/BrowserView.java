@@ -24,8 +24,8 @@ import org.vaadin.filebrowser.data.MoveCheck;
 import org.vaadin.filebrowser.data.Sort;
 import org.vaadin.filebrowser.data.SortKey;
 import org.vaadin.filebrowser.service.ArchiveExtractor;
-import org.vaadin.filebrowser.service.CurrentUser;
 import org.vaadin.filebrowser.service.Downloads;
+import org.vaadin.filebrowser.service.FileBrowserUser;
 import org.vaadin.filebrowser.service.UploadQueue.Planned;
 import org.vaadin.filebrowser.service.TransferTask;
 import org.vaadin.filebrowser.service.UploadQueue;
@@ -85,6 +85,7 @@ import com.vaadin.flow.router.QueryParameters;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteParameters;
 import com.vaadin.flow.shared.Registration;
+import com.vaadin.flow.spring.security.AuthenticationContext;
 
 /** Browses one file system: sidebar tree, header with breadcrumb and toolbar, list/grid, details. */
 // split up with #77
@@ -103,7 +104,8 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     private final long maxUploadBytes;
     private final int maxFolderUploadEntries;
     private final ArchiveExtractor.Limits extractLimits;
-    private final CurrentUser currentUser;
+    private final transient AuthenticationContext authenticationContext;
+    private final FileBrowserUser user;
 
     private final Div sidebarSlot = Ui.div("fb-sidebar-slot");
     private final FileDropArea main;
@@ -143,9 +145,10 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     /** What the last render showed, so an auto refresh that finds no change renders nothing. */
     private List<String> shownSignature = List.of();
 
-    public BrowserView(Workspace workspace, CurrentUser currentUser, FileBrowserProperties properties) {
+    public BrowserView(Workspace workspace, AuthenticationContext authenticationContext, FileBrowserProperties properties) {
         this.workspace = workspace;
-        this.currentUser = currentUser;
+        this.authenticationContext = authenticationContext;
+        this.user = authenticationContext.getAuthenticatedUser(FileBrowserUser.class).orElse(null);
         this.maxUploadBytes = properties.maxUploadSize().toBytes();
         this.maxFolderUploadEntries = properties.maxFolderUploadEntries();
         this.extractLimits = new ArchiveExtractor.Limits(properties.maxExtractBytes(), properties.maxExtractEntries());
@@ -212,7 +215,6 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
                     this::showStarred, this::logout, this::dropInto);
             final var browsable = workspace.browsableRoots();
             final var sidebarRoot = root;
-            final var user = currentUser.get().orElse(null);
             sidebar = new Sidebar(root, browsable, folder -> workspace.subfolders(sidebarRoot, folder), workspace.getCatalog(),
                     user, sidebarCallbacks);
             sidebarSlot.removeAll();
@@ -263,7 +265,7 @@ public class BrowserView extends Div implements BeforeEnterObserver, HasDynamicT
     }
 
     private void logout() {
-        currentUser.signOut();
+        authenticationContext.logout();
     }
 
     // the search field's listener reads it while clearSearch() runs

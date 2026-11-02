@@ -9,14 +9,14 @@ import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
-import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.vaadin.filebrowser.service.FileBrowserUser;
 import org.vaadin.filebrowser.service.SignInPolicy;
 import org.vaadin.filebrowser.service.UserAccounts;
 
 /**
  * Loads the user like Spring's default service, refuses identities the sign-in policy rejects, and
- * grants the admin role to the emails named in {@code filebrowser.admin-emails}.
+ * returns a {@link FileBrowserUser} with the admin role for the emails named in {@code filebrowser.admin-emails}.
  */
 public class FileBrowserOidcUserService implements OAuth2UserService<OidcUserRequest, OidcUser> {
 
@@ -44,32 +44,21 @@ public class FileBrowserOidcUserService implements OAuth2UserService<OidcUserReq
         if (email == null || refusal.isPresent()) {
             throw refused(refusal.orElse(SignInPolicy.Refusal.MISSING_EMAIL));
         }
-        final var provider = request.getClientRegistration().getRegistrationId();
-        accounts.recordSignIn(email, displayName(user), provider);
-        if (!properties.isAdminEmail(email)) {
-            return user;
-        }
+        final var registration = request.getClientRegistration();
         final var authorities = new HashSet<GrantedAuthority>(user.getAuthorities());
-        final var adminRole = new SimpleGrantedAuthority(Roles.ADMIN_AUTHORITY);
-        authorities.add(adminRole);
-        final var nameAttribute = request.getClientRegistration().getProviderDetails().getUserInfoEndpoint()
-                .getUserNameAttributeName();
-        return nameAttribute == null || nameAttribute.isBlank()
-                ? new DefaultOidcUser(authorities, user.getIdToken(), user.getUserInfo())
-                : new DefaultOidcUser(authorities, user.getIdToken(), user.getUserInfo(), nameAttribute);
+        if (properties.isAdminEmail(email)) {
+            final var adminRole = new SimpleGrantedAuthority(Roles.ADMIN_AUTHORITY);
+            authorities.add(adminRole);
+        }
+        final var nameAttribute = registration.getProviderDetails().getUserInfoEndpoint().getUserNameAttributeName();
+        final var providerLabel = properties.provider(registration.getRegistrationId()).label();
+        final var signedIn = new FileBrowserUser(authorities, user.getIdToken(), user.getUserInfo(), nameAttribute, providerLabel);
+        accounts.recordSignIn(email, signedIn.getDisplayName(), registration.getRegistrationId());
+        return signedIn;
     }
 
     private static OAuth2AuthenticationException refused(SignInPolicy.Refusal refusal) {
         final var error = new OAuth2Error(refusal.getCode());
         return new OAuth2AuthenticationException(error);
-    }
-
-    private static String displayName(OidcUser user) {
-        for (final var candidate : new String[]{user.getFullName(), user.getPreferredUsername(), user.getEmail()}) {
-            if (candidate != null && !candidate.isBlank()) {
-                return candidate;
-            }
-        }
-        return user.getSubject();
     }
 }

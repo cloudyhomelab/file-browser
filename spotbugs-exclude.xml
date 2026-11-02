@@ -26,7 +26,6 @@
     <Match>
         <Or>
             <Class name="org.vaadin.filebrowser.service.Workspace"/>
-            <Class name="org.vaadin.filebrowser.service.CurrentUser"/>
             <Class name="org.vaadin.filebrowser.service.UploadQueue"/>
         </Or>
         <Bug pattern="SE_BAD_FIELD"/>
